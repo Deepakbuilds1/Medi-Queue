@@ -6,6 +6,7 @@ import {
   addDoc, 
   updateDoc, 
   setDoc,
+  deleteDoc,
   query, 
   where, 
   onSnapshot,
@@ -184,6 +185,9 @@ export async function seedInitialDataIfEmpty() {
         await addDoc(collection(db, 'doctors'), d);
       }
     }
+
+    // Permanently purge token A-024 if present in database
+    await removeTokenByNumberAndDoctor('A-024');
   } catch (err) {
     handleFirestoreError(err, OperationType.WRITE, 'seed_data');
   }
@@ -719,12 +723,16 @@ export function subscribePublicQueue(
       const todayTokens = snapshot.docs.map((d: any) => ({ ...d.data(), id: d.id })) as QueueToken[];
 
       // 1. UP NEXT (WAITING): Show ALL patients/tokens whose status is exactly WAITING, sorted by createdAt ascending
+      // (Exclude any permanently removed tokens such as A-024)
       const upNext = todayTokens
-        .filter(t => t.status === 'WAITING')
+        .filter(t => t.status === 'WAITING' && t.tokenNumber.toUpperCase() !== 'A-024')
         .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
 
       // 2. NOW SERVING: Show ONLY the currently active/called token (at most ONE per doctor)
-      const activeTokens = todayTokens.filter(t => t.status === 'CALLED' || t.status === 'IN CONSULTATION');
+      const activeTokens = todayTokens.filter(t => 
+        (t.status === 'CALLED' || t.status === 'IN CONSULTATION') &&
+        t.tokenNumber.toUpperCase() !== 'A-024'
+      );
 
       const latestPerDoctor = new Map<string, QueueToken>();
       for (const token of activeTokens) {
@@ -748,6 +756,33 @@ export function subscribePublicQueue(
     callback,
     onError
   );
+}
+
+export async function deleteToken(tokenId: string): Promise<boolean> {
+  try {
+    await deleteDoc(doc(db, 'tokens', tokenId));
+    return true;
+  } catch (err: any) {
+    handleFirestoreError(err, OperationType.DELETE, `tokens/${tokenId}`);
+    throw new Error('Failed to delete token.');
+  }
+}
+
+export async function removeTokenByNumberAndDoctor(tokenNumber: string, doctorQuery?: string) {
+  try {
+    const q = query(collection(db, 'tokens'));
+    const snap = await getDocs(q);
+    for (const d of snap.docs) {
+      const data = d.data();
+      if (data.tokenNumber && data.tokenNumber.trim().toUpperCase() === tokenNumber.trim().toUpperCase()) {
+        if (!doctorQuery || (data.doctorName && data.doctorName.toLowerCase().includes(doctorQuery.toLowerCase()))) {
+          await deleteDoc(doc(db, 'tokens', d.id));
+        }
+      }
+    }
+  } catch (err) {
+    console.error('Error removing token permanently:', err);
+  }
 }
 
 

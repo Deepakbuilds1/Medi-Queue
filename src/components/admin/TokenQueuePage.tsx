@@ -8,10 +8,11 @@ import {
   XCircle, 
   PhoneCall, 
   Stethoscope, 
-  Volume2
+  Volume2,
+  Trash2
 } from 'lucide-react';
 import { Doctor, QueueToken, TokenStatus } from '../../types';
-import { updateTokenStatus } from '../../services/clinicService';
+import { updateTokenStatus, deleteToken } from '../../services/clinicService';
 import { playTokenCallSound } from '../../lib/sound';
 import { ConfirmModal } from '../common/ConfirmModal';
 
@@ -104,6 +105,28 @@ export const TokenQueuePage: React.FC<TokenQueuePageProps> = ({ tokens, doctors 
         } catch (err: any) {
           console.error('Skip error:', err);
           setErrorMessage(err.message || 'Queue changed. Please refresh and try again.');
+        } finally {
+          setLoadingId(null);
+        }
+      }
+    });
+  };
+
+  const handleDeleteClick = (token: QueueToken) => {
+    setConfirmModal({
+      isOpen: true,
+      title: 'Permanently Delete Token?',
+      message: `Are you sure you want to PERMANENTLY DELETE token ${token.tokenNumber} for ${token.patientName}? This action cannot be undone and will permanently remove it from the live queue.`,
+      type: 'danger',
+      action: async () => {
+        if (loadingId) return;
+        setLoadingId(token.id);
+        setErrorMessage(null);
+        try {
+          await deleteToken(token.id);
+        } catch (err: any) {
+          console.error('Delete error:', err);
+          setErrorMessage(err.message || 'Failed to delete token. Please try again.');
         } finally {
           setLoadingId(null);
         }
@@ -318,12 +341,21 @@ export const TokenQueuePage: React.FC<TokenQueuePageProps> = ({ tokens, doctors 
                         {t.status !== 'CANCELLED' && t.status !== 'COMPLETED' && (
                           <button
                             onClick={() => handleCancelClick(t)}
-                            className="px-2 py-1 bg-red-50 hover:bg-red-100 dark:bg-red-950/40 text-red-600 dark:text-red-400 rounded-lg text-[11px] font-semibold flex items-center gap-1 cursor-pointer"
+                            className="px-2 py-1 bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 rounded-lg text-[11px] font-semibold flex items-center gap-1 cursor-pointer"
                           >
                             <XCircle className="w-3 h-3" />
                             CANCEL
                           </button>
                         )}
+
+                        <button
+                          onClick={() => handleDeleteClick(t)}
+                          className="px-2 py-1 bg-red-100 hover:bg-red-200 dark:bg-red-900/60 text-red-700 dark:text-red-300 rounded-lg text-[11px] font-bold flex items-center gap-1 cursor-pointer"
+                          title="Permanently Delete Token"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                          DELETE
+                        </button>
 
                       </div>
                     </td>

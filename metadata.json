@@ -1,0 +1,6 @@
+{
+  "name": "MediQueue",
+  "description": "Clinic Token Management System with Admin Panel and Public Patient Portal",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

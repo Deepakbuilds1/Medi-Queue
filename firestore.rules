@@ -1,0 +1,36 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Clinic Settings - Public read, authenticated write
+    match /settings/{docId} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+
+    // Doctors - Public read, authenticated write
+    match /doctors/{doctorId} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+
+    // Tokens - Public read & creation, authenticated update/delete
+    match /tokens/{tokenId} {
+      allow read: if true;
+      allow create: if true;
+      allow update, delete: if request.auth != null;
+    }
+
+    // Patients - Public read & creation, authenticated update/delete
+    match /patients/{patientId} {
+      allow read: if true;
+      allow create, update: if true;
+      allow delete: if request.auth != null;
+    }
+
+    // Users - Authenticated user access
+    match /users/{userId} {
+      allow read: if true;
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+  }
+}

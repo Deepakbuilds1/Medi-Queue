@@ -1,0 +1,65 @@
+{
+  "entities": {
+    "tokens": {
+      "title": "Tokens",
+      "description": "Clinic queue tokens",
+      "type": "object",
+      "properties": {
+        "tokenNumber": { "type": "string" },
+        "doctorId": { "type": "string" },
+        "doctorName": { "type": "string" },
+        "roomNumber": { "type": "string" },
+        "patientName": { "type": "string" },
+        "patientId": { "type": "string" },
+        "status": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "calledAt": { "type": "string", "format": "date-time" },
+        "completedAt": { "type": "string", "format": "date-time" },
+        "queueDate": { "type": "string" }
+      },
+      "required": ["tokenNumber", "doctorId", "status", "createdAt"]
+    },
+    "doctors": {
+      "title": "Doctors",
+      "description": "Clinic doctors",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "specialization": { "type": "string" },
+        "roomNumber": { "type": "string" },
+        "tokenPrefix": { "type": "string" },
+        "status": { "type": "string" }
+      },
+      "required": ["name", "tokenPrefix"]
+    },
+    "patients": {
+      "title": "Patients",
+      "description": "Registered patients",
+      "type": "object",
+      "properties": {
+        "patientId": { "type": "string" },
+        "name": { "type": "string" },
+        "age": { "type": "number" },
+        "gender": { "type": "string" },
+        "phone": { "type": "string" },
+        "reason": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "phone"]
+    },
+    "settings": {
+      "title": "Settings",
+      "description": "Clinic Settings",
+      "type": "object",
+      "properties": {
+        "clinicName": { "type": "string" },
+        "clinicLogo": { "type": "string" },
+        "clinicAddress": { "type": "string" },
+        "phone": { "type": "string" },
+        "email": { "type": "string" },
+        "tokenPrefix": { "type": "string" },
+        "startingTokenNumber": { "type": "number" }
+      }
+    }
+  }
+}

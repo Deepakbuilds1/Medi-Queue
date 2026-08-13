@@ -13,12 +13,10 @@ import {
   Clock,
   Calendar,
   Menu,
-  X,
-  Key
+  X
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { AdminRoute, ClinicSettings } from '../../types';
-import { EnvKeysModal } from '../common/EnvKeysModal';
 
 interface AdminLayoutProps {
   currentRoute: AdminRoute;
@@ -42,7 +40,6 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
   const { logout, user } = useAuth();
   const [dateTime, setDateTime] = useState(new Date());
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [isEnvModalOpen, setIsEnvModalOpen] = useState(false);
 
   useEffect(() => {
     const timer = setInterval(() => setDateTime(new Date()), 1000);
@@ -214,15 +211,6 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
           </div>
 
           <div className="flex items-center gap-3 md:gap-4">
-            <button
-              onClick={() => setIsEnvModalOpen(true)}
-              className="text-xs font-bold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/70 border border-amber-200 dark:border-amber-800 px-3 py-1.5 rounded-lg hover:bg-amber-100 dark:hover:bg-amber-900/60 transition-colors cursor-pointer flex items-center gap-1.5 shadow-xs"
-              title="Manual Environment Variables & Secrets Manager"
-            >
-              <Key className="w-3.5 h-3.5 text-amber-500" />
-              <span className="hidden sm:inline">Env Keys</span>
-            </button>
-
             <div className="hidden md:flex items-center gap-4 text-slate-600 dark:text-slate-300 text-xs font-semibold">
               <div className="flex items-center gap-1.5">
                 <Calendar className="w-3.5 h-3.5 text-slate-400" />
@@ -249,12 +237,6 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
         </div>
 
       </main>
-
-      {/* Manual Environment Variables Keys Modal */}
-      <EnvKeysModal
-        isOpen={isEnvModalOpen}
-        onClose={() => setIsEnvModalOpen(false)}
-      />
 
     </div>
   );

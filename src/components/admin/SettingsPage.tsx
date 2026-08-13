@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
-import { Settings as SettingsIcon, Building2, Phone, Mail, MapPin, Hash, Image, Save, CheckCircle2, Key, Info, ShieldCheck, SlidersHorizontal } from 'lucide-react';
+import { Settings as SettingsIcon, Building2, Phone, Mail, MapPin, Hash, Image, Save, CheckCircle2 } from 'lucide-react';
 import { ClinicSettings } from '../../types';
 import { updateSettings } from '../../services/clinicService';
-import { EnvKeysModal } from '../common/EnvKeysModal';
 
 interface SettingsPageProps {
   settings: ClinicSettings | null;
@@ -20,11 +19,6 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ settings }) => {
 
   const [saving, setSaving] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
-  const [isEnvModalOpen, setIsEnvModalOpen] = useState(false);
-
-  // Read Environment Variable status safely
-  const hasGeminiKey = typeof process !== 'undefined' && process.env && !!process.env.GEMINI_API_KEY;
-  const appUrl = (typeof process !== 'undefined' && process.env && process.env.APP_URL) || window.location.origin;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -77,66 +71,6 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ settings }) => {
           Settings saved successfully! Changes reflect instantly.
         </div>
       )}
-
-      {/* Environment Variables Reference Panel */}
-      <div className="bg-slate-900 text-white rounded-xl border border-slate-800 p-5 shadow-xs space-y-3">
-        <div className="flex items-center justify-between border-b border-slate-800 pb-2">
-          <div className="flex items-center gap-2">
-            <Key className="w-4 h-4 text-amber-400" />
-            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-200">
-              Environment Variables & Secrets Status
-            </h3>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setIsEnvModalOpen(true)}
-              className="px-2.5 py-1 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-[11px] rounded-lg transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
-            >
-              <SlidersHorizontal className="w-3.5 h-3.5" />
-              Manual Enter Env Keys
-            </button>
-            <span className="text-[10px] bg-slate-800 text-slate-300 px-2 py-0.5 rounded font-mono font-semibold">.env.example</span>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-          <div className="p-3 bg-slate-950/80 rounded-lg border border-slate-800 flex items-center justify-between">
-            <div>
-              <span className="text-[10px] uppercase font-bold text-slate-500 block">GEMINI_API_KEY</span>
-              <span className="font-mono text-slate-300">Server API Secret</span>
-            </div>
-            <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase flex items-center gap-1 ${hasGeminiKey ? 'bg-emerald-900/80 text-emerald-300' : 'bg-slate-800 text-slate-400'}`}>
-              <ShieldCheck className="w-3 h-3" />
-              {hasGeminiKey ? 'CONFIGURED' : 'MANAGED BY PLATFORM'}
-            </span>
-          </div>
-
-          <div className="p-3 bg-slate-950/80 rounded-lg border border-slate-800 flex items-center justify-between">
-            <div>
-              <span className="text-[10px] uppercase font-bold text-slate-500 block">APP_URL</span>
-              <span className="font-mono text-slate-300 truncate max-w-[160px] inline-block">{appUrl}</span>
-            </div>
-            <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-blue-950 text-blue-300">
-              AUTO-INJECTED
-            </span>
-          </div>
-        </div>
-
-        <div className="flex items-center justify-between pt-1 border-t border-slate-800/80 text-[11px]">
-          <div className="flex items-start gap-2 text-slate-400">
-            <Info className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" />
-            <p>
-              Environment variables and API keys can be managed via AI Studio Settings or manually configured using the <strong className="text-slate-200">Manual Enter Env Keys</strong> dialog.
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* Manual Env Keys Modal */}
-      <EnvKeysModal
-        isOpen={isEnvModalOpen}
-        onClose={() => setIsEnvModalOpen(false)}
-      />
 
       {/* Settings Form */}
       <form onSubmit={handleSubmit} className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xs p-6 space-y-5">

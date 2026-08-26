@@ -20,3 +20,14 @@ export const db = firebaseConfigJson.firestoreDatabaseId && firebaseConfigJson.f
 
 export const auth = getAuth(app);
 
+export { firebaseConfig };
+
+// Helper to create a secondary auth instance for Super Admin to provision users
+export function getSecondaryAuth() {
+  const secondaryAppName = 'SuperAdminUserCreationApp';
+  const existingApp = getApps().find(a => a.name === secondaryAppName);
+  const secondaryApp = existingApp || initializeApp(firebaseConfig, secondaryAppName);
+  return getAuth(secondaryApp);
+}
+
+

@@ -19,6 +19,7 @@ import { Doctor, QueueToken, TokenStatus } from '../../types';
 import { callNextToken, updateTokenStatus } from '../../services/clinicService';
 import { playTokenCallSound } from '../../lib/sound';
 import { ConfirmModal } from '../common/ConfirmModal';
+import { useClinic } from '../../context/ClinicContext';
 
 interface AdminDashboardProps {
   tokens: QueueToken[];
@@ -35,6 +36,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   onNavigateToQueuePage,
   onNavigateToPatientPortal
 }) => {
+  const { activeClinicId, activeClinic } = useClinic();
   const [selectedDoctorFilter, setSelectedDoctorFilter] = useState<string>('ALL');
   const [loadingAction, setLoadingAction] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -74,7 +76,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     setActionError(null);
     try {
       const doctorIdToCall = selectedDoctorFilter === 'ALL' ? undefined : selectedDoctorFilter;
-      const called = await callNextToken(doctorIdToCall);
+      const called = await callNextToken(activeClinicId, doctorIdToCall);
       if (called) {
         playTokenCallSound();
       } else {
@@ -93,7 +95,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     setLoadingAction(true);
     setActionError(null);
     try {
-      await updateTokenStatus(token.id, 'CALLED');
+      await updateTokenStatus(activeClinicId, token.id, 'CALLED');
       playTokenCallSound();
     } catch (err: any) {
       console.error(err);
@@ -113,7 +115,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         setLoadingAction(true);
         setActionError(null);
         try {
-          await updateTokenStatus(token.id, 'SKIPPED');
+          await updateTokenStatus(activeClinicId, token.id, 'SKIPPED');
         } catch (err: any) {
           setActionError(err.message || 'Queue changed. Please refresh and try again.');
         } finally {
@@ -128,7 +130,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     setLoadingAction(true);
     setActionError(null);
     try {
-      await updateTokenStatus(token.id, 'IN CONSULTATION');
+      await updateTokenStatus(activeClinicId, token.id, 'IN CONSULTATION');
     } catch (err: any) {
       setActionError(err.message || 'Queue changed. Please refresh and try again.');
     } finally {
@@ -141,7 +143,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     setLoadingAction(true);
     setActionError(null);
     try {
-      await updateTokenStatus(token.id, 'COMPLETED');
+      await updateTokenStatus(activeClinicId, token.id, 'COMPLETED');
     } catch (err: any) {
       setActionError(err.message || 'Queue changed. Please refresh and try again.');
     } finally {
@@ -169,7 +171,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   return (
     <div className="space-y-4 max-w-7xl mx-auto animate-in fade-in duration-200">
       
-      {/* Top Doctor Filter Bar */}
+      {/* Top Doctor Filter Bar & Clinic Status Banner */}
       <div className="bg-white dark:bg-slate-800 p-3 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xs flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2 text-xs font-bold text-slate-700 dark:text-slate-300">
           <Filter className="w-4 h-4 text-blue-600" />
@@ -179,20 +181,25 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             onChange={(e) => setSelectedDoctorFilter(e.target.value)}
             className="bg-slate-100 dark:bg-slate-900 text-slate-800 dark:text-slate-200 px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 text-xs font-semibold focus:outline-none"
           >
-            <option value="ALL">All Doctors Queue</option>
+            <option value="ALL">All Doctors Queue ({doctors.length})</option>
             {doctors.map(d => (
               <option key={d.id} value={d.id}>{d.name} ({d.specialization})</option>
             ))}
           </select>
         </div>
 
-        <button
-          onClick={onOpenPatientRegistration}
-          className="bg-blue-600 hover:bg-blue-500 text-white px-3.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-2 shadow-xs cursor-pointer ml-auto"
-        >
-          <PlusCircle className="w-4 h-4" />
-          + Register New Patient
-        </button>
+        <div className="flex items-center gap-2 ml-auto">
+          <span className="text-[11px] font-semibold text-slate-500 hidden sm:inline">
+            Active Tenant: <strong className="text-slate-800 dark:text-slate-200">{activeClinic?.name || 'City Care Clinic'}</strong>
+          </span>
+          <button
+            onClick={onOpenPatientRegistration}
+            className="bg-blue-600 hover:bg-blue-500 text-white px-3.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-2 shadow-xs cursor-pointer"
+          >
+            <PlusCircle className="w-4 h-4" />
+            + Register New Patient
+          </button>
+        </div>
       </div>
 
       {actionError && (
@@ -247,7 +254,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               <div className="flex items-center gap-2">
                 <span className="w-2.5 h-2.5 rounded-full bg-blue-500 animate-pulse" />
                 <p className="text-xs font-extrabold text-blue-600 dark:text-blue-400 uppercase tracking-wider">
-                  Active Consultation Console
+                  Active Consultation Console ({activeClinic?.name || 'City Care Clinic'})
                 </p>
               </div>
               <button
@@ -382,7 +389,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               <div className="w-10 h-10 bg-slate-700 rounded-full flex items-center justify-center mx-auto text-white">
                 <Building2 className="w-5 h-5 text-blue-400" />
               </div>
-              <p className="text-xs font-bold text-white uppercase">Patient Queue Status</p>
+              <p className="text-xs font-bold text-white uppercase">{activeClinic?.name || 'City Care Clinic'}</p>
 
               <div className="bg-slate-900/90 rounded-lg p-3 border border-slate-800">
                 <p className="text-[10px] text-slate-400 uppercase font-semibold">NOW SERVING</p>
@@ -408,7 +415,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
           <div className="mt-3 pt-3 border-t border-slate-800/80 text-center">
             <p className="text-[10px] text-slate-400">
-              Live updates synced via Firebase Firestore
+              Tenant isolated queue: <code className="text-blue-400 font-mono">/clinics/{activeClinicId}</code>
             </p>
           </div>
         </div>
@@ -446,7 +453,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               {filteredTokens.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="p-6 text-center text-slate-400">
-                    No tokens generated for today yet. Click "Register Patient" to generate a token.
+                    No tokens generated for today in this clinic. Click "Register Patient" to generate a token.
                   </td>
                 </tr>
               ) : (
@@ -467,7 +474,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                             setLoadingAction(true);
                             setActionError(null);
                             try {
-                              await updateTokenStatus(t.id, 'CALLED');
+                              await updateTokenStatus(activeClinicId, t.id, 'CALLED');
                               playTokenCallSound();
                             } catch (err: any) {
                               setActionError(err.message || 'Unable to call patient');

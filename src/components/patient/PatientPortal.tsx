@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Building2, Bell, Clock, UserCheck, ShieldAlert, Monitor, ArrowRight, Volume2, LogIn, User, LogOut, Ticket, PlusCircle, CheckCircle2 } from 'lucide-react';
+import { Search, Bell, Monitor, Ticket, PlusCircle, User, LogOut } from 'lucide-react';
 import { ClinicSettings, QueueToken } from '../../types';
 import { lookupTokenByNumber, subscribePublicQueue, subscribeUserTokens } from '../../services/clinicService';
 import { playTokenCallSound } from '../../lib/sound';
 import { useAuth } from '../../context/AuthContext';
+import { useClinic } from '../../context/ClinicContext';
 import { PatientAuthModal } from './PatientAuthModal';
 import { BookTokenSection } from './BookTokenSection';
 
@@ -19,6 +20,7 @@ export const PatientPortal: React.FC<PatientPortalProps> = ({
   onNavigateToPublicDisplay
 }) => {
   const { user, userProfile, logout } = useAuth();
+  const { activeClinicId, activeClinic, clinics, switchClinic } = useClinic();
 
   const [activeTab, setActiveTab] = useState<'book' | 'my-tokens' | 'lookup'>('book');
   const [tokenInput, setTokenInput] = useState('');
@@ -47,12 +49,12 @@ export const PatientPortal: React.FC<PatientPortalProps> = ({
   }>({ nowServing: [], upNext: [] });
 
   useEffect(() => {
-    // Subscribe to live public queue
-    const unsubscribe = subscribePublicQueue((data) => {
+    // Subscribe to live public queue for current active clinic
+    const unsubscribe = subscribePublicQueue(activeClinicId, (data) => {
       setPublicQueue(data);
     });
     return () => unsubscribe();
-  }, []);
+  }, [activeClinicId]);
 
   // Subscribe to logged in patient's tokens in Firebase
   useEffect(() => {
@@ -78,7 +80,7 @@ export const PatientPortal: React.FC<PatientPortalProps> = ({
     if (!searchedToken) return;
 
     const fetchDetails = async () => {
-      const res = await lookupTokenByNumber(searchedToken);
+      const res = await lookupTokenByNumber(activeClinicId, searchedToken);
       if (res) {
         if (tokenDetails && tokenDetails.status !== 'CALLED' && res.status === 'CALLED') {
           playTokenCallSound();
@@ -90,7 +92,7 @@ export const PatientPortal: React.FC<PatientPortalProps> = ({
     fetchDetails();
     const interval = setInterval(fetchDetails, 4000);
     return () => clearInterval(interval);
-  }, [searchedToken]);
+  }, [searchedToken, activeClinicId, tokenDetails]);
 
   const handleCheckStatus = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -104,9 +106,9 @@ export const PatientPortal: React.FC<PatientPortalProps> = ({
 
     setLoading(true);
     try {
-      const res = await lookupTokenByNumber(clean);
+      const res = await lookupTokenByNumber(activeClinicId, clean);
       if (!res) {
-        setError('Token not found. Please check your token number.');
+        setError('Token not found in this clinic. Please check your token number.');
         setTokenDetails(null);
         setSearchedToken(null);
       } else {
@@ -123,8 +125,8 @@ export const PatientPortal: React.FC<PatientPortalProps> = ({
     }
   };
 
-  const clinicName = settings?.clinicName || 'CITY CARE CLINIC';
-  const clinicLogo = settings?.clinicLogo;
+  const clinicName = activeClinic?.name || settings?.clinicName || 'CITY CARE CLINIC';
+  const clinicLogo = activeClinic?.logo || settings?.clinicLogo;
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -164,16 +166,34 @@ export const PatientPortal: React.FC<PatientPortalProps> = ({
           </div>
 
           <div className="flex items-center gap-2">
+            {/* Clinic Dropdown for guests or registered clinic badge for patient */}
+            {user && (userProfile?.role === 'PATIENT' || userProfile?.role === 'patient') ? (
+              <div className="hidden sm:flex items-center gap-1.5 text-xs font-bold text-teal-900 bg-teal-50 border border-teal-200 px-2.5 py-1 rounded-lg">
+                <span className="w-2 h-2 rounded-full bg-teal-500 animate-pulse"></span>
+                <span>{activeClinic?.name || 'Registered Clinic'}</span>
+              </div>
+            ) : clinics.length > 1 ? (
+              <select
+                value={activeClinicId}
+                onChange={(e) => switchClinic(e.target.value)}
+                className="text-xs font-bold text-slate-700 bg-slate-100 border border-slate-300 px-2 py-1 rounded-lg cursor-pointer focus:outline-none"
+              >
+                {clinics.map(c => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+            ) : null}
+
             <button
               onClick={onNavigateToPublicDisplay}
-              className="text-xs font-semibold text-slate-600 hover:text-teal-700 bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-colors"
+              className="text-xs font-semibold text-slate-600 hover:text-teal-700 bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer"
             >
               <Monitor className="w-3.5 h-3.5 text-emerald-600" />
               <span className="hidden sm:inline">TV Display</span>
             </button>
             <button
               onClick={onNavigateToAdminLogin}
-              className="text-xs font-semibold text-slate-500 hover:text-slate-800 px-2 py-1.5 transition-colors"
+              className="text-xs font-semibold text-slate-500 hover:text-slate-800 px-2 py-1.5 transition-colors cursor-pointer"
             >
               Admin Login
             </button>
@@ -275,7 +295,7 @@ export const PatientPortal: React.FC<PatientPortalProps> = ({
         {/* TAB 1: BOOK TOKEN */}
         {activeTab === 'book' && (
           <BookTokenSection
-            onTokenGenerated={(token) => {
+            onTokenGenerated={(_token) => {
               setActiveTab('my-tokens');
             }}
           />
@@ -292,7 +312,7 @@ export const PatientPortal: React.FC<PatientPortalProps> = ({
                 <p className="text-[11px] text-slate-500">Real-time status updates for your clinic visits</p>
               </div>
               <span className="text-[10px] bg-teal-50 text-teal-700 px-2.5 py-1 rounded-full font-bold">
-                Firebase Firestore Live
+                Firestore Live
               </span>
             </div>
 
@@ -362,7 +382,7 @@ export const PatientPortal: React.FC<PatientPortalProps> = ({
             <div>
               <span className="text-xs font-extrabold uppercase tracking-widest text-teal-700">PATIENT TOKEN LOOKUP</span>
               <h2 className="text-xl font-black text-slate-900 mt-1">Check Your Token Status</h2>
-              <p className="text-xs text-slate-500 mt-0.5">Enter the token number printed on your receipt</p>
+              <p className="text-xs text-slate-500 mt-0.5">Enter the token number for {clinicName}</p>
             </div>
 
             <form onSubmit={handleCheckStatus} className="max-w-md mx-auto space-y-3">
@@ -389,7 +409,6 @@ export const PatientPortal: React.FC<PatientPortalProps> = ({
 
             {error && (
               <div className="p-3 bg-amber-50 border border-amber-200 text-amber-800 text-xs rounded-xl font-medium flex items-center justify-center gap-2">
-                <ShieldAlert className="w-4 h-4 text-amber-600 shrink-0" />
                 <span>{error}</span>
               </div>
             )}
@@ -446,7 +465,7 @@ export const PatientPortal: React.FC<PatientPortalProps> = ({
             <div className="flex items-center gap-2">
               <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping" />
               <h3 className="font-extrabold text-xs text-slate-900 uppercase tracking-wider">
-                Live Public Queue
+                Live Queue ({clinicName})
               </h3>
             </div>
             <span className="text-[10px] text-slate-400">Public Token Board</span>
@@ -510,8 +529,8 @@ export const PatientPortal: React.FC<PatientPortalProps> = ({
 
       {/* Footer */}
       <footer className="bg-slate-900 text-slate-400 text-center py-4 px-4 text-xs border-t border-slate-800">
-        <p className="font-medium text-slate-300">{clinicName} Token System</p>
-        <p className="text-[10px] text-slate-500 mt-0.5">Connected to Firebase Project: medi-queue-4be67</p>
+        <p className="font-medium text-slate-300">{clinicName} Multi-Clinic Token System</p>
+        <p className="text-[10px] text-slate-500 mt-0.5">Active Tenant: {activeClinicId}</p>
       </footer>
 
     </div>

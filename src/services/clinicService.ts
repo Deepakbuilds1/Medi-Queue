@@ -9,13 +9,16 @@ import {
   deleteDoc,
   query, 
   where, 
+  orderBy,
+  limit,
   onSnapshot,
   runTransaction,
   Query,
   DocumentReference
 } from 'firebase/firestore';
-import { db, auth } from '../lib/firebase';
-import { ClinicSettings, Doctor, Patient, QueueToken, TokenStatus } from '../types';
+import { createUserWithEmailAndPassword, signOut as authSignOut, sendPasswordResetEmail } from 'firebase/auth';
+import { db, auth, getSecondaryAuth } from '../lib/firebase';
+import { Clinic, ClinicSettings, Doctor, Patient, QueueToken, TokenStatus, UserProfile, AuditLog } from '../types';
 
 export enum OperationType {
   CREATE = 'create',
@@ -56,9 +59,11 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
   console.warn('Firestore Operation Notice: ', JSON.stringify(errInfo));
 }
 
+export const DEFAULT_CLINIC_ID = 'clinic_citycare';
 const SETTINGS_DOC_ID = 'main_clinic_settings';
 
 export const DEFAULT_SETTINGS: ClinicSettings = {
+  clinicId: DEFAULT_CLINIC_ID,
   clinicName: 'CITY CARE CLINIC',
   clinicLogo: 'https://images.unsplash.com/photo-1629909613654-28e377c37b09?w=150&auto=format&fit=crop&q=80',
   clinicAddress: '123 Healthcare Boulevard, Medical District',
@@ -73,6 +78,71 @@ export const DEFAULT_SETTINGS: ClinicSettings = {
   }
 };
 
+export const INITIAL_CLINICS: Clinic[] = [
+  {
+    id: 'clinic_citycare',
+    name: 'City Care Clinic',
+    slug: 'citycare',
+    logo: 'https://images.unsplash.com/photo-1629909613654-28e377c37b09?w=150&auto=format&fit=crop&q=80',
+    address: '123 Healthcare Boulevard, Medical District',
+    phone: '+1 (800) 555-0199',
+    email: 'gdeepak4689@gmail.com',
+    tokenPrefix: 'A',
+    startingTokenNumber: 1,
+    status: 'ACTIVE',
+    adminEmail: 'gdeepak4689@gmail.com',
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-01T00:00:00.000Z',
+    tokenDisplaySettings: {
+      enableSound: true,
+      autoRefreshInterval: 5,
+      announcementVoice: true
+    }
+  },
+  {
+    id: 'clinic_apollo',
+    name: 'Apollo Health Center',
+    slug: 'apollo',
+    logo: 'https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?w=150&auto=format&fit=crop&q=80',
+    address: '456 Wellness Avenue, Metro City',
+    phone: '+1 (800) 555-0288',
+    email: 'gdeepakgupta830@gmail.com',
+    tokenPrefix: 'B',
+    startingTokenNumber: 1,
+    status: 'ACTIVE',
+    adminEmail: 'gdeepakgupta830@gmail.com',
+    createdAt: '2026-01-02T00:00:00.000Z',
+    updatedAt: '2026-01-02T00:00:00.000Z',
+    tokenDisplaySettings: {
+      enableSound: true,
+      autoRefreshInterval: 5,
+      announcementVoice: true
+    }
+  },
+  {
+    id: 'clinic_sunrise',
+    name: 'Sunrise Specialty Clinic',
+    slug: 'sunrise',
+    logo: 'https://images.unsplash.com/photo-1586773860418-d37222d8fce3?w=150&auto=format&fit=crop&q=80',
+    address: '789 Sun Park Drive, East Wing',
+    phone: '+1 (800) 555-0377',
+    email: 'sunrise.admin@mediqueue.io',
+    tokenPrefix: 'S',
+    startingTokenNumber: 1,
+    status: 'ACTIVE',
+    adminEmail: 'sunrise.admin@mediqueue.io',
+    createdAt: '2026-01-03T00:00:00.000Z',
+    updatedAt: '2026-01-03T00:00:00.000Z',
+    tokenDisplaySettings: {
+      enableSound: true,
+      autoRefreshInterval: 5,
+      announcementVoice: true
+    }
+  }
+];
+
+import { formatFirestoreError } from '../utils/errorUtils';
+
 export const getTodayDateString = (): string => {
   const d = new Date();
   const year = d.getFullYear();
@@ -81,24 +151,50 @@ export const getTodayDateString = (): string => {
   return `${year}-${month}-${day}`;
 };
 
-export type FirestoreErrorCallback = (errorMessage: string | null) => void;
+export type FirestoreErrorCallback = (errorMessage: string) => void;
+
+export interface ListenerGuardOptions {
+  path: string;
+  filter?: string;
+  clinicId?: string;
+  authRequired?: boolean;
+  guard?: () => boolean;
+}
 
 /**
- * Creates a managed real-time Firestore listener with automatic retry,
- * error handling callbacks, and clean unsubscription to avoid leaks.
+ * Creates a managed real-time Firestore listener with strict authorization guards,
+ * automatic retry for transient network errors, clean permission error termination,
+ * and clean unsubscription.
  */
 function createManagedListener<T>(
   createQuery: () => Query | DocumentReference,
   parseSnapshot: (snapshot: any) => T,
   onData: (data: T) => void,
-  onError?: FirestoreErrorCallback
+  onError?: FirestoreErrorCallback,
+  options?: ListenerGuardOptions
 ): () => void {
   let unsub: (() => void) | null = null;
   let retryTimer: ReturnType<typeof setTimeout> | null = null;
   let isCancelled = false;
 
+  // Authorization Guard: Do NOT attach listener if unauthenticated or custom guard fails
+  if (options?.authRequired && !auth.currentUser) {
+    return () => {};
+  }
+  if (options?.guard && !options.guard()) {
+    return () => {};
+  }
+
   const startListening = () => {
     if (isCancelled) return;
+
+    // Verify authorization guard right before invoking query
+    if (options?.authRequired && !auth.currentUser) {
+      return;
+    }
+    if (options?.guard && !options.guard()) {
+      return;
+    }
 
     try {
       const ref = createQuery();
@@ -106,47 +202,62 @@ function createManagedListener<T>(
         ref as any,
         (snapshot) => {
           if (isCancelled) return;
-          if (onError) onError(null); // Clear error on successful connection
           const data = parseSnapshot(snapshot);
           onData(data);
         },
-        (error) => {
+        (error: any) => {
           if (isCancelled) return;
-          console.warn('Firestore real-time listener error:', error?.message || error);
-          if (onError) {
-            onError('Unable to connect to live queue. Retrying...');
+          const errMsg = formatFirestoreError(error, 'Firestore real-time listener encountered an issue');
+          const isPermissionDenied = 
+            error?.code === 'permission-denied' || 
+            errMsg.toLowerCase().includes('permission') || 
+            errMsg.toLowerCase().includes('insufficient');
+
+          if (isPermissionDenied) {
+            // Cleanly terminate listener on permission denial without retry loop
+            if (unsub) {
+              try { unsub(); } catch (_) {}
+              unsub = null;
+            }
+            if (onError) {
+              onError(`Access restricted: ${errMsg}`);
+            }
+            return;
           }
 
-          // Safely tear down current errored listener
+          // Transient network error handling
+          if (onError) {
+            onError(`Live connection notice: ${errMsg}`);
+          }
+
           if (unsub) {
             try { unsub(); } catch (_) {}
             unsub = null;
           }
 
-          // Schedule single safe reconnection attempt after 5 seconds
           if (!retryTimer && !isCancelled) {
             retryTimer = setTimeout(() => {
               retryTimer = null;
-              if (!isCancelled) {
+              if (!isCancelled && (!options?.authRequired || !!auth.currentUser)) {
                 startListening();
               }
-            }, 5000);
+            }, 8000);
           }
         }
       );
-    } catch (err) {
+    } catch (err: any) {
       if (isCancelled) return;
-      console.warn('Firestore subscription initialization error:', err);
+      const formattedErr = formatFirestoreError(err, 'Subscription initialization failed');
       if (onError) {
-        onError('Unable to connect to live queue. Retrying...');
+        onError(formattedErr);
       }
       if (!retryTimer && !isCancelled) {
         retryTimer = setTimeout(() => {
           retryTimer = null;
-          if (!isCancelled) {
+          if (!isCancelled && (!options?.authRequired || !!auth.currentUser)) {
             startListening();
           }
-        }, 5000);
+        }, 8000);
       }
     }
   };
@@ -166,215 +277,410 @@ function createManagedListener<T>(
   };
 }
 
-// Seed initial data if database is fresh
-export async function seedInitialDataIfEmpty() {
-  try {
-    const settingsDoc = await getDoc(doc(db, 'settings', SETTINGS_DOC_ID));
-    if (!settingsDoc.exists()) {
-      await setDoc(doc(db, 'settings', SETTINGS_DOC_ID), DEFAULT_SETTINGS);
-    }
+// -------------------------------------------------------------
+// CLINIC REPOSITORY & MULTI-TENANT MANAGEMENT
+// -------------------------------------------------------------
 
-    const doctorsSnap = await getDocs(collection(db, 'doctors'));
-    if (doctorsSnap.empty) {
-      const initialDoctors: Omit<Doctor, 'id'>[] = [
-        { name: 'Dr. Sharma', specialization: 'General Physician', roomNumber: 'Room 1', tokenPrefix: 'A', status: 'ACTIVE' },
-        { name: 'Dr. Verma', specialization: 'Dentist', roomNumber: 'Room 2', tokenPrefix: 'B', status: 'ACTIVE' },
-        { name: 'Dr. Patel', specialization: 'Pediatrician', roomNumber: 'Room 3', tokenPrefix: 'C', status: 'ACTIVE' }
-      ];
-      for (const d of initialDoctors) {
-        await addDoc(collection(db, 'doctors'), d);
+export function subscribeClinics(
+  callback: (clinics: Clinic[]) => void,
+  onError?: FirestoreErrorCallback
+) {
+  return createManagedListener(
+    () => collection(db, 'clinics'),
+    (snapshot) => {
+      const list = snapshot.docs.map((d: any) => ({ ...d.data(), id: d.id })) as Clinic[];
+      if (list.length === 0) {
+        return INITIAL_CLINICS;
       }
+      return list;
+    },
+    callback,
+    onError,
+    { path: 'clinics', filter: 'all' }
+  );
+}
+
+export function subscribeClinic(
+  clinicId: string = DEFAULT_CLINIC_ID,
+  callback: (clinic: Clinic | null) => void,
+  onError?: FirestoreErrorCallback
+) {
+  return createManagedListener(
+    () => doc(db, 'clinics', clinicId),
+    (snapshot) => {
+      if (snapshot.exists()) {
+        return { ...snapshot.data(), id: snapshot.id } as Clinic;
+      }
+      const initial = INITIAL_CLINICS.find(c => c.id === clinicId);
+      return initial || INITIAL_CLINICS[0];
+    },
+    callback,
+    onError,
+    { path: `clinics/${clinicId}`, clinicId }
+  );
+}
+
+export async function createClinic(clinicData: Omit<Clinic, 'createdAt' | 'updatedAt'>): Promise<Clinic> {
+  const now = new Date().toISOString();
+  const cleanId = clinicData.id.trim() || `clinic_${clinicData.name.toLowerCase().replace(/[^a-z0-9]/g, '')}_${Date.now()}`;
+  
+  const fullClinic: Clinic = {
+    ...clinicData,
+    id: cleanId,
+    slug: clinicData.slug || clinicData.name.toLowerCase().replace(/[^a-z0-9]/g, '-'),
+    status: clinicData.status || 'ACTIVE',
+    tokenPrefix: clinicData.tokenPrefix?.toUpperCase() || 'A',
+    startingTokenNumber: Number(clinicData.startingTokenNumber) || 1,
+    createdAt: now,
+    updatedAt: now,
+    tokenDisplaySettings: clinicData.tokenDisplaySettings || {
+      enableSound: true,
+      autoRefreshInterval: 5,
+      announcementVoice: true
+    }
+  };
+
+  try {
+    await setDoc(doc(db, 'clinics', cleanId), fullClinic, { merge: true });
+    
+    // Seed default doctors for this new clinic if none exist
+    const docRef = collection(db, 'clinics', cleanId, 'doctors');
+    const existingDocs = await getDocs(docRef);
+    if (existingDocs.empty) {
+      await addDoc(docRef, {
+        clinicId: cleanId,
+        name: 'Dr. Lead Practitioner',
+        specialization: 'General Medicine',
+        roomNumber: 'Room 1',
+        tokenPrefix: fullClinic.tokenPrefix,
+        status: 'ACTIVE',
+        createdAt: now
+      });
     }
 
-    // Permanently purge token A-024 if present in database
-    await removeTokenByNumberAndDoctor('A-024');
+    return fullClinic;
   } catch (err) {
-    handleFirestoreError(err, OperationType.WRITE, 'seed_data');
+    handleFirestoreError(err, OperationType.WRITE, `clinics/${cleanId}`);
+    throw err;
   }
 }
 
-// Subscribe Clinic Settings
+export async function updateClinic(clinicId: string, data: Partial<Clinic>) {
+  const now = new Date().toISOString();
+  try {
+    await setDoc(doc(db, 'clinics', clinicId), { ...data, updatedAt: now }, { merge: true });
+  } catch (err) {
+    handleFirestoreError(err, OperationType.UPDATE, `clinics/${clinicId}`);
+    throw err;
+  }
+}
+
+export async function toggleClinicStatus(clinicId: string, currentStatus: 'ACTIVE' | 'INACTIVE') {
+  const newStatus = currentStatus === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
+  await updateClinic(clinicId, { status: newStatus });
+}
+
+// -------------------------------------------------------------
+// SEEDING / DEFAULT DATA INITIALIZATION
+// -------------------------------------------------------------
+
+export async function seedInitialDataIfEmpty() {
+  // In-memory fallbacks (INITIAL_CLINICS) are used dynamically.
+  // Client-side automatic database writes are removed to prevent permission issues.
+  return;
+}
+
+// -------------------------------------------------------------
+// CLINIC-SCOPED SETTINGS
+// -------------------------------------------------------------
+
 export function subscribeSettings(
+  clinicId: string = DEFAULT_CLINIC_ID,
   callback: (settings: ClinicSettings) => void,
   onError?: FirestoreErrorCallback
 ) {
   return createManagedListener(
-    () => doc(db, 'settings', SETTINGS_DOC_ID),
+    () => doc(db, 'clinics', clinicId),
     (snapshot) => {
       if (snapshot.exists()) {
-        return { ...snapshot.data(), id: snapshot.id } as ClinicSettings;
+        const c = snapshot.data() as Clinic;
+        return {
+          id: snapshot.id,
+          clinicId: snapshot.id,
+          clinicName: c.name || DEFAULT_SETTINGS.clinicName,
+          clinicLogo: c.logo || DEFAULT_SETTINGS.clinicLogo,
+          clinicAddress: c.address || DEFAULT_SETTINGS.clinicAddress,
+          phone: c.phone || DEFAULT_SETTINGS.phone,
+          email: c.email || DEFAULT_SETTINGS.email,
+          tokenPrefix: c.tokenPrefix || DEFAULT_SETTINGS.tokenPrefix,
+          startingTokenNumber: c.startingTokenNumber || DEFAULT_SETTINGS.startingTokenNumber,
+          tokenDisplaySettings: c.tokenDisplaySettings || DEFAULT_SETTINGS.tokenDisplaySettings
+        };
       }
-      return DEFAULT_SETTINGS;
+      return { ...DEFAULT_SETTINGS, clinicId };
     },
     callback,
-    onError
+    onError,
+    { path: `clinics/${clinicId}/settings`, clinicId }
   );
 }
 
-export async function updateSettings(settings: Partial<ClinicSettings>) {
+export async function updateSettings(
+  clinicId: string = DEFAULT_CLINIC_ID,
+  settings: Partial<ClinicSettings>
+) {
   try {
-    await setDoc(doc(db, 'settings', SETTINGS_DOC_ID), settings, { merge: true });
+    const updatePayload: Partial<Clinic> = {
+      name: settings.clinicName,
+      logo: settings.clinicLogo,
+      address: settings.clinicAddress,
+      phone: settings.phone,
+      email: settings.email,
+      tokenPrefix: settings.tokenPrefix,
+      startingTokenNumber: settings.startingTokenNumber,
+      tokenDisplaySettings: settings.tokenDisplaySettings
+    };
+    await setDoc(doc(db, 'clinics', clinicId), updatePayload, { merge: true });
   } catch (err) {
-    handleFirestoreError(err, OperationType.WRITE, 'settings');
+    handleFirestoreError(err, OperationType.WRITE, `clinics/${clinicId}/settings`);
     throw err;
   }
 }
 
-// Doctors
+// -------------------------------------------------------------
+// CLINIC-SCOPED DOCTORS
+// -------------------------------------------------------------
+
 export function subscribeDoctors(
+  clinicId: string = DEFAULT_CLINIC_ID,
   callback: (doctors: Doctor[]) => void,
   onError?: FirestoreErrorCallback
 ) {
   return createManagedListener(
-    () => collection(db, 'doctors'),
+    () => collection(db, 'clinics', clinicId, 'doctors'),
     (snapshot) => {
-      return snapshot.docs.map((d: any) => ({ ...d.data(), id: d.id })) as Doctor[];
+      return snapshot.docs.map((d: any) => ({ ...d.data(), id: d.id, clinicId })) as Doctor[];
     },
     callback,
-    onError
+    onError,
+    { path: `clinics/${clinicId}/doctors`, clinicId }
   );
 }
 
-export async function addDoctor(doctor: Omit<Doctor, 'id'>) {
+export async function addDoctor(clinicId: string = DEFAULT_CLINIC_ID, doctor: Omit<Doctor, 'id'>) {
   try {
-    const res = await addDoc(collection(db, 'doctors'), {
+    const res = await addDoc(collection(db, 'clinics', clinicId, 'doctors'), {
       ...doctor,
+      clinicId,
       createdAt: new Date().toISOString()
     });
-    return { id: res.id, ...doctor };
+    return { id: res.id, clinicId, ...doctor };
   } catch (err) {
-    handleFirestoreError(err, OperationType.WRITE, 'doctors');
+    handleFirestoreError(err, OperationType.WRITE, `clinics/${clinicId}/doctors`);
     throw err;
   }
 }
 
-export async function updateDoctor(doctorId: string, data: Partial<Doctor>) {
+export async function updateDoctor(clinicId: string = DEFAULT_CLINIC_ID, doctorId: string, data: Partial<Doctor>) {
   try {
-    await updateDoc(doc(db, 'doctors', doctorId), data);
+    await updateDoc(doc(db, 'clinics', clinicId, 'doctors', doctorId), data);
   } catch (err) {
-    handleFirestoreError(err, OperationType.UPDATE, `doctors/${doctorId}`);
+    handleFirestoreError(err, OperationType.UPDATE, `clinics/${clinicId}/doctors/${doctorId}`);
     throw err;
   }
 }
 
-// Patients
+export async function deleteDoctor(clinicId: string = DEFAULT_CLINIC_ID, doctorId: string) {
+  try {
+    await deleteDoc(doc(db, 'clinics', clinicId, 'doctors', doctorId));
+  } catch (err) {
+    handleFirestoreError(err, OperationType.DELETE, `clinics/${clinicId}/doctors/${doctorId}`);
+    throw err;
+  }
+}
+
+// -------------------------------------------------------------
+// CLINIC-SCOPED PATIENTS DIRECTORY
+// -------------------------------------------------------------
+
 export function subscribePatients(
+  clinicId: string = DEFAULT_CLINIC_ID,
   callback: (patients: Patient[]) => void,
   onError?: FirestoreErrorCallback
 ) {
+  if (!auth.currentUser) {
+    callback([]);
+    return () => {};
+  }
   return createManagedListener(
-    () => collection(db, 'patients'),
+    () => collection(db, 'clinics', clinicId, 'patients'),
     (snapshot) => {
-      return snapshot.docs.map((d: any) => ({ ...d.data(), id: d.id })) as Patient[];
+      return snapshot.docs.map((d: any) => ({ ...d.data(), id: d.id, clinicId })) as Patient[];
     },
     callback,
-    onError
+    onError,
+    { path: `clinics/${clinicId}/patients`, clinicId, authRequired: true }
   );
 }
 
-export async function addPatientRecord(data: Omit<Patient, 'id' | 'patientId' | 'createdAt'>) {
+export async function addPatientRecord(clinicId: string = DEFAULT_CLINIC_ID, data: Omit<Patient, 'id' | 'patientId' | 'createdAt'>) {
   try {
-    const snap = await getDocs(collection(db, 'patients'));
+    const snap = await getDocs(collection(db, 'clinics', clinicId, 'patients'));
     const nextNumber = snap.size + 1001;
     const patientId = `PAT-${nextNumber}`;
     const now = new Date().toISOString();
 
-    const docRef = await addDoc(collection(db, 'patients'), {
+    const docRef = await addDoc(collection(db, 'clinics', clinicId, 'patients'), {
       ...data,
+      clinicId,
       patientId,
       createdAt: now,
       lastVisit: getTodayDateString(),
       totalVisits: 1
     });
 
-    return { id: docRef.id, patientId, createdAt: now, lastVisit: getTodayDateString(), totalVisits: 1, ...data };
+    return { id: docRef.id, clinicId, patientId, createdAt: now, lastVisit: getTodayDateString(), totalVisits: 1, ...data };
   } catch (err) {
-    handleFirestoreError(err, OperationType.WRITE, 'patients');
+    handleFirestoreError(err, OperationType.WRITE, `clinics/${clinicId}/patients`);
     throw err;
   }
 }
 
-export async function updatePatientRecord(patientId: string, data: Partial<Patient>) {
+export async function updatePatientRecord(clinicId: string = DEFAULT_CLINIC_ID, patientId: string, data: Partial<Patient>) {
   try {
-    await updateDoc(doc(db, 'patients', patientId), data);
+    await updateDoc(doc(db, 'clinics', clinicId, 'patients', patientId), data);
   } catch (err) {
-    handleFirestoreError(err, OperationType.UPDATE, `patients/${patientId}`);
+    handleFirestoreError(err, OperationType.UPDATE, `clinics/${clinicId}/patients/${patientId}`);
     throw err;
   }
 }
 
-// Tokens & Queue Management
+// -------------------------------------------------------------
+// CLINIC-SCOPED TOKENS & QUEUE ENGINE
+// -------------------------------------------------------------
+
 export function subscribeTodayTokens(
+  clinicId: string = DEFAULT_CLINIC_ID,
   callback: (tokens: QueueToken[]) => void,
   onError?: FirestoreErrorCallback
 ) {
   const todayStr = getTodayDateString();
   return createManagedListener(
-    () => query(collection(db, 'tokens'), where('queueDate', '==', todayStr)),
+    () => query(collection(db, 'clinics', clinicId, 'tokens'), where('queueDate', '==', todayStr)),
     (snapshot) => {
       const list = snapshot.docs.map((d: any) => ({
         ...d.data(),
-        id: d.id // Guarantee Firestore doc ID takes precedence
+        id: d.id,
+        clinicId
       })) as QueueToken[];
       list.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
       return list;
     },
     callback,
-    onError
+    onError,
+    { path: `clinics/${clinicId}/tokens`, filter: `queueDate==${todayStr}`, clinicId }
   );
 }
 
-export async function getTokensByDateRange(startDateStr: string, endDateStr: string): Promise<QueueToken[]> {
+export async function getTokensByDateRange(
+  clinicId: string = DEFAULT_CLINIC_ID,
+  startDateStr: string, 
+  endDateStr: string
+): Promise<QueueToken[]> {
   try {
-    const q = query(collection(db, 'tokens'));
+    const q = query(collection(db, 'clinics', clinicId, 'tokens'));
     const snap = await getDocs(q);
-    const all = snap.docs.map((d: any) => ({ ...d.data(), id: d.id })) as QueueToken[];
+    const all = snap.docs.map((d: any) => ({ ...d.data(), id: d.id, clinicId })) as QueueToken[];
     return all.filter(t => t.queueDate >= startDateStr && t.queueDate <= endDateStr);
   } catch (err) {
-    handleFirestoreError(err, OperationType.GET, 'tokens');
+    handleFirestoreError(err, OperationType.GET, `clinics/${clinicId}/tokens`);
     return [];
   }
 }
 
-// Save or update User Profile
+// -------------------------------------------------------------
+// USER PROFILE & RBAC REPOSITORY
+// -------------------------------------------------------------
+
 export async function saveUserProfile(profile: {
   uid: string;
   email: string;
   name: string;
+  displayName?: string;
   phone: string;
-  age: number;
-  gender: 'Male' | 'Female' | 'Other';
-  role?: 'patient' | 'admin';
+  age?: number;
+  gender?: 'Male' | 'Female' | 'Other';
+  role?: UserProfile['role'];
+  clinicId?: string;
+  clinicName?: string;
+  clinicIds?: string[];
+  accessibleClinicIds?: string[];
+  activeClinicId?: string;
+  status?: 'active' | 'inactive' | 'ACTIVE' | 'INACTIVE';
 }) {
   const now = new Date().toISOString();
-  const dataToSave = {
+  
+  // Designate default super admin
+  let role = profile.role || 'PATIENT';
+  if (profile.email === 'gdeepak4689@gmail.com') {
+    role = 'SUPER_ADMIN';
+  }
+
+  const resolvedClinicIds = profile.clinicIds || profile.accessibleClinicIds || (profile.clinicId ? [profile.clinicId] : [DEFAULT_CLINIC_ID]);
+  const resolvedClinicId = profile.clinicId || (resolvedClinicIds.length > 0 ? resolvedClinicIds[0] : DEFAULT_CLINIC_ID);
+
+  let resolvedClinicName = profile.clinicName;
+  if (!resolvedClinicName && resolvedClinicId) {
+    const matched = INITIAL_CLINICS.find(c => c.id === resolvedClinicId);
+    if (matched) resolvedClinicName = matched.name;
+  }
+
+  const dataToSave: Record<string, any> = {
     uid: profile.uid,
     email: profile.email,
-    name: profile.name,
-    phone: profile.phone,
-    age: Number(profile.age),
-    gender: profile.gender,
-    role: profile.role || 'patient',
-    createdAt: now,
+    name: profile.name || profile.displayName || profile.email.split('@')[0],
+    displayName: profile.displayName || profile.name || profile.email.split('@')[0],
+    phone: profile.phone || '',
+    age: Number(profile.age) || 30,
+    gender: profile.gender || 'Other',
+    role,
+    clinicId: resolvedClinicId,
+    clinicName: resolvedClinicName || 'MediQueue Clinic',
+    clinicIds: resolvedClinicIds,
+    accessibleClinicIds: resolvedClinicIds,
+    activeClinicId: profile.activeClinicId || resolvedClinicId,
+    status: profile.status || 'active',
     updatedAt: now,
   };
 
   try {
     const userRef = doc(db, 'users', profile.uid);
+    const existing = await getDoc(userRef);
+    if (!existing.exists()) {
+      dataToSave.createdAt = now;
+    }
     await setDoc(userRef, dataToSave, { merge: true });
   } catch (err) {
     handleFirestoreError(err, OperationType.WRITE, `users/${profile.uid}`);
     throw err;
   }
 
-  return dataToSave;
+  return dataToSave as unknown as UserProfile;
 }
 
 export async function getUserProfile(uid: string) {
   try {
     const userDoc = await getDoc(doc(db, 'users', uid));
     if (userDoc.exists()) {
-      return userDoc.data();
+      const data = userDoc.data() as UserProfile;
+      // Normalize clinicIds / accessibleClinicIds
+      if (!data.clinicIds && data.accessibleClinicIds) {
+        data.clinicIds = data.accessibleClinicIds;
+      }
+      if (!data.accessibleClinicIds && data.clinicIds) {
+        data.accessibleClinicIds = data.clinicIds;
+      }
+      return data;
     }
   } catch (err) {
     handleFirestoreError(err, OperationType.GET, `users/${uid}`);
@@ -382,8 +688,371 @@ export async function getUserProfile(uid: string) {
   return null;
 }
 
-// Generate new token for patient
+/**
+ * Safely removes any undefined properties from an object so Firestore addDoc/setDoc never throws 'Unsupported field value: undefined'.
+ */
+export function sanitizeFirestoreData<T extends Record<string, any>>(data: T): Partial<T> {
+  const result: Record<string, any> = {};
+  for (const [key, value] of Object.entries(data)) {
+    if (value !== undefined) {
+      if (value !== null && typeof value === 'object' && !Array.isArray(value) && !(value instanceof Date)) {
+        result[key] = sanitizeFirestoreData(value);
+      } else {
+        result[key] = value;
+      }
+    }
+  }
+  return result as Partial<T>;
+}
+
+// -------------------------------------------------------------
+// AUDIT LOGGING SERVICE (WITH OFFLINE & PERMISSION RESILIENCE)
+// -------------------------------------------------------------
+
+const LOCAL_AUDIT_LOGS_KEY = 'mediqueue_audit_logs_cache';
+
+function getLocalAuditLogs(): AuditLog[] {
+  try {
+    const raw = localStorage.getItem(LOCAL_AUDIT_LOGS_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveLocalAuditLog(log: AuditLog): void {
+  try {
+    const logs = getLocalAuditLogs();
+    // Prepend new log and keep up to 100 recent entries
+    const updated = [log, ...logs.filter(l => l.id !== log.id)].slice(0, 100);
+    localStorage.setItem(LOCAL_AUDIT_LOGS_KEY, JSON.stringify(updated));
+  } catch {
+    // Local storage failure fallback (quota/private mode)
+  }
+}
+
+export async function logAuditEvent(params: {
+  action: AuditLog['action'];
+  clinicId?: string | null;
+  clinicName?: string | null;
+  actorUid?: string;
+  actorEmail?: string;
+  actorRole?: 'SUPER_ADMIN' | 'CLINIC_ADMIN' | 'DOCTOR' | 'RECEPTIONIST' | 'patient';
+  details?: Record<string, any>;
+}): Promise<void> {
+  const currentUser = auth.currentUser;
+  const now = new Date().toISOString();
+  const fallbackId = `log_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+
+  // Determine actor details accurately
+  const actorUid = params.actorUid || currentUser?.uid || 'session_user';
+  const actorEmail = params.actorEmail || currentUser?.email || (params.actorRole === 'SUPER_ADMIN' ? 'superadmin@mediqueue.internal' : undefined);
+  const isSuper = actorEmail === 'gdeepak4689@gmail.com' || actorEmail === 'superadmin@mediqueue.internal' || params.actorRole === 'SUPER_ADMIN';
+  const actorRole = params.actorRole || (isSuper ? 'SUPER_ADMIN' : 'CLINIC_ADMIN');
+
+  // Safely resolve clinicId & clinicName
+  let resolvedClinicId: string | undefined = undefined;
+  let resolvedClinicName: string | undefined = undefined;
+
+  if (params.clinicId && typeof params.clinicId === 'string' && params.clinicId.trim()) {
+    resolvedClinicId = params.clinicId.trim();
+  }
+
+  if (params.clinicName && typeof params.clinicName === 'string' && params.clinicName.trim()) {
+    resolvedClinicName = params.clinicName.trim();
+  } else if (resolvedClinicId) {
+    const matched = INITIAL_CLINICS.find(c => c.id === resolvedClinicId);
+    if (matched) {
+      resolvedClinicName = matched.name;
+    }
+  }
+
+  // Construct audit payload strictly avoiding undefined values
+  const rawLogData: Record<string, any> = {
+    action: params.action,
+    timestamp: now
+  };
+
+  if (actorUid) rawLogData.actorUid = actorUid;
+  if (actorEmail) rawLogData.actorEmail = actorEmail;
+  if (actorRole) rawLogData.actorRole = actorRole;
+  if (resolvedClinicId) rawLogData.clinicId = resolvedClinicId;
+  if (resolvedClinicName) rawLogData.clinicName = resolvedClinicName;
+  if (params.details && typeof params.details === 'object' && Object.keys(params.details).length > 0) {
+    rawLogData.details = params.details;
+  }
+
+  const cleanData = sanitizeFirestoreData(rawLogData);
+
+  // Always buffer in local storage for instant offline resilience
+  const localRecord: AuditLog = {
+    id: fallbackId,
+    actorUid,
+    actorEmail,
+    actorRole: actorRole as any,
+    action: params.action,
+    clinicId: resolvedClinicId,
+    clinicName: resolvedClinicName,
+    timestamp: now,
+    details: params.details || {}
+  };
+  saveLocalAuditLog(localRecord);
+
+  // Do not attempt remote Firestore write if user is not authenticated in Firebase Auth
+  if (!auth.currentUser) {
+    return;
+  }
+
+  // Attempt Firestore remote sync
+  try {
+    const docRef = await addDoc(collection(db, 'auditLogs'), cleanData);
+    if (docRef?.id) {
+      localRecord.id = docRef.id;
+      saveLocalAuditLog(localRecord);
+    }
+  } catch (err: any) {
+    // Fail-safe: remote Firestore write skipped without breaking caller
+  }
+}
+
+export function subscribeAuditLogs(
+  callback: (logs: AuditLog[]) => void,
+  onError?: (err: any) => void,
+  clinicId?: string
+): () => void {
+  // Immediately provide cached local logs while listener connects
+  const initialLocal = getLocalAuditLogs();
+  const relevantInitial = clinicId
+    ? initialLocal.filter(l => l.clinicId === clinicId)
+    : initialLocal;
+  if (relevantInitial.length > 0) {
+    callback(relevantInitial);
+  }
+
+  // Strict Lifecycle Guard: Do NOT create or start listener if unauthenticated in Firebase Auth
+  if (!auth.currentUser || !auth.currentUser.uid) {
+    return () => {};
+  }
+
+  const createAuditQuery = () => {
+    if (clinicId && typeof clinicId === 'string' && clinicId.trim()) {
+      return query(
+        collection(db, 'auditLogs'),
+        where('clinicId', '==', clinicId.trim()),
+        limit(50)
+      );
+    }
+    return query(
+      collection(db, 'auditLogs'),
+      orderBy('timestamp', 'desc'),
+      limit(50)
+    );
+  };
+
+  return createManagedListener<AuditLog[]>(
+    createAuditQuery,
+    (snapshot) => {
+      const remoteLogs = snapshot.docs.map((d: any) => ({
+        id: d.id,
+        ...d.data()
+      })) as AuditLog[];
+
+      // Merge remote logs with any recent locally buffered logs
+      const localLogs = getLocalAuditLogs();
+      const relevantLocal = clinicId
+        ? localLogs.filter(l => l.clinicId === clinicId)
+        : localLogs;
+
+      const mergedMap = new Map<string, AuditLog>();
+
+      for (const log of relevantLocal) {
+        mergedMap.set(log.id, log);
+      }
+      for (const log of remoteLogs) {
+        mergedMap.set(log.id, log);
+      }
+
+      const merged = Array.from(mergedMap.values()).sort(
+        (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+      );
+
+      return merged.slice(0, 50);
+    },
+    callback,
+    (err) => {
+      // If remote subscription is restricted, fallback smoothly to local audit cache
+      const local = getLocalAuditLogs();
+      const filtered = clinicId ? local.filter(l => l.clinicId === clinicId) : local;
+      callback(filtered);
+      if (onError) onError(err);
+    },
+    { 
+      path: 'auditLogs', 
+      filter: clinicId ? `clinicId == ${clinicId}` : 'limit 50', 
+      clinicId,
+      authRequired: true 
+    }
+  );
+}
+
+// -------------------------------------------------------------
+// CLINIC ADMIN MANAGEMENT SERVICE (SUPER ADMIN)
+// -------------------------------------------------------------
+
+export async function createClinicAdminAccount(params: {
+  name: string;
+  email: string;
+  password: string;
+  clinicIds: string[];
+  phone?: string;
+  age?: number;
+  gender?: 'Male' | 'Female' | 'Other';
+}): Promise<UserProfile> {
+  const secondaryAuth = getSecondaryAuth();
+  
+  // 1. Create the user in Firebase Auth without disturbing current Super Admin session
+  const cred = await createUserWithEmailAndPassword(secondaryAuth, params.email.trim(), params.password);
+  const newUid = cred.user.uid;
+
+  // 2. Sign out the secondary auth instance immediately
+  try {
+    await authSignOut(secondaryAuth);
+  } catch (_) {}
+
+  // 3. Create user profile in Firestore
+  const resolvedClinicIds = params.clinicIds.length > 0 ? params.clinicIds : [DEFAULT_CLINIC_ID];
+  const profile = await saveUserProfile({
+    uid: newUid,
+    email: params.email.trim(),
+    name: params.name.trim(),
+    displayName: params.name.trim(),
+    phone: params.phone || '',
+    age: params.age || 35,
+    gender: params.gender || 'Male',
+    role: 'CLINIC_ADMIN',
+    clinicIds: resolvedClinicIds,
+    accessibleClinicIds: resolvedClinicIds,
+    clinicId: resolvedClinicIds[0],
+    activeClinicId: resolvedClinicIds[0],
+    status: 'active'
+  });
+
+  // 4. Log audit event
+  const primaryClinicId = resolvedClinicIds[0];
+  const clinicObj = INITIAL_CLINICS.find(c => c.id === primaryClinicId);
+  await logAuditEvent({
+    action: 'ADMIN_CREATED',
+    clinicId: primaryClinicId,
+    clinicName: clinicObj?.name,
+    details: {
+      adminEmail: params.email,
+      assignedClinicIds: resolvedClinicIds
+    }
+  });
+
+  return profile;
+}
+
+export function subscribeClinicAdmins(
+  callback: (admins: UserProfile[]) => void,
+  onError?: (err: any) => void
+): () => void {
+  if (!auth.currentUser) {
+    callback([]);
+    return () => {};
+  }
+  return createManagedListener<UserProfile[]>(
+    () => collection(db, 'users'),
+    (snapshot) => {
+      const all = snapshot.docs.map((d: any) => ({
+        ...d.data(),
+        uid: d.id
+      })) as UserProfile[];
+      
+      // Filter for administrative users
+      return all.filter(u => u.role === 'CLINIC_ADMIN' || u.role === 'SUPER_ADMIN' || u.role === 'admin');
+    },
+    callback,
+    onError,
+    { path: 'users', filter: 'role in [CLINIC_ADMIN, SUPER_ADMIN]', authRequired: true }
+  );
+}
+
+export async function updateClinicAdminProfile(
+  uid: string,
+  data: Partial<UserProfile>
+): Promise<void> {
+  const now = new Date().toISOString();
+  const updatePayload: Record<string, any> = {
+    ...data,
+    updatedAt: now
+  };
+  
+  if (data.clinicIds) {
+    updatePayload.clinicIds = data.clinicIds;
+    updatePayload.accessibleClinicIds = data.clinicIds;
+    if (!data.clinicId && data.clinicIds.length > 0) {
+      updatePayload.clinicId = data.clinicIds[0];
+    }
+  }
+
+  try {
+    await updateDoc(doc(db, 'users', uid), updatePayload);
+    const targetClinicId = data.clinicIds && data.clinicIds.length > 0 ? data.clinicIds[0] : (data.clinicId || undefined);
+    const clinicObj = targetClinicId ? INITIAL_CLINICS.find(c => c.id === targetClinicId) : undefined;
+    await logAuditEvent({
+      action: 'ADMIN_UPDATED',
+      clinicId: targetClinicId,
+      clinicName: clinicObj?.name,
+      details: { targetUid: uid, updatedFields: Object.keys(data) }
+    });
+  } catch (err) {
+    handleFirestoreError(err, OperationType.UPDATE, `users/${uid}`);
+    throw err;
+  }
+}
+
+export async function toggleClinicAdminStatus(
+  uid: string,
+  currentStatus: 'active' | 'inactive' | 'ACTIVE' | 'INACTIVE' | undefined
+): Promise<void> {
+  const newStatus = (currentStatus === 'active' || currentStatus === 'ACTIVE') ? 'inactive' : 'active';
+  try {
+    await updateDoc(doc(db, 'users', uid), {
+      status: newStatus,
+      updatedAt: new Date().toISOString()
+    });
+    await logAuditEvent({
+      action: 'ADMIN_STATUS_TOGGLE',
+      details: { targetUid: uid, newStatus }
+    });
+  } catch (err) {
+    handleFirestoreError(err, OperationType.UPDATE, `users/${uid}`);
+    throw err;
+  }
+}
+
+export async function sendClinicAdminPasswordReset(email: string): Promise<void> {
+  try {
+    await sendPasswordResetEmail(auth, email);
+    await logAuditEvent({
+      action: 'PASSWORD_RESET_TRIGGERED',
+      details: { targetEmail: email }
+    });
+  } catch (err) {
+    throw err;
+  }
+}
+
+
+// -------------------------------------------------------------
+// GENERATE TOKEN (TENANT-ISOLATED)
+// -------------------------------------------------------------
+
 export async function generateToken(params: {
+  clinicId?: string;
   patientName: string;
   age: number;
   gender: 'Male' | 'Female' | 'Other';
@@ -392,19 +1061,26 @@ export async function generateToken(params: {
   doctorId: string;
   userId?: string;
 }): Promise<QueueToken> {
+  const clinicId = params.clinicId || DEFAULT_CLINIC_ID;
   const { patientName, age, gender, phone, reason, doctorId, userId } = params;
 
-  const doctorSnap = await getDoc(doc(db, 'doctors', doctorId));
+  // 1. Fetch Doctor within Clinic
+  const doctorSnap = await getDoc(doc(db, 'clinics', clinicId, 'doctors', doctorId));
   if (!doctorSnap.exists()) {
-    throw new Error('Selected doctor not found.');
+    throw new Error('Selected doctor not found in this clinic.');
   }
   const doctor = { ...doctorSnap.data(), id: doctorSnap.id } as Doctor;
 
-  // Create or sync patient record in patients collection
+  // 2. Fetch Clinic Info for Name and Branding
+  const clinicSnap = await getDoc(doc(db, 'clinics', clinicId));
+  const clinicData = clinicSnap.exists() ? (clinicSnap.data() as Clinic) : null;
+  const clinicName = clinicData?.name || 'City Care Clinic';
+
+  // 3. Create or sync patient record in clinic's patients subcollection
   let patientRecordId = '';
   try {
     const qPatients = query(
-      collection(db, 'patients'),
+      collection(db, 'clinics', clinicId, 'patients'),
       where('phone', '==', phone)
     );
     const patientSnap = await getDocs(qPatients);
@@ -413,7 +1089,7 @@ export async function generateToken(params: {
       const pDoc = patientSnap.docs[0];
       patientRecordId = pDoc.id;
       const currentData = pDoc.data();
-      await updateDoc(doc(db, 'patients', pDoc.id), {
+      await updateDoc(doc(db, 'clinics', clinicId, 'patients', pDoc.id), {
         lastVisit: getTodayDateString(),
         totalVisits: (currentData.totalVisits || 1) + 1,
         name: patientName,
@@ -421,10 +1097,11 @@ export async function generateToken(params: {
         gender
       });
     } else {
-      const allPatientsSnap = await getDocs(collection(db, 'patients'));
+      const allPatientsSnap = await getDocs(collection(db, 'clinics', clinicId, 'patients'));
       const nextNumber = allPatientsSnap.size + 1001;
       const patientId = `PAT-${nextNumber}`;
-      const newDoc = await addDoc(collection(db, 'patients'), {
+      const newDoc = await addDoc(collection(db, 'clinics', clinicId, 'patients'), {
+        clinicId,
         patientId,
         name: patientName,
         age: Number(age),
@@ -438,23 +1115,26 @@ export async function generateToken(params: {
       patientRecordId = newDoc.id;
     }
   } catch (err) {
-    console.warn('Patient directory sync notice:', err);
+    console.warn('Patient directory sync notice:', formatFirestoreError(err, 'Could not sync patient directory'));
     if (!patientRecordId) patientRecordId = `pat-${Date.now()}`;
   }
 
+  // 4. Calculate daily doctor-specific sequential token number within clinic
   const todayStr = getTodayDateString();
   const q = query(
-    collection(db, 'tokens'),
+    collection(db, 'clinics', clinicId, 'tokens'),
     where('queueDate', '==', todayStr),
     where('doctorId', '==', doctorId)
   );
   const existingSnap = await getDocs(q);
   const nextCount = existingSnap.size + 1;
-  const prefix = doctor.tokenPrefix || 'A';
+  const prefix = doctor.tokenPrefix || clinicData?.tokenPrefix || 'A';
   const tokenNumber = `${prefix}-${String(nextCount).padStart(3, '0')}`;
 
   const now = new Date().toISOString();
   const tokenData = {
+    clinicId,
+    clinicName,
     tokenNumber,
     patientId: patientRecordId,
     userId: userId || auth.currentUser?.uid || '',
@@ -473,8 +1153,8 @@ export async function generateToken(params: {
     queueDate: todayStr
   };
 
-  // Write token to Firestore and wait for confirmation
-  const tokenRef = await addDoc(collection(db, 'tokens'), tokenData);
+  // Write token to Firestore clinic subcollection
+  const tokenRef = await addDoc(collection(db, 'clinics', clinicId, 'tokens'), tokenData);
 
   return {
     id: tokenRef.id,
@@ -482,19 +1162,38 @@ export async function generateToken(params: {
   };
 }
 
+// -------------------------------------------------------------
+// SUBSCRIBE USER TOKENS (ACROSS OR WITHIN CLINIC)
+// -------------------------------------------------------------
+
 export function subscribeUserTokens(
   userIdOrPhone: string,
-  callback: (tokens: QueueToken[]) => void,
-  onError?: FirestoreErrorCallback
+  clinicIdOrCallback?: string | ((tokens: QueueToken[]) => void),
+  maybeCallback?: ((tokens: QueueToken[]) => void) | FirestoreErrorCallback,
+  maybeOnError?: FirestoreErrorCallback
 ) {
+  let clinicId = DEFAULT_CLINIC_ID;
+  let callback: (tokens: QueueToken[]) => void = () => {};
+  let onError: FirestoreErrorCallback | undefined = undefined;
+
+  if (typeof clinicIdOrCallback === 'function') {
+    callback = clinicIdOrCallback;
+    onError = maybeCallback as FirestoreErrorCallback | undefined;
+  } else if (typeof clinicIdOrCallback === 'string') {
+    clinicId = clinicIdOrCallback;
+    callback = (maybeCallback as (tokens: QueueToken[]) => void) || (() => {});
+    onError = maybeOnError;
+  }
+
   if (!userIdOrPhone) {
     callback([]);
     return () => {};
   }
+
   return createManagedListener(
-    () => collection(db, 'tokens'),
+    () => collection(db, 'clinics', clinicId, 'tokens'),
     (snapshot) => {
-      const all = snapshot.docs.map((d: any) => ({ ...d.data(), id: d.id })) as QueueToken[];
+      const all = snapshot.docs.map((d: any) => ({ ...d.data(), id: d.id, clinicId })) as QueueToken[];
       const userTokens = all.filter(
         t => (t.userId && t.userId === userIdOrPhone) || (t.patientPhone && t.patientPhone === userIdOrPhone)
       );
@@ -502,22 +1201,26 @@ export function subscribeUserTokens(
       return userTokens;
     },
     callback,
-    onError
+    onError,
+    { path: `clinics/${clinicId}/tokens`, filter: `userId==${userIdOrPhone}`, clinicId }
   );
 }
 
-/**
- * Transactional Call Next Token algorithm.
- * Guarantees race-condition safety and verifies document existence and status before calling.
- */
-export async function callNextToken(doctorId?: string): Promise<QueueToken | null> {
+// -------------------------------------------------------------
+// ATOMIC TRANSACTION: CALL NEXT TOKEN (TENANT ISOLATED)
+// -------------------------------------------------------------
+
+export async function callNextToken(
+  clinicId: string = DEFAULT_CLINIC_ID,
+  doctorId?: string
+): Promise<QueueToken | null> {
   const todayStr = getTodayDateString();
   const targetDocIdFilter = (doctorId && doctorId !== 'ALL') ? doctorId : null;
 
-  // Retry up to 3 times if concurrent admin updates or deleted documents occur
+  // Retry up to 3 times for race-condition resilience
   for (let attempt = 0; attempt < 3; attempt++) {
     const q = query(
-      collection(db, 'tokens'),
+      collection(db, 'clinics', clinicId, 'tokens'),
       where('queueDate', '==', todayStr),
       where('status', '==', 'WAITING')
     );
@@ -540,14 +1243,14 @@ export async function callNextToken(doctorId?: string): Promise<QueueToken | nul
     });
 
     const targetDoc = waitingDocs[0];
-    const targetDocId = targetDoc.id; // Exact Firestore Document ID
+    const targetDocId = targetDoc.id;
     const targetDoctorId = targetDoc.data().doctorId;
 
-    // Find active token(s) (CALLED or IN CONSULTATION) for this target doctor to auto-complete
+    // Find active token(s) (CALLED or IN CONSULTATION) for this doctor to auto-complete
     const activeDocIdsToComplete: string[] = [];
     if (targetDoctorId) {
       const activeQ = query(
-        collection(db, 'tokens'),
+        collection(db, 'clinics', clinicId, 'tokens'),
         where('queueDate', '==', todayStr),
         where('doctorId', '==', targetDoctorId)
       );
@@ -559,10 +1262,10 @@ export async function callNextToken(doctorId?: string): Promise<QueueToken | nul
       }
     }
 
-    // Run atomic transaction to update active -> COMPLETED and target WAITING -> CALLED
+    // Run atomic Firestore transaction within the clinic
     try {
       const updatedToken = await runTransaction(db, async (transaction) => {
-        const tokenRef = doc(db, 'tokens', targetDocId);
+        const tokenRef = doc(db, 'clinics', clinicId, 'tokens', targetDocId);
         const tokenSnap = await transaction.get(tokenRef);
 
         if (!tokenSnap.exists()) {
@@ -577,7 +1280,7 @@ export async function callNextToken(doctorId?: string): Promise<QueueToken | nul
         // Fetch active token snaps to perform reads before writes
         const activeSnapsToComplete = [];
         for (const activeId of activeDocIdsToComplete) {
-          const activeRef = doc(db, 'tokens', activeId);
+          const activeRef = doc(db, 'clinics', clinicId, 'tokens', activeId);
           const activeSnap = await transaction.get(activeRef);
           if (activeSnap.exists()) {
             const activeStatus = activeSnap.data().status;
@@ -597,7 +1300,7 @@ export async function callNextToken(doctorId?: string): Promise<QueueToken | nul
           });
         }
 
-        // Call the next token
+        // Call the target token
         transaction.update(tokenRef, {
           status: 'CALLED',
           calledAt: now
@@ -606,6 +1309,7 @@ export async function callNextToken(doctorId?: string): Promise<QueueToken | nul
         return {
           ...data,
           id: tokenSnap.id,
+          clinicId,
           status: 'CALLED',
           calledAt: now
         } as QueueToken;
@@ -614,10 +1318,10 @@ export async function callNextToken(doctorId?: string): Promise<QueueToken | nul
       return updatedToken;
     } catch (err: any) {
       if (err.message === 'TOKEN_EXPIRED_OR_DELETED' || err.message === 'TOKEN_ALREADY_PROCESSED') {
-        console.warn(`Token candidate ${targetDocId} was modified/deleted by another session. Retrying next token in queue...`);
+        console.warn(`Token candidate ${targetDocId} was modified by another session. Retrying next token...`);
         continue;
       }
-      handleFirestoreError(err, OperationType.UPDATE, `tokens/${targetDocId}`);
+      handleFirestoreError(err, OperationType.UPDATE, `clinics/${clinicId}/tokens/${targetDocId}`);
       throw new Error('Queue changed. Please refresh and try again.');
     }
   }
@@ -625,17 +1329,25 @@ export async function callNextToken(doctorId?: string): Promise<QueueToken | nul
   throw new Error('Queue changed. Please refresh and try again.');
 }
 
-export async function updateTokenStatus(tokenId: string, status: TokenStatus): Promise<boolean> {
+// -------------------------------------------------------------
+// UPDATE TOKEN STATUS (TENANT ISOLATED)
+// -------------------------------------------------------------
+
+export async function updateTokenStatus(
+  clinicId: string = DEFAULT_CLINIC_ID,
+  tokenId: string, 
+  status: TokenStatus
+): Promise<boolean> {
   if (!tokenId) {
     throw new Error('Queue changed. Please refresh and try again.');
   }
 
-  const tokenRef = doc(db, 'tokens', tokenId);
+  const tokenRef = doc(db, 'clinics', clinicId, 'tokens', tokenId);
 
   try {
     const tokenSnap = await getDoc(tokenRef);
     if (!tokenSnap.exists()) {
-      console.warn(`Token document ${tokenId} no longer exists in Firestore.`);
+      console.warn(`Token document ${tokenId} no longer exists.`);
       throw new Error('Queue changed. Please refresh and try again.');
     }
 
@@ -646,17 +1358,17 @@ export async function updateTokenStatus(tokenId: string, status: TokenStatus): P
     if (status === 'CALLED') {
       updates.calledAt = now;
 
-      // If calling a WAITING token, auto-complete any existing active CALLED or IN CONSULTATION patient for this doctor
+      // Auto-complete previous active patient for this doctor
       if (tokenData?.status === 'WAITING' && tokenData?.doctorId && tokenData?.queueDate) {
         const activeQ = query(
-          collection(db, 'tokens'),
+          collection(db, 'clinics', clinicId, 'tokens'),
           where('queueDate', '==', tokenData.queueDate),
           where('doctorId', '==', tokenData.doctorId)
         );
         const activeSnap = await getDocs(activeQ);
         for (const activeDoc of activeSnap.docs) {
           if (activeDoc.id !== tokenId && (activeDoc.data().status === 'CALLED' || activeDoc.data().status === 'IN CONSULTATION')) {
-            await updateDoc(doc(db, 'tokens', activeDoc.id), {
+            await updateDoc(doc(db, 'clinics', clinicId, 'tokens', activeDoc.id), {
               status: 'COMPLETED',
               completedAt: now
             });
@@ -670,7 +1382,7 @@ export async function updateTokenStatus(tokenId: string, status: TokenStatus): P
     await updateDoc(tokenRef, updates);
     return true;
   } catch (err: any) {
-    handleFirestoreError(err, OperationType.UPDATE, `tokens/${tokenId}`);
+    handleFirestoreError(err, OperationType.UPDATE, `clinics/${clinicId}/tokens/${tokenId}`);
     if (err.message === 'Queue changed. Please refresh and try again.') {
       throw err;
     }
@@ -678,12 +1390,19 @@ export async function updateTokenStatus(tokenId: string, status: TokenStatus): P
   }
 }
 
-export async function lookupTokenByNumber(inputTokenNumber: string) {
+// -------------------------------------------------------------
+// LOOKUP TOKEN BY NUMBER (TENANT ISOLATED)
+// -------------------------------------------------------------
+
+export async function lookupTokenByNumber(
+  clinicId: string = DEFAULT_CLINIC_ID,
+  inputTokenNumber: string
+) {
   const cleanInput = inputTokenNumber.trim().toUpperCase();
   const todayStr = getTodayDateString();
 
-  const snap = await getDocs(collection(db, 'tokens'));
-  const allToday = snap.docs.map((d: any) => ({ ...d.data(), id: d.id })) as QueueToken[];
+  const snap = await getDocs(collection(db, 'clinics', clinicId, 'tokens'));
+  const allToday = snap.docs.map((d: any) => ({ ...d.data(), id: d.id, clinicId })) as QueueToken[];
 
   const token = allToday.find(t => t.tokenNumber.toUpperCase() === cleanInput && t.queueDate === todayStr);
   if (!token) return null;
@@ -703,6 +1422,7 @@ export async function lookupTokenByNumber(inputTokenNumber: string) {
 
   return {
     id: token.id,
+    clinicId,
     tokenNumber: token.tokenNumber,
     doctorName: token.doctorName,
     roomNumber: token.roomNumber,
@@ -712,18 +1432,22 @@ export async function lookupTokenByNumber(inputTokenNumber: string) {
   };
 }
 
+// -------------------------------------------------------------
+// SUBSCRIBE PUBLIC QUEUE (TENANT ISOLATED)
+// -------------------------------------------------------------
+
 export function subscribePublicQueue(
+  clinicId: string = DEFAULT_CLINIC_ID,
   callback: (data: { nowServing: QueueToken[]; upNext: QueueToken[] }) => void,
   onError?: FirestoreErrorCallback
 ) {
   const todayStr = getTodayDateString();
   return createManagedListener(
-    () => query(collection(db, 'tokens'), where('queueDate', '==', todayStr)),
+    () => query(collection(db, 'clinics', clinicId, 'tokens'), where('queueDate', '==', todayStr)),
     (snapshot) => {
-      const todayTokens = snapshot.docs.map((d: any) => ({ ...d.data(), id: d.id })) as QueueToken[];
+      const todayTokens = snapshot.docs.map((d: any) => ({ ...d.data(), id: d.id, clinicId })) as QueueToken[];
 
-      // 1. UP NEXT (WAITING): Show ALL patients/tokens whose status is exactly WAITING, sorted by createdAt ascending
-      // (Exclude any permanently removed tokens such as A-024)
+      // 1. UP NEXT (WAITING): sorted by createdAt ascending
       const upNext = todayTokens
         .filter(t => t.status === 'WAITING' && t.tokenNumber.toUpperCase() !== 'A-024')
         .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
@@ -754,29 +1478,41 @@ export function subscribePublicQueue(
       return { nowServing, upNext };
     },
     callback,
-    onError
+    onError,
+    { path: `clinics/${clinicId}/tokens`, filter: `queueDate==${todayStr}`, clinicId }
   );
 }
 
-export async function deleteToken(tokenId: string): Promise<boolean> {
+// -------------------------------------------------------------
+// DELETE TOKEN (TENANT ISOLATED)
+// -------------------------------------------------------------
+
+export async function deleteToken(
+  clinicId: string = DEFAULT_CLINIC_ID,
+  tokenId: string
+): Promise<boolean> {
   try {
-    await deleteDoc(doc(db, 'tokens', tokenId));
+    await deleteDoc(doc(db, 'clinics', clinicId, 'tokens', tokenId));
     return true;
   } catch (err: any) {
-    handleFirestoreError(err, OperationType.DELETE, `tokens/${tokenId}`);
+    handleFirestoreError(err, OperationType.DELETE, `clinics/${clinicId}/tokens/${tokenId}`);
     throw new Error('Failed to delete token.');
   }
 }
 
-export async function removeTokenByNumberAndDoctor(tokenNumber: string, doctorQuery?: string) {
+export async function removeTokenByNumberAndDoctor(
+  clinicId: string = DEFAULT_CLINIC_ID,
+  tokenNumber: string, 
+  doctorQuery?: string
+) {
   try {
-    const q = query(collection(db, 'tokens'));
+    const q = query(collection(db, 'clinics', clinicId, 'tokens'));
     const snap = await getDocs(q);
     for (const d of snap.docs) {
       const data = d.data();
       if (data.tokenNumber && data.tokenNumber.trim().toUpperCase() === tokenNumber.trim().toUpperCase()) {
         if (!doctorQuery || (data.doctorName && data.doctorName.toLowerCase().includes(doctorQuery.toLowerCase()))) {
-          await deleteDoc(doc(db, 'tokens', d.id));
+          await deleteDoc(doc(db, 'clinics', clinicId, 'tokens', d.id));
         }
       }
     }
@@ -784,5 +1520,4 @@ export async function removeTokenByNumberAndDoctor(tokenNumber: string, doctorQu
     console.error('Error removing token permanently:', err);
   }
 }
-
 

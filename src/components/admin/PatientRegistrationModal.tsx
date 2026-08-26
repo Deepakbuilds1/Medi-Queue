@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { UserPlus, Stethoscope, Phone, User, Calendar, FileText, X } from 'lucide-react';
 import { Doctor, QueueToken } from '../../types';
 import { generateToken } from '../../services/clinicService';
+import { useClinic } from '../../context/ClinicContext';
 
 interface PatientRegistrationModalProps {
   isOpen: boolean;
@@ -16,6 +17,7 @@ export const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> =
   onClose,
   onTokenGenerated
 }) => {
+  const { activeClinicId, activeClinic } = useClinic();
   const [name, setName] = useState('');
   const [age, setAge] = useState<number | ''>('');
   const [gender, setGender] = useState<'Male' | 'Female' | 'Other'>('Male');
@@ -25,6 +27,12 @@ export const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> =
   
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (doctors.length > 0 && (!doctorId || !doctors.find(d => d.id === doctorId))) {
+      setDoctorId(doctors[0].id);
+    }
+  }, [doctors, doctorId]);
 
   if (!isOpen) return null;
 
@@ -48,6 +56,7 @@ export const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> =
     setLoading(true);
     try {
       const token = await generateToken({
+        clinicId: activeClinicId,
         patientName: name.trim(),
         age: Number(age) || 25,
         gender,
@@ -84,12 +93,14 @@ export const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> =
             </div>
             <div>
               <h2 className="text-base font-bold">Register New Patient</h2>
-              <p className="text-xs text-slate-400">Generate Queue Token for Today</p>
+              <p className="text-xs text-slate-400">
+                Clinic: {activeClinic?.name || 'City Care Clinic'} ({activeClinicId})
+              </p>
             </div>
           </div>
           <button 
             onClick={onClose}
-            className="text-slate-400 hover:text-white p-1 rounded-lg"
+            className="text-slate-400 hover:text-white p-1 rounded-lg cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
@@ -216,7 +227,7 @@ export const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> =
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-700 rounded-xl hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
+              className="px-4 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-700 rounded-xl hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors cursor-pointer"
             >
               Cancel
             </button>

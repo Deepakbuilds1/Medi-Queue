@@ -1,48 +1,81 @@
 {
   "entities": {
-    "tokens": {
-      "title": "Tokens",
-      "description": "Clinic queue tokens",
+    "clinics": {
+      "title": "Clinics",
+      "description": "Registered clinic tenants",
       "type": "object",
       "properties": {
-        "tokenNumber": { "type": "string" },
-        "doctorId": { "type": "string" },
-        "doctorName": { "type": "string" },
-        "roomNumber": { "type": "string" },
-        "patientName": { "type": "string" },
-        "patientId": { "type": "string" },
-        "status": { "type": "string" },
+        "name": { "type": "string", "maxLength": 100 },
+        "slug": { "type": "string", "maxLength": 50 },
+        "logo": { "type": "string", "maxLength": 500 },
+        "address": { "type": "string", "maxLength": 250 },
+        "phone": { "type": "string", "maxLength": 50 },
+        "email": { "type": "string", "maxLength": 100 },
+        "tokenPrefix": { "type": "string", "maxLength": 5 },
+        "startingTokenNumber": { "type": "number" },
+        "status": { "type": "string", "enum": ["ACTIVE", "INACTIVE"] },
+        "adminEmail": { "type": "string", "maxLength": 100 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "status", "createdAt"]
+    },
+    "tokens": {
+      "title": "Tokens",
+      "description": "Clinic queue tokens scoped to tenant",
+      "type": "object",
+      "properties": {
+        "clinicId": { "type": "string", "maxLength": 64 },
+        "clinicName": { "type": "string", "maxLength": 100 },
+        "tokenNumber": { "type": "string", "maxLength": 20 },
+        "doctorId": { "type": "string", "maxLength": 64 },
+        "doctorName": { "type": "string", "maxLength": 100 },
+        "roomNumber": { "type": "string", "maxLength": 50 },
+        "patientName": { "type": "string", "maxLength": 100 },
+        "patientId": { "type": "string", "maxLength": 64 },
+        "userId": { "type": "string", "maxLength": 64 },
+        "patientPhone": { "type": "string", "maxLength": 30 },
+        "patientAge": { "type": "number" },
+        "patientGender": { "type": "string" },
+        "reason": { "type": "string", "maxLength": 200 },
+        "status": { "type": "string", "enum": ["WAITING", "CALLED", "IN CONSULTATION", "COMPLETED", "SKIPPED", "CANCELLED"] },
         "createdAt": { "type": "string", "format": "date-time" },
         "calledAt": { "type": "string", "format": "date-time" },
         "completedAt": { "type": "string", "format": "date-time" },
-        "queueDate": { "type": "string" }
+        "queueDate": { "type": "string", "maxLength": 15 }
       },
       "required": ["tokenNumber", "doctorId", "status", "createdAt"]
     },
     "doctors": {
       "title": "Doctors",
-      "description": "Clinic doctors",
+      "description": "Clinic doctors scoped to tenant",
       "type": "object",
       "properties": {
-        "name": { "type": "string" },
-        "specialization": { "type": "string" },
-        "roomNumber": { "type": "string" },
-        "tokenPrefix": { "type": "string" },
-        "status": { "type": "string" }
+        "clinicId": { "type": "string", "maxLength": 64 },
+        "name": { "type": "string", "maxLength": 100 },
+        "specialization": { "type": "string", "maxLength": 100 },
+        "roomNumber": { "type": "string", "maxLength": 50 },
+        "tokenPrefix": { "type": "string", "maxLength": 5 },
+        "status": { "type": "string", "enum": ["ACTIVE", "INACTIVE"] },
+        "createdAt": { "type": "string", "format": "date-time" }
       },
-      "required": ["name", "tokenPrefix"]
+      "required": ["name", "tokenPrefix", "status"]
     },
     "patients": {
       "title": "Patients",
-      "description": "Registered patients",
+      "description": "Registered patients scoped to tenant",
       "type": "object",
       "properties": {
-        "patientId": { "type": "string" },
-        "name": { "type": "string" },
+        "clinicId": { "type": "string", "maxLength": 64 },
+        "patientId": { "type": "string", "maxLength": 64 },
+        "userId": { "type": "string", "maxLength": 64 },
+        "name": { "type": "string", "maxLength": 100 },
         "age": { "type": "number" },
         "gender": { "type": "string" },
-        "phone": { "type": "string" },
-        "reason": { "type": "string" },
+        "phone": { "type": "string", "maxLength": 30 },
+        "reason": { "type": "string", "maxLength": 200 },
+        "lastVisit": { "type": "string", "maxLength": 20 },
+        "totalVisits": { "type": "number" },
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["name", "phone"]
@@ -52,14 +85,79 @@
       "description": "Clinic Settings",
       "type": "object",
       "properties": {
-        "clinicName": { "type": "string" },
-        "clinicLogo": { "type": "string" },
-        "clinicAddress": { "type": "string" },
-        "phone": { "type": "string" },
-        "email": { "type": "string" },
-        "tokenPrefix": { "type": "string" },
+        "clinicId": { "type": "string", "maxLength": 64 },
+        "clinicName": { "type": "string", "maxLength": 100 },
+        "clinicLogo": { "type": "string", "maxLength": 500 },
+        "clinicAddress": { "type": "string", "maxLength": 250 },
+        "phone": { "type": "string", "maxLength": 50 },
+        "email": { "type": "string", "maxLength": 100 },
+        "tokenPrefix": { "type": "string", "maxLength": 5 },
         "startingTokenNumber": { "type": "number" }
       }
+    },
+    "users": {
+      "title": "Users",
+      "description": "User profiles and RBAC permissions",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "maxLength": 64 },
+        "email": { "type": "string", "maxLength": 100 },
+        "name": { "type": "string", "maxLength": 100 },
+        "phone": { "type": "string", "maxLength": 30 },
+        "age": { "type": "number" },
+        "gender": { "type": "string" },
+        "role": { "type": "string", "enum": ["SUPER_ADMIN", "CLINIC_ADMIN", "DOCTOR", "RECEPTIONIST", "patient", "admin"] },
+        "clinicId": { "type": "string", "maxLength": 64 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["email", "name", "role"]
+    },
+    "auditLogs": {
+      "title": "Audit Logs",
+      "description": "System and administrative action audit logs",
+      "type": "object",
+      "properties": {
+        "actorUid": { "type": "string", "maxLength": 64 },
+        "actorEmail": { "type": "string", "maxLength": 100 },
+        "actorRole": { "type": "string", "maxLength": 50 },
+        "action": { "type": "string", "maxLength": 100 },
+        "clinicId": { "type": "string", "maxLength": 64 },
+        "clinicName": { "type": "string", "maxLength": 100 },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "details": { "type": "object" }
+      },
+      "required": ["action", "timestamp"]
+    }
+  },
+  "firestore": {
+    "/clinics/{clinicId}": {
+      "schema": "clinics",
+      "description": "Clinic documents and metadata"
+    },
+    "/clinics/{clinicId}/tokens/{tokenId}": {
+      "schema": "tokens",
+      "description": "Tenant-isolated tokens subcollection"
+    },
+    "/clinics/{clinicId}/doctors/{doctorId}": {
+      "schema": "doctors",
+      "description": "Tenant-isolated doctors subcollection"
+    },
+    "/clinics/{clinicId}/patients/{patientId}": {
+      "schema": "patients",
+      "description": "Tenant-isolated patients subcollection"
+    },
+    "/clinics/{clinicId}/settings/{settingId}": {
+      "schema": "settings",
+      "description": "Tenant settings subcollection"
+    },
+    "/users/{userId}": {
+      "schema": "users",
+      "description": "Global user accounts with roles"
+    },
+    "/auditLogs/{logId}": {
+      "schema": "auditLogs",
+      "description": "Global audit logs collection"
     }
   }
 }

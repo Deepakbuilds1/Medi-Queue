@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { UserCheck, Stethoscope, PlusCircle, CheckCircle2, AlertCircle, Sparkles, User, Phone, LogIn } from 'lucide-react';
+import { PlusCircle, CheckCircle2, AlertCircle, Sparkles, User, LogIn, Building2 } from 'lucide-react';
 import { Doctor, QueueToken } from '../../types';
 import { subscribeDoctors, generateToken } from '../../services/clinicService';
 import { useAuth } from '../../context/AuthContext';
+import { useClinic } from '../../context/ClinicContext';
 import { PatientAuthModal } from './PatientAuthModal';
 
 interface BookTokenSectionProps {
@@ -11,6 +12,7 @@ interface BookTokenSectionProps {
 
 export const BookTokenSection: React.FC<BookTokenSectionProps> = ({ onTokenGenerated }) => {
   const { user, userProfile } = useAuth();
+  const { activeClinicId, activeClinic, clinics, switchClinic } = useClinic();
   
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [selectedDoctorId, setSelectedDoctorId] = useState<string>('');
@@ -27,15 +29,16 @@ export const BookTokenSection: React.FC<BookTokenSectionProps> = ({ onTokenGener
   const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
 
   useEffect(() => {
-    const unsub = subscribeDoctors((docList) => {
+    setSelectedDoctorId('');
+    const unsub = subscribeDoctors(activeClinicId, (docList) => {
       const active = docList.filter(d => d.status === 'ACTIVE');
       setDoctors(active);
-      if (active.length > 0 && !selectedDoctorId) {
+      if (active.length > 0) {
         setSelectedDoctorId(active[0].id);
       }
     });
     return () => unsub();
-  }, []);
+  }, [activeClinicId]);
 
   // Sync state when userProfile loads or changes
   useEffect(() => {
@@ -70,6 +73,7 @@ export const BookTokenSection: React.FC<BookTokenSectionProps> = ({ onTokenGener
     setLoading(true);
     try {
       const newToken = await generateToken({
+        clinicId: activeClinicId,
         patientName: name.trim(),
         phone: phone.trim(),
         age: Number(age),
@@ -94,7 +98,7 @@ export const BookTokenSection: React.FC<BookTokenSectionProps> = ({ onTokenGener
   return (
     <div className="bg-white rounded-2xl border border-slate-200 shadow-md p-6 space-y-5">
       
-      <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-3">
         <div className="flex items-center gap-2">
           <div className="p-2 bg-teal-50 text-teal-600 rounded-xl">
             <PlusCircle className="w-5 h-5" />
@@ -108,6 +112,29 @@ export const BookTokenSection: React.FC<BookTokenSectionProps> = ({ onTokenGener
             </p>
           </div>
         </div>
+
+        {/* Clinic Display / Selector */}
+        {user && (userProfile?.role === 'PATIENT' || userProfile?.role === 'patient') ? (
+          <div className="flex items-center gap-1.5 bg-teal-50 px-3 py-1.5 rounded-xl border border-teal-200">
+            <Building2 className="w-3.5 h-3.5 text-teal-700" />
+            <span className="text-xs font-extrabold text-teal-900">
+              {activeClinic?.name || userProfile?.clinicName || 'Registered Clinic'}
+            </span>
+          </div>
+        ) : clinics.length > 1 ? (
+          <div className="flex items-center gap-1.5 bg-slate-50 px-2.5 py-1 rounded-xl border border-slate-200">
+            <Building2 className="w-3.5 h-3.5 text-teal-600" />
+            <select
+              value={activeClinicId}
+              onChange={(e) => switchClinic(e.target.value)}
+              className="bg-transparent text-xs font-bold text-slate-800 focus:outline-none cursor-pointer"
+            >
+              {clinics.map(c => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
+          </div>
+        ) : null}
 
         {!user && (
           <button
@@ -133,11 +160,11 @@ export const BookTokenSection: React.FC<BookTokenSectionProps> = ({ onTokenGener
         {/* 1. Doctor Selection */}
         <div>
           <label className="block text-[11px] font-bold text-slate-600 uppercase mb-1.5">
-            1. Select Consulting Doctor *
+            1. Select Consulting Doctor at {activeClinic?.name || 'Clinic'} *
           </label>
           {doctors.length === 0 ? (
             <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-400 italic">
-              Loading available clinic doctors...
+              No doctors currently available in this clinic.
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
@@ -249,7 +276,7 @@ export const BookTokenSection: React.FC<BookTokenSectionProps> = ({ onTokenGener
         {/* Submit Action */}
         <button
           type="submit"
-          disabled={loading}
+          disabled={loading || !selectedDoctorId}
           className="w-full py-3.5 bg-teal-600 hover:bg-teal-700 active:bg-teal-800 text-white font-extrabold text-sm rounded-xl shadow-lg shadow-teal-600/20 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
         >
           <Sparkles className="w-4 h-4 text-amber-300" />

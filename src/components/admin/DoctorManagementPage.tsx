@@ -1,13 +1,15 @@
 import React, { useState } from 'react';
-import { Stethoscope, Plus, Edit, ToggleLeft, ToggleRight, Building2, UserCheck, UserX, X } from 'lucide-react';
+import { Stethoscope, Plus, Edit, UserCheck, UserX, X, Building2 } from 'lucide-react';
 import { Doctor } from '../../types';
 import { addDoctor, updateDoctor } from '../../services/clinicService';
+import { useClinic } from '../../context/ClinicContext';
 
 interface DoctorManagementPageProps {
   doctors: Doctor[];
 }
 
 export const DoctorManagementPage: React.FC<DoctorManagementPageProps> = ({ doctors }) => {
+  const { activeClinicId, activeClinic } = useClinic();
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingDoctor, setEditingDoctor] = useState<Doctor | null>(null);
 
@@ -22,8 +24,7 @@ export const DoctorManagementPage: React.FC<DoctorManagementPageProps> = ({ doct
     setName('');
     setSpecialization('');
     setRoomNumber(`Room ${doctors.length + 1}`);
-    // Auto increment prefix character
-    const nextPrefixChar = String.fromCharCode(65 + doctors.length);
+    const nextPrefixChar = String.fromCharCode(65 + (doctors.length % 26));
     setTokenPrefix(nextPrefixChar);
     setShowAddModal(true);
   };
@@ -41,7 +42,7 @@ export const DoctorManagementPage: React.FC<DoctorManagementPageProps> = ({ doct
     if (!name.trim()) return;
     setSaving(true);
     try {
-      await addDoctor({
+      await addDoctor(activeClinicId, {
         name: name.trim(),
         specialization: specialization.trim() || 'General Practitioner',
         roomNumber: roomNumber.trim() || 'Room 1',
@@ -61,7 +62,7 @@ export const DoctorManagementPage: React.FC<DoctorManagementPageProps> = ({ doct
     if (!editingDoctor) return;
     setSaving(true);
     try {
-      await updateDoctor(editingDoctor.id, {
+      await updateDoctor(activeClinicId, editingDoctor.id, {
         name,
         specialization,
         roomNumber,
@@ -77,7 +78,7 @@ export const DoctorManagementPage: React.FC<DoctorManagementPageProps> = ({ doct
 
   const handleToggleStatus = async (doctor: Doctor) => {
     const newStatus = doctor.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
-    await updateDoctor(doctor.id, { status: newStatus });
+    await updateDoctor(activeClinicId, doctor.id, { status: newStatus });
   };
 
   return (
@@ -90,7 +91,9 @@ export const DoctorManagementPage: React.FC<DoctorManagementPageProps> = ({ doct
             <Stethoscope className="w-5 h-5" />
           </div>
           <div>
-            <h2 className="text-base font-bold text-slate-900 dark:text-white">Doctor & Room Directory</h2>
+            <h2 className="text-base font-bold text-slate-900 dark:text-white">
+              Doctor Directory ({activeClinic?.name || 'City Care Clinic'})
+            </h2>
             <p className="text-xs text-slate-500">Configure Doctor Profiles, Rooms, and Token Prefix Assignments</p>
           </div>
         </div>
@@ -182,7 +185,7 @@ export const DoctorManagementPage: React.FC<DoctorManagementPageProps> = ({ doct
               </h3>
               <button 
                 onClick={() => { setShowAddModal(false); setEditingDoctor(null); }}
-                className="text-slate-400 hover:text-white"
+                className="text-slate-400 hover:text-white cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -241,14 +244,14 @@ export const DoctorManagementPage: React.FC<DoctorManagementPageProps> = ({ doct
                 <button
                   type="button"
                   onClick={() => { setShowAddModal(false); setEditingDoctor(null); }}
-                  className="px-3.5 py-2 bg-slate-100 dark:bg-slate-700 text-xs font-semibold rounded-lg"
+                  className="px-3.5 py-2 bg-slate-100 dark:bg-slate-700 text-xs font-semibold rounded-lg cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={saving}
-                  className="px-4 py-2 bg-blue-600 text-white font-bold text-xs rounded-lg hover:bg-blue-500 shadow-xs"
+                  className="px-4 py-2 bg-blue-600 text-white font-bold text-xs rounded-lg hover:bg-blue-500 shadow-xs cursor-pointer"
                 >
                   {saving ? 'Saving...' : 'Save Doctor Profile'}
                 </button>

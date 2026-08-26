@@ -1,24 +1,40 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Settings as SettingsIcon, Building2, Phone, Mail, MapPin, Hash, Image, Save, CheckCircle2 } from 'lucide-react';
 import { ClinicSettings } from '../../types';
 import { updateSettings } from '../../services/clinicService';
+import { useClinic } from '../../context/ClinicContext';
 
 interface SettingsPageProps {
   settings: ClinicSettings | null;
 }
 
 export const SettingsPage: React.FC<SettingsPageProps> = ({ settings }) => {
-  const [clinicName, setClinicName] = useState(settings?.clinicName || 'CITY CARE CLINIC');
-  const [clinicLogo, setClinicLogo] = useState(settings?.clinicLogo || 'https://images.unsplash.com/photo-1629909613654-28e377c37b09?w=150&auto=format&fit=crop&q=80');
-  const [clinicAddress, setClinicAddress] = useState(settings?.clinicAddress || '123 Healthcare Boulevard, Medical District');
-  const [phone, setPhone] = useState(settings?.phone || '+1 (800) 555-0199');
-  const [email, setEmail] = useState(settings?.email || 'gdeepak4689@gmail.com');
-  const [tokenPrefix, setTokenPrefix] = useState(settings?.tokenPrefix || 'A');
-  const [startingTokenNumber, setStartingTokenNumber] = useState(settings?.startingTokenNumber || 1);
-  const [enableSound, setEnableSound] = useState(settings?.tokenDisplaySettings?.enableSound ?? true);
+  const { activeClinicId, activeClinic, editClinic } = useClinic();
+
+  const [clinicName, setClinicName] = useState(activeClinic?.name || settings?.clinicName || 'CITY CARE CLINIC');
+  const [clinicLogo, setClinicLogo] = useState(activeClinic?.logo || settings?.clinicLogo || 'https://images.unsplash.com/photo-1629909613654-28e377c37b09?w=150&auto=format&fit=crop&q=80');
+  const [clinicAddress, setClinicAddress] = useState(activeClinic?.address || settings?.clinicAddress || '123 Healthcare Boulevard, Medical District');
+  const [phone, setPhone] = useState(activeClinic?.phone || settings?.phone || '+1 (800) 555-0199');
+  const [email, setEmail] = useState(activeClinic?.email || settings?.email || 'gdeepak4689@gmail.com');
+  const [tokenPrefix, setTokenPrefix] = useState(activeClinic?.tokenPrefix || settings?.tokenPrefix || 'A');
+  const [startingTokenNumber, setStartingTokenNumber] = useState(activeClinic?.startingTokenNumber || settings?.startingTokenNumber || 1);
+  const [enableSound, setEnableSound] = useState(activeClinic?.tokenDisplaySettings?.enableSound ?? true);
 
   const [saving, setSaving] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
+
+  useEffect(() => {
+    if (activeClinic) {
+      setClinicName(activeClinic.name);
+      setClinicLogo(activeClinic.logo || '');
+      setClinicAddress(activeClinic.address || '');
+      setPhone(activeClinic.phone || '');
+      setEmail(activeClinic.email || '');
+      setTokenPrefix(activeClinic.tokenPrefix || 'A');
+      setStartingTokenNumber(activeClinic.startingTokenNumber || 1);
+      setEnableSound(activeClinic.tokenDisplaySettings?.enableSound ?? true);
+    }
+  }, [activeClinic]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -26,7 +42,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ settings }) => {
     setSavedSuccess(false);
 
     try {
-      await updateSettings({
+      await updateSettings(activeClinicId, {
         clinicName,
         clinicLogo,
         clinicAddress,
@@ -39,6 +55,15 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ settings }) => {
           autoRefreshInterval: 5,
           announcementVoice: true
         }
+      });
+      await editClinic(activeClinicId, {
+        name: clinicName,
+        logo: clinicLogo,
+        address: clinicAddress,
+        phone,
+        email,
+        tokenPrefix: tokenPrefix.toUpperCase(),
+        startingTokenNumber: Number(startingTokenNumber)
       });
       setSavedSuccess(true);
       setTimeout(() => setSavedSuccess(false), 3000);
@@ -59,8 +84,10 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ settings }) => {
             <SettingsIcon className="w-5 h-5" />
           </div>
           <div>
-            <h2 className="text-base font-bold text-slate-900 dark:text-white">Clinic Configuration Settings</h2>
-            <p className="text-xs text-slate-500">Update Profile Details, Logo & Token Generation Rules</p>
+            <h2 className="text-base font-bold text-slate-900 dark:text-white">
+              Clinic Configuration ({activeClinic?.name || 'City Care Clinic'})
+            </h2>
+            <p className="text-xs text-slate-500">Update Profile Details, Logo & Token Generation Rules • Scoped to /clinics/{activeClinicId}</p>
           </div>
         </div>
       </div>

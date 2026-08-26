@@ -1,36 +1,192 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Clinic Settings - Public read, authenticated write
-    match /settings/{docId} {
-      allow read: if true;
-      allow write: if request.auth != null;
+
+    // Default deny all documents unless explicitly permitted
+    match /{document=**} {
+      allow read, write: if false;
     }
 
-    // Doctors - Public read, authenticated write
-    match /doctors/{doctorId} {
-      allow read: if true;
-      allow write: if request.auth != null;
+    // -------------------------------------------------------------
+    // Helper Functions for RBAC & Multi-Tenant Isolation
+    // -------------------------------------------------------------
+    function isSignedIn() {
+      return request.auth != null;
     }
 
-    // Tokens - Public read & creation, authenticated update/delete
-    match /tokens/{tokenId} {
-      allow read: if true;
-      allow create: if true;
-      allow update, delete: if request.auth != null;
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
     }
 
-    // Patients - Public read & creation, authenticated update/delete
-    match /patients/{patientId} {
-      allow read: if true;
-      allow create, update: if true;
-      allow delete: if request.auth != null;
+    function hasUserDoc() {
+      return isSignedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid));
     }
 
-    // Users - Authenticated user access
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    // Super Admin: either matching primary admin email or user document role == 'SUPER_ADMIN'
+    function isSuperAdmin() {
+      return isSignedIn() && (
+        request.auth.token.email == 'gdeepak4689@gmail.com' ||
+        request.auth.token.email == 'superadmin@mediqueue.internal' ||
+        (hasUserDoc() && getUserData().role == 'SUPER_ADMIN')
+      );
+    }
+
+    // Check if the signed-in user belongs to or has access to the clinicId
+    function isUserInClinic(clinicId) {
+      return isSuperAdmin() || (
+        hasUserDoc() && (
+          getUserData().clinicId == clinicId ||
+          ('clinicIds' in getUserData() && clinicId in getUserData().clinicIds) ||
+          ('accessibleClinicIds' in getUserData() && clinicId in getUserData().accessibleClinicIds)
+        )
+      );
+    }
+
+    // Clinic Staff: Super Admin, Clinic Admin, Doctor, Receptionist assigned to the tenant
+    function isClinicStaff(clinicId) {
+      return isSuperAdmin() || (
+        isUserInClinic(clinicId) &&
+        hasUserDoc() &&
+        getUserData().role in ['SUPER_ADMIN', 'CLINIC_ADMIN', 'admin', 'DOCTOR', 'RECEPTIONIST']
+      );
+    }
+
+    // Clinic Admin: Super Admin or Tenant Admin
+    function isClinicAdmin(clinicId) {
+      return isSuperAdmin() || (
+        isUserInClinic(clinicId) &&
+        hasUserDoc() &&
+        getUserData().role in ['SUPER_ADMIN', 'CLINIC_ADMIN', 'admin']
+      );
+    }
+
+    // -------------------------------------------------------------
+    // 1. Clinics Collection & Isolated Tenant Subcollections
+    // -------------------------------------------------------------
+    match /clinics/{clinicId} {
+      // Clinic profile metadata is publicly readable for patient portal & TV display
+      allow read: if true;
+      
+      // Only Super Admin can create or delete clinics; Clinic Admin can update their clinic
+      allow create, delete: if isSuperAdmin();
+      allow update: if isClinicAdmin(clinicId);
+
+      // --- Tokens Subcollection: /clinics/{clinicId}/tokens/{tokenId} ---
+      match /tokens/{tokenId} {
+        // Publicly readable for Patient Queue boards & live status checks
+        allow read: if true;
+        
+        // Anyone (patient or receptionist) can generate a queue token
+        allow create: if true;
+        
+        // Staff of this clinic or the patient owner who booked the token can update
+        allow update: if isClinicStaff(clinicId) || (
+          isSignedIn() && 
+          resource.data.userId == request.auth.uid
+        );
+        
+        // Only Clinic Staff or Super Admin can delete/cancel tokens
+        allow delete: if isClinicStaff(clinicId);
+      }
+
+      // --- Doctors Subcollection: /clinics/{clinicId}/doctors/{doctorId} ---
+      match /doctors/{doctorId} {
+        // Publicly readable for patient booking & room assignment displays
+        allow read: if true;
+        
+        // Only Clinic Staff or Super Admin can manage doctors for this tenant
+        allow write: if isClinicStaff(clinicId);
+      }
+
+      // --- Patients Subcollection: /clinics/{clinicId}/patients/{patientId} ---
+      match /patients/{patientId} {
+        // Clinic staff can read all patients; Patients can read their own record
+        allow read: if isClinicStaff(clinicId) || (
+          isSignedIn() && (
+            (resource.data.userId == request.auth.uid) ||
+            (request.auth.uid == patientId)
+          )
+        );
+        
+        // Clinic staff or registered patients can create patient records
+        allow create: if isClinicStaff(clinicId) || isSignedIn();
+        
+        // Clinic staff or the patient owner can update their info
+        allow update: if isClinicStaff(clinicId) || (
+          isSignedIn() && (
+            (resource.data.userId == request.auth.uid) ||
+            (request.auth.uid == patientId)
+          )
+        );
+        
+        // Only Clinic Staff or Super Admin can delete patient records
+        allow delete: if isClinicStaff(clinicId);
+      }
+
+      // --- Staff Subcollection: /clinics/{clinicId}/staff/{staffId} ---
+      match /staff/{staffId} {
+        allow read: if isClinicStaff(clinicId);
+        allow write: if isClinicAdmin(clinicId);
+      }
+
+      // --- Settings Subcollection: /clinics/{clinicId}/settings/{settingId} ---
+      match /settings/{settingId} {
+        allow read: if true;
+        allow write: if isClinicAdmin(clinicId);
+      }
+
+      // --- Counters Subcollection: /clinics/{clinicId}/counters/{counterId} ---
+      match /counters/{counterId} {
+        allow read, write: if true;
+      }
+    }
+
+    // -------------------------------------------------------------
+    // 2. Global Users Collection: /users/{userId}
+    // -------------------------------------------------------------
     match /users/{userId} {
-      allow read: if true;
-      allow write: if request.auth != null && request.auth.uid == userId;
+      // User can read their own profile; Super Admin can read all; Staff can read in-clinic users
+      allow read: if isOwner(userId) || isSuperAdmin() || (
+        isSignedIn() && hasUserDoc() && isClinicStaff(resource.data.clinicId)
+      );
+
+      // User can create their own profile (cannot self-assign SUPER_ADMIN); Super Admin can create any profile
+      allow create: if isSuperAdmin() || (
+        isOwner(userId) && request.resource.data.role != 'SUPER_ADMIN'
+      );
+
+      // Super Admin can update any profile;
+      // User can update their own profile without escalating role or changing clinic assignments;
+      // Clinic Admin can update staff roles for their assigned clinic (cannot grant SUPER_ADMIN)
+      allow update: if isSuperAdmin() || (
+        isOwner(userId) && 
+        request.resource.data.role == resource.data.role &&
+        request.resource.data.role != 'SUPER_ADMIN'
+      ) || (
+        isSignedIn() && hasUserDoc() && isClinicAdmin(resource.data.clinicId) &&
+        request.resource.data.role != 'SUPER_ADMIN'
+      );
+
+      // Only Super Admin can delete users
+      allow delete: if isSuperAdmin();
+    }
+
+    // -------------------------------------------------------------
+    // 3. Global Audit Logs Collection: /auditLogs/{logId}
+    // -------------------------------------------------------------
+    match /auditLogs/{logId} {
+      // Super Admin has authorized global access; Clinic staff can only read logs scoped to their authorized clinic
+      allow read: if isSuperAdmin() || (
+        isSignedIn() && hasUserDoc() && isClinicStaff(resource.data.clinicId)
+      );
+      // Only authenticated users or Super Admin can create audit records
+      allow create: if isSuperAdmin() || isSignedIn();
+      // Only Super Admin can update or purge audit logs
+      allow update, delete: if isSuperAdmin();
     }
   }
 }

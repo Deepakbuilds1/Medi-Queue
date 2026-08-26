@@ -1,18 +1,23 @@
 import React, { useState, useEffect } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { ClinicProvider, useClinic } from './context/ClinicContext';
 import { AdminLayout } from './components/admin/AdminLayout';
 import { AdminLogin } from './components/admin/AdminLogin';
+import { SuperAdminLogin } from './components/admin/SuperAdminLogin';
 import { AdminDashboard } from './components/admin/AdminDashboard';
 import { TokenQueuePage } from './components/admin/TokenQueuePage';
 import { PatientListPage } from './components/admin/PatientListPage';
 import { DoctorManagementPage } from './components/admin/DoctorManagementPage';
 import { ReportsPage } from './components/admin/ReportsPage';
 import { SettingsPage } from './components/admin/SettingsPage';
+import { SuperAdminDashboard } from './components/admin/SuperAdminDashboard';
 import { PatientRegistrationModal } from './components/admin/PatientRegistrationModal';
 import { TokenReceiptModal } from './components/common/TokenReceiptModal';
 import { PatientPortal } from './components/patient/PatientPortal';
 import { PublicDisplay } from './components/display/PublicDisplay';
+import { ErrorBoundary } from './components/common/ErrorBoundary';
 import { WifiOff, RefreshCw } from 'lucide-react';
+import { auth } from './lib/firebase';
 import { 
   ClinicSettings, 
   Doctor, 
@@ -28,12 +33,13 @@ import {
 } from './services/clinicService';
 
 const MainAppContent: React.FC = () => {
-  const { user, loading: authLoading } = useAuth();
+  const { user, userProfile, loading: authLoading, authReady, isSuperAdmin, isClinicAdmin, userRole } = useAuth();
+  const { activeClinicId, activeClinic, switchClinic } = useClinic();
 
   // Navigation State: default view is '/admin/dashboard'
-  const [currentPath, setCurrentPath] = useState<string>(window.location.pathname || '/admin/dashboard');
+  const [currentPath, setCurrentPath] = useState<string>(() => window.location.pathname || '/admin/dashboard');
 
-  // Real-time Firestore State
+  // Real-time Firestore State (strictly tenant scoped)
   const [settings, setSettings] = useState<ClinicSettings | null>(null);
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [patients, setPatients] = useState<Patient[]>([]);
@@ -46,14 +52,27 @@ const MainAppContent: React.FC = () => {
   const [isPatientRegOpen, setIsPatientRegOpen] = useState(false);
   const [generatedToken, setGeneratedToken] = useState<QueueToken | null>(null);
 
-  // Subscribe to Firestore Realtime Data safely
+  // Subscribe to Firestore Realtime Data strictly scoped to activeClinicId
   useEffect(() => {
-    // Public subscriptions for basic clinic configuration
+    // Guard against uninitialized auth state and uninitialized clinicId
+    if (authLoading || !authReady || !activeClinicId || typeof activeClinicId !== 'string' || !activeClinicId.trim()) {
+      return;
+    }
+
+    // Reset previous clinic tenant data to prevent data leakage during transition
+    setDoctors([]);
+    setPatients([]);
+    setTokens([]);
+    setConnectionError(null);
+
+    // Public subscriptions for basic clinic configuration (scoped to validated activeClinicId)
     const unsubSettings = subscribeSettings(
+      activeClinicId,
       (s) => setSettings(s),
       (err) => setConnectionError(err)
     );
     const unsubDoctors = subscribeDoctors(
+      activeClinicId,
       (d) => setDoctors(d),
       (err) => setConnectionError(err)
     );
@@ -61,19 +80,25 @@ const MainAppContent: React.FC = () => {
     let unsubPatients: (() => void) | null = null;
     let unsubTokens: (() => void) | null = null;
 
-    // Do NOT start admin Firestore listeners before Firebase Auth has confirmed the user
-    if (user && !authLoading) {
-      unsubPatients = subscribePatients(
-        (p) => setPatients(p),
-        (err) => setConnectionError(err)
-      );
+    // Only start protected clinic data subscriptions once user session is stabilized and authenticated
+    if ((user || isSuperAdmin) && !authLoading && authReady && auth.currentUser) {
+      const isStaff = isSuperAdmin || isClinicAdmin || userRole === 'DOCTOR' || userRole === 'RECEPTIONIST';
+      
+      // Patient directory listener is exclusively for authorized staff
+      if (isStaff) {
+        unsubPatients = subscribePatients(
+          activeClinicId,
+          (p) => setPatients(p),
+          (err) => setConnectionError(err)
+        );
+      }
+
+      // Today's token queue listener
       unsubTokens = subscribeTodayTokens(
+        activeClinicId,
         (t) => setTokens(t),
         (err) => setConnectionError(err)
       );
-    } else {
-      setPatients([]);
-      setTokens([]);
     }
 
     return () => {
@@ -82,7 +107,7 @@ const MainAppContent: React.FC = () => {
       if (unsubPatients) unsubPatients();
       if (unsubTokens) unsubTokens();
     };
-  }, [user, authLoading]);
+  }, [user, authLoading, authReady, userProfile, isSuperAdmin, isClinicAdmin, userRole, activeClinicId]);
 
   // Listen for browser popstate
   useEffect(() => {
@@ -121,7 +146,20 @@ const MainAppContent: React.FC = () => {
           </div>
         )}
         <PatientPortal
-          settings={settings}
+          settings={settings || activeClinic ? {
+            clinicName: activeClinic?.name || 'CITY CARE CLINIC',
+            clinicLogo: activeClinic?.logo || '',
+            clinicAddress: activeClinic?.address || '',
+            phone: activeClinic?.phone || '',
+            email: activeClinic?.email || '',
+            tokenPrefix: activeClinic?.tokenPrefix || 'A',
+            startingTokenNumber: activeClinic?.startingTokenNumber || 1,
+            tokenDisplaySettings: activeClinic?.tokenDisplaySettings || {
+              enableSound: true,
+              autoRefreshInterval: 5,
+              announcementVoice: true
+            }
+          } : null}
           onNavigateToAdminLogin={() => navigate('/admin/login')}
           onNavigateToPublicDisplay={() => navigate('/display')}
         />
@@ -141,31 +179,80 @@ const MainAppContent: React.FC = () => {
           </div>
         )}
         <PublicDisplay
-          settings={settings}
+          settings={settings || activeClinic ? {
+            clinicName: activeClinic?.name || 'CITY CARE CLINIC',
+            clinicLogo: activeClinic?.logo || '',
+            clinicAddress: activeClinic?.address || '',
+            phone: activeClinic?.phone || '',
+            email: activeClinic?.email || '',
+            tokenPrefix: activeClinic?.tokenPrefix || 'A',
+            startingTokenNumber: activeClinic?.startingTokenNumber || 1,
+            tokenDisplaySettings: activeClinic?.tokenDisplaySettings || {
+              enableSound: true,
+              autoRefreshInterval: 5,
+              announcementVoice: true
+            }
+          } : null}
           onNavigateBack={() => navigate('/patient')}
         />
       </>
     );
   }
 
-  // 3. ADMIN LOGIN ROUTE (or unauthenticated fallback for /admin/*)
-  if (!user || currentPath === '/admin/login') {
+  // 3. SUPER ADMIN PIN-ONLY LOGIN ROUTE (/super-admin/login)
+  if (currentPath === '/super-admin/login' || (currentPath.startsWith('/super-admin') && !isSuperAdmin)) {
     return (
-      <AdminLogin
-        settings={settings}
-        onLoginSuccess={() => navigate('/admin/dashboard')}
+      <SuperAdminLogin
+        onLoginSuccess={() => navigate('/admin/super-admin')}
+        onNavigateToClinicAdmin={() => navigate('/admin/login')}
         onNavigateToPatientPortal={() => navigate('/patient')}
       />
     );
   }
 
-  // Normalize route for admin layout
+  // 4. CLINIC ADMIN LOGIN ROUTE (or unauthenticated fallback for /admin/*)
+  if ((!user && !isSuperAdmin) || currentPath === '/admin/login') {
+    return (
+      <AdminLogin
+        settings={settings || activeClinic ? {
+          clinicName: activeClinic?.name || 'CITY CARE CLINIC',
+          clinicLogo: activeClinic?.logo || '',
+          clinicAddress: activeClinic?.address || '',
+          phone: activeClinic?.phone || '',
+          email: activeClinic?.email || '',
+          tokenPrefix: activeClinic?.tokenPrefix || 'A',
+          startingTokenNumber: activeClinic?.startingTokenNumber || 1,
+          tokenDisplaySettings: activeClinic?.tokenDisplaySettings || {
+            enableSound: true,
+            autoRefreshInterval: 5,
+            announcementVoice: true
+          }
+        } : null}
+        onLoginSuccess={() => navigate('/admin/dashboard')}
+        onNavigateToPatientPortal={() => navigate('/patient')}
+        onNavigateToSuperAdmin={() => navigate('/super-admin/login')}
+      />
+    );
+  }
+
+  // 5. NORMALIZE ROUTE FOR ADMIN LAYOUT
   let adminRoute: AdminRoute = '/admin/dashboard';
-  if (currentPath.startsWith('/admin/patients')) adminRoute = '/admin/patients';
-  else if (currentPath.startsWith('/admin/tokens')) adminRoute = '/admin/tokens';
-  else if (currentPath.startsWith('/admin/doctors')) adminRoute = '/admin/doctors';
-  else if (currentPath.startsWith('/admin/reports')) adminRoute = '/admin/reports';
-  else if (currentPath.startsWith('/admin/settings')) adminRoute = '/admin/settings';
+  if ((currentPath.startsWith('/admin/super-admin') || currentPath.startsWith('/super-admin')) && isSuperAdmin) {
+    adminRoute = '/admin/super-admin';
+  } else if (currentPath.startsWith('/admin/patients')) {
+    adminRoute = '/admin/patients';
+  } else if (currentPath.startsWith('/admin/tokens')) {
+    adminRoute = '/admin/tokens';
+  } else if (currentPath.startsWith('/admin/doctors')) {
+    adminRoute = '/admin/doctors';
+  } else if (currentPath.startsWith('/admin/reports')) {
+    adminRoute = '/admin/reports';
+  } else if (currentPath.startsWith('/admin/settings')) {
+    adminRoute = '/admin/settings';
+  } else if (currentPath.startsWith('/admin/super-admin') && !isSuperAdmin) {
+    // Prevent non-super admins from opening Super Admin route
+    adminRoute = '/admin/dashboard';
+  }
 
   return (
     <div className="relative">
@@ -180,12 +267,38 @@ const MainAppContent: React.FC = () => {
       <AdminLayout
         currentRoute={adminRoute}
         onRouteChange={(route) => navigate(route)}
-        settings={settings}
+        settings={settings || activeClinic ? {
+          clinicName: activeClinic?.name || 'CITY CARE CLINIC',
+          clinicLogo: activeClinic?.logo || '',
+          clinicAddress: activeClinic?.address || '',
+          phone: activeClinic?.phone || '',
+          email: activeClinic?.email || '',
+          tokenPrefix: activeClinic?.tokenPrefix || 'A',
+          startingTokenNumber: activeClinic?.startingTokenNumber || 1,
+          tokenDisplaySettings: activeClinic?.tokenDisplaySettings || {
+            enableSound: true,
+            autoRefreshInterval: 5,
+            announcementVoice: true
+          }
+        } : null}
         onOpenPatientRegistration={() => setIsPatientRegOpen(true)}
         onNavigateToPatientPortal={() => navigate('/patient')}
         onNavigateToPublicDisplay={() => navigate('/display')}
       >
-        {/* Admin Route View Switcher */}
+        {/* Super Admin Dashboard Route (Strictly Protected) */}
+        {adminRoute === '/admin/super-admin' && isSuperAdmin && (
+          <SuperAdminDashboard
+            currentTokens={tokens}
+            currentDoctors={doctors}
+            currentPatients={patients}
+            onSwitchClinicAndNavigate={(targetClinicId) => {
+              switchClinic(targetClinicId);
+              navigate('/admin/dashboard');
+            }}
+          />
+        )}
+
+        {/* Regular Admin Dashboard Route */}
         {adminRoute === '/admin/dashboard' && (
           <AdminDashboard
             tokens={tokens}
@@ -241,8 +354,8 @@ const MainAppContent: React.FC = () => {
         <TokenReceiptModal
           isOpen={!!generatedToken}
           token={generatedToken}
-          clinicName={settings?.clinicName}
-          clinicLogo={settings?.clinicLogo}
+          clinicName={activeClinic?.name || settings?.clinicName}
+          clinicLogo={activeClinic?.logo || settings?.clinicLogo}
           onClose={() => setGeneratedToken(null)}
         />
 
@@ -253,9 +366,13 @@ const MainAppContent: React.FC = () => {
 
 export function App() {
   return (
-    <AuthProvider>
-      <MainAppContent />
-    </AuthProvider>
+    <ErrorBoundary>
+      <AuthProvider>
+        <ClinicProvider>
+          <MainAppContent />
+        </ClinicProvider>
+      </AuthProvider>
+    </ErrorBoundary>
   );
 }
 

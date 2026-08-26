@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Volume2, Building2, Monitor, ArrowLeft, Clock } from 'lucide-react';
+import { Volume2, Building2, Monitor, ArrowLeft } from 'lucide-react';
 import { ClinicSettings, QueueToken } from '../../types';
 import { subscribePublicQueue } from '../../services/clinicService';
 import { playTokenCallSound } from '../../lib/sound';
+import { useClinic } from '../../context/ClinicContext';
 
 interface PublicDisplayProps {
   settings: ClinicSettings | null;
@@ -10,6 +11,8 @@ interface PublicDisplayProps {
 }
 
 export const PublicDisplay: React.FC<PublicDisplayProps> = ({ settings, onNavigateBack }) => {
+  const { activeClinicId, activeClinic, clinics, switchClinic } = useClinic();
+
   const [publicQueue, setPublicQueue] = useState<{
     nowServing: QueueToken[];
     upNext: QueueToken[];
@@ -25,7 +28,7 @@ export const PublicDisplay: React.FC<PublicDisplayProps> = ({ settings, onNaviga
   }, []);
 
   useEffect(() => {
-    const unsubscribe = subscribePublicQueue((data) => {
+    const unsubscribe = subscribePublicQueue(activeClinicId, (data) => {
       setPublicQueue(data);
 
       // Check if a new token was called
@@ -41,10 +44,10 @@ export const PublicDisplay: React.FC<PublicDisplayProps> = ({ settings, onNaviga
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [activeClinicId]);
 
-  const clinicName = settings?.clinicName || 'CITY CARE CLINIC';
-  const clinicLogo = settings?.clinicLogo;
+  const clinicName = activeClinic?.name || settings?.clinicName || 'CITY CARE CLINIC';
+  const clinicLogo = activeClinic?.logo || settings?.clinicLogo;
 
   const activeServing = publicQueue.nowServing[0];
   const otherServing = publicQueue.nowServing.slice(1);
@@ -73,12 +76,27 @@ export const PublicDisplay: React.FC<PublicDisplayProps> = ({ settings, onNaviga
 
           <div>
             <h1 className="text-2xl font-black tracking-tight text-white">{clinicName}</h1>
-            <p className="text-xs font-bold text-blue-400 uppercase tracking-widest">Live Patient Queue Display</p>
+            <p className="text-xs font-bold text-blue-400 uppercase tracking-widest">Live TV Queue Display</p>
           </div>
         </div>
 
-        {/* Live Clock & Sound Test */}
-        <div className="flex items-center gap-6">
+        {/* Live Clock & Sound Test & Clinic Selector */}
+        <div className="flex items-center gap-4">
+          {clinics.length > 1 && (
+            <div className="flex items-center gap-2 bg-slate-800 px-3 py-1.5 rounded-xl border border-slate-700">
+              <Building2 className="w-4 h-4 text-blue-400" />
+              <select
+                value={activeClinicId}
+                onChange={(e) => switchClinic(e.target.value)}
+                className="bg-transparent text-xs font-bold text-slate-200 focus:outline-none cursor-pointer"
+              >
+                {clinics.map(c => (
+                  <option key={c.id} value={c.id} className="bg-slate-900 text-white">{c.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
           <button
             onClick={() => playTokenCallSound()}
             className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold flex items-center gap-2 transition-colors cursor-pointer"
@@ -138,7 +156,7 @@ export const PublicDisplay: React.FC<PublicDisplayProps> = ({ settings, onNaviga
           ) : (
             <div className="my-auto text-center py-16 text-slate-500 space-y-3">
               <Monitor className="w-16 h-16 mx-auto text-slate-700" />
-              <p className="text-lg font-semibold">No patient currently being served.</p>
+              <p className="text-lg font-semibold">No patient currently being served in {clinicName}.</p>
             </div>
           )}
 

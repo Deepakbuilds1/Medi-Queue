@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { BarChart3, Download, Calendar, Users, CheckCircle, Clock, XCircle, FastForward } from 'lucide-react';
+import { BarChart3, Download } from 'lucide-react';
 import { Doctor, QueueToken } from '../../types';
 import { getTokensByDateRange, getTodayDateString } from '../../services/clinicService';
+import { useClinic } from '../../context/ClinicContext';
 
 interface ReportsPageProps {
   doctors: Doctor[];
@@ -11,9 +12,10 @@ interface ReportsPageProps {
 type DateRangeFilter = 'TODAY' | 'YESTERDAY' | 'LAST_7_DAYS' | 'LAST_30_DAYS';
 
 export const ReportsPage: React.FC<ReportsPageProps> = ({ doctors, todayTokens }) => {
+  const { activeClinicId, activeClinic } = useClinic();
   const [filter, setFilter] = useState<DateRangeFilter>('TODAY');
   const [reportTokens, setReportTokens] = useState<QueueToken[]>(todayTokens);
-  const [loading, setLoading] = useState(false);
+  const [_loading, setLoading] = useState(false);
 
   useEffect(() => {
     const fetchRangeTokens = async () => {
@@ -39,7 +41,7 @@ export const ReportsPage: React.FC<ReportsPageProps> = ({ doctors, todayTokens }
       const endStr = endDate.toISOString().split('T')[0];
 
       try {
-        const list = await getTokensByDateRange(startStr, endStr);
+        const list = await getTokensByDateRange(activeClinicId, startStr, endStr);
         setReportTokens(list);
       } catch (err) {
         console.error('Failed to fetch report tokens:', err);
@@ -49,7 +51,7 @@ export const ReportsPage: React.FC<ReportsPageProps> = ({ doctors, todayTokens }
     };
 
     fetchRangeTokens();
-  }, [filter, todayTokens]);
+  }, [filter, todayTokens, activeClinicId]);
 
   // Aggregation
   const totalCount = reportTokens.length;
@@ -72,9 +74,10 @@ export const ReportsPage: React.FC<ReportsPageProps> = ({ doctors, todayTokens }
 
   const exportCSV = () => {
     if (reportTokens.length === 0) return;
-    const headers = ['Token Number', 'Patient Name', 'Age', 'Gender', 'Phone', 'Doctor', 'Room', 'Status', 'Date', 'Time'];
+    const headers = ['Token Number', 'Clinic', 'Patient Name', 'Age', 'Gender', 'Phone', 'Doctor', 'Room', 'Status', 'Date', 'Time'];
     const rows = reportTokens.map(t => [
       t.tokenNumber,
+      `"${activeClinic?.name || 'City Care Clinic'}"`,
       `"${t.patientName}"`,
       t.patientAge || '',
       t.patientGender || '',
@@ -90,7 +93,7 @@ export const ReportsPage: React.FC<ReportsPageProps> = ({ doctors, todayTokens }
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement('a');
     link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `MediQueue_Report_${filter}_${getTodayDateString()}.csv`);
+    link.setAttribute('download', `MediQueue_${activeClinicId}_${filter}_${getTodayDateString()}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -106,8 +109,10 @@ export const ReportsPage: React.FC<ReportsPageProps> = ({ doctors, todayTokens }
             <BarChart3 className="w-5 h-5" />
           </div>
           <div>
-            <h2 className="text-base font-bold text-slate-900 dark:text-white">Clinic Operational Reports</h2>
-            <p className="text-xs text-slate-500">Patient Volume & Doctor Throughput Analytics</p>
+            <h2 className="text-base font-bold text-slate-900 dark:text-white">
+              Clinic Operational Reports ({activeClinic?.name || 'City Care Clinic'})
+            </h2>
+            <p className="text-xs text-slate-500">Patient Volume & Doctor Throughput Analytics • Scoped to /clinics/{activeClinicId}</p>
           </div>
         </div>
 

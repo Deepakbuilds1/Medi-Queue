@@ -15,6 +15,7 @@ import { Doctor, QueueToken, TokenStatus } from '../../types';
 import { updateTokenStatus, deleteToken } from '../../services/clinicService';
 import { playTokenCallSound } from '../../lib/sound';
 import { ConfirmModal } from '../common/ConfirmModal';
+import { useClinic } from '../../context/ClinicContext';
 
 interface TokenQueuePageProps {
   tokens: QueueToken[];
@@ -22,6 +23,7 @@ interface TokenQueuePageProps {
 }
 
 export const TokenQueuePage: React.FC<TokenQueuePageProps> = ({ tokens, doctors }) => {
+  const { activeClinicId, activeClinic } = useClinic();
   const [searchTerm, setSearchTerm] = useState('');
   const [doctorFilter, setDoctorFilter] = useState('ALL');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
@@ -59,7 +61,7 @@ export const TokenQueuePage: React.FC<TokenQueuePageProps> = ({ tokens, doctors 
       if (status === 'CALLED') {
         playTokenCallSound();
       }
-      await updateTokenStatus(tokenId, status);
+      await updateTokenStatus(activeClinicId, tokenId, status);
     } catch (err: any) {
       console.error('Status change error:', err);
       setErrorMessage(err.message || 'Queue changed. Please refresh and try again.');
@@ -79,7 +81,7 @@ export const TokenQueuePage: React.FC<TokenQueuePageProps> = ({ tokens, doctors 
         setLoadingId(token.id);
         setErrorMessage(null);
         try {
-          await updateTokenStatus(token.id, 'CANCELLED');
+          await updateTokenStatus(activeClinicId, token.id, 'CANCELLED');
         } catch (err: any) {
           console.error('Cancel error:', err);
           setErrorMessage(err.message || 'Queue changed. Please refresh and try again.');
@@ -101,7 +103,7 @@ export const TokenQueuePage: React.FC<TokenQueuePageProps> = ({ tokens, doctors 
         setLoadingId(token.id);
         setErrorMessage(null);
         try {
-          await updateTokenStatus(token.id, 'SKIPPED');
+          await updateTokenStatus(activeClinicId, token.id, 'SKIPPED');
         } catch (err: any) {
           console.error('Skip error:', err);
           setErrorMessage(err.message || 'Queue changed. Please refresh and try again.');
@@ -123,7 +125,7 @@ export const TokenQueuePage: React.FC<TokenQueuePageProps> = ({ tokens, doctors 
         setLoadingId(token.id);
         setErrorMessage(null);
         try {
-          await deleteToken(token.id);
+          await deleteToken(activeClinicId, token.id);
         } catch (err: any) {
           console.error('Delete error:', err);
           setErrorMessage(err.message || 'Failed to delete token. Please try again.');
@@ -161,8 +163,10 @@ export const TokenQueuePage: React.FC<TokenQueuePageProps> = ({ tokens, doctors 
             <Ticket className="w-5 h-5" />
           </div>
           <div>
-            <h2 className="text-base font-bold text-slate-900 dark:text-white">Token Queue Management</h2>
-            <p className="text-xs text-slate-500">Live Queue & Action Control Console</p>
+            <h2 className="text-base font-bold text-slate-900 dark:text-white">
+              Token Queue Management ({activeClinic?.name || 'City Care Clinic'})
+            </h2>
+            <p className="text-xs text-slate-500">Live Queue & Action Control Console • Isolated /clinics/{activeClinicId}</p>
           </div>
         </div>
 
@@ -204,7 +208,7 @@ export const TokenQueuePage: React.FC<TokenQueuePageProps> = ({ tokens, doctors 
             onChange={(e) => setDoctorFilter(e.target.value)}
             className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:border-blue-500"
           >
-            <option value="ALL">All Doctors</option>
+            <option value="ALL">All Doctors in Clinic</option>
             {doctors.map(d => (
               <option key={d.id} value={d.id}>{d.name} ({d.roomNumber})</option>
             ))}
@@ -248,7 +252,7 @@ export const TokenQueuePage: React.FC<TokenQueuePageProps> = ({ tokens, doctors 
               {filteredTokens.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="p-8 text-center text-slate-400">
-                    No tokens matched your filter criteria.
+                    No tokens matched your filter criteria for this clinic.
                   </td>
                 </tr>
               ) : (

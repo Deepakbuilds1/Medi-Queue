@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { Users, Search, Eye, Edit2, History, X, Calendar, Phone, User } from 'lucide-react';
+import { Users, Search, History, Edit2, X } from 'lucide-react';
 import { Patient, QueueToken } from '../../types';
 import { updatePatientRecord } from '../../services/clinicService';
+import { useClinic } from '../../context/ClinicContext';
 
 interface PatientListPageProps {
   patients: Patient[];
@@ -9,6 +10,7 @@ interface PatientListPageProps {
 }
 
 export const PatientListPage: React.FC<PatientListPageProps> = ({ patients, tokens }) => {
+  const { activeClinicId, activeClinic } = useClinic();
   const [searchTerm, setSearchTerm] = useState('');
   
   // Selected Patient Modals
@@ -43,7 +45,7 @@ export const PatientListPage: React.FC<PatientListPageProps> = ({ patients, toke
     if (!editingPatient) return;
     setSavingEdit(true);
     try {
-      await updatePatientRecord(editingPatient.id, {
+      await updatePatientRecord(activeClinicId, editingPatient.id, {
         name: editName,
         age: editAge,
         phone: editPhone,
@@ -71,8 +73,10 @@ export const PatientListPage: React.FC<PatientListPageProps> = ({ patients, toke
             <Users className="w-5 h-5" />
           </div>
           <div>
-            <h2 className="text-base font-bold text-slate-900 dark:text-white">Registered Patient Directory</h2>
-            <p className="text-xs text-slate-500">Manage Patient Profiles & Consult History</p>
+            <h2 className="text-base font-bold text-slate-900 dark:text-white">
+              Registered Patient Directory ({activeClinic?.name || 'City Care Clinic'})
+            </h2>
+            <p className="text-xs text-slate-500">Manage Patient Profiles & Consult History • Scoped to /clinics/{activeClinicId}</p>
           </div>
         </div>
 
@@ -108,7 +112,7 @@ export const PatientListPage: React.FC<PatientListPageProps> = ({ patients, toke
               {filteredPatients.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="p-8 text-center text-slate-400">
-                    No patient records found matching search.
+                    No patient records found in this clinic.
                   </td>
                 </tr>
               ) : (
@@ -175,7 +179,7 @@ export const PatientListPage: React.FC<PatientListPageProps> = ({ patients, toke
               </div>
               <button 
                 onClick={() => setSelectedPatientHistory(null)}
-                className="p-1 text-slate-400 hover:text-slate-600 rounded-lg"
+                className="p-1 text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -185,7 +189,7 @@ export const PatientListPage: React.FC<PatientListPageProps> = ({ patients, toke
               <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Visit & Token History</h4>
               
               {getPatientTokens(selectedPatientHistory.id, selectedPatientHistory.phone).length === 0 ? (
-                <p className="text-xs text-slate-400 py-4 text-center">No token history found for this patient.</p>
+                <p className="text-xs text-slate-400 py-4 text-center">No token history found for this patient in this clinic.</p>
               ) : (
                 getPatientTokens(selectedPatientHistory.id, selectedPatientHistory.phone).map(t => (
                   <div key={t.id} className="p-3 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 text-xs flex justify-between items-center">
@@ -207,7 +211,7 @@ export const PatientListPage: React.FC<PatientListPageProps> = ({ patients, toke
             <div className="p-4 bg-slate-50 dark:bg-slate-900 border-t border-slate-100 dark:border-slate-700 text-right">
               <button
                 onClick={() => setSelectedPatientHistory(null)}
-                className="px-4 py-2 bg-slate-200 dark:bg-slate-700 text-xs font-semibold rounded-lg hover:bg-slate-300"
+                className="px-4 py-2 bg-slate-200 dark:bg-slate-700 text-xs font-semibold rounded-lg hover:bg-slate-300 cursor-pointer"
               >
                 Close
               </button>
@@ -222,7 +226,7 @@ export const PatientListPage: React.FC<PatientListPageProps> = ({ patients, toke
           <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl max-w-md w-full border border-slate-200 dark:border-slate-700 overflow-hidden">
             <div className="p-5 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center">
               <h3 className="font-bold text-slate-900 dark:text-white text-base">Edit Patient Details</h3>
-              <button onClick={() => setEditingPatient(null)} className="p-1 text-slate-400 hover:text-slate-600">
+              <button onClick={() => setEditingPatient(null)} className="p-1 text-slate-400 hover:text-slate-600 cursor-pointer">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -278,14 +282,14 @@ export const PatientListPage: React.FC<PatientListPageProps> = ({ patients, toke
                 <button
                   type="button"
                   onClick={() => setEditingPatient(null)}
-                  className="px-3 py-1.5 bg-slate-200 dark:bg-slate-700 text-xs font-semibold rounded-lg"
+                  className="px-3 py-1.5 bg-slate-200 dark:bg-slate-700 text-xs font-semibold rounded-lg cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={savingEdit}
-                  className="px-4 py-1.5 bg-blue-600 text-white text-xs font-bold rounded-lg hover:bg-blue-500"
+                  className="px-4 py-1.5 bg-blue-600 text-white text-xs font-bold rounded-lg hover:bg-blue-500 cursor-pointer"
                 >
                   {savingEdit ? 'Saving...' : 'Save Changes'}
                 </button>

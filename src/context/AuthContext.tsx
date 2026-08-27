@@ -81,10 +81,11 @@ interface AuthContextType {
   isAdmin: boolean;
   isSuperAdmin: boolean;
   isClinicAdmin: boolean;
+  isClinicStaff: boolean;
   userRole: UserRole;
   superAdminSessionToken: string | null;
   verifySuperAdminPin: (token: string, userMeta?: any) => Promise<void>;
-  login: (email: string, pass: string) => Promise<void>;
+  login: (email: string, pass: string, targetClinicId?: string) => Promise<UserProfile>;
   registerAdmin: (email: string, pass: string, clinicId?: string, role?: UserRole) => Promise<void>;
   signUpPatient: (
     email: string, 
@@ -329,31 +330,80 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
   };
 
-  // Clinic Admin / Staff Email & Password Login
-  const login = async (email: string, pass: string) => {
-    const cred = await signInWithEmailAndPassword(auth, email.trim(), pass);
+  // Clinic Admin / Staff Email & Password Login with Strict Backend Role Authorization
+  const login = async (email: string, pass: string, targetClinicId?: string): Promise<UserProfile> => {
+    const trimmedEmail = email.trim();
+    // Step 1: Firebase Authentication verifies credentials
+    const cred = await signInWithEmailAndPassword(auth, trimmedEmail, pass);
+    
+    // Step 2: Retrieve trusted authorization profile from Firestore
     const profile = await getUserProfile(cred.user.uid);
-    if (profile && (profile.status === 'inactive' || profile.status === 'INACTIVE')) {
+
+    // Step 3: Critical Security Guard - REJECT PATIENT ACCOUNTS
+    if (!profile || profile.role === 'PATIENT' || profile.role === 'patient') {
+      // Immediately revoke Firebase Auth session so no authenticated session is held in client
       await firebaseSignOut(auth);
-      throw new Error('This account has been disabled. Please contact the Super Admin.');
+      setUser(null);
+      setUserProfile(null);
+      throw new Error('This account is registered as a patient. Please use the Patient Portal.');
     }
-    if (profile) {
-      setUserProfile(profile as UserProfile);
-      if (profile.clinicId) {
-        try {
-          localStorage.setItem('mediqueue_active_clinic_id', profile.clinicId);
-        } catch (_) {}
+
+    // Step 4: Verify account is not deactivated
+    if (profile.status === 'inactive' || profile.status === 'INACTIVE') {
+      await firebaseSignOut(auth);
+      setUser(null);
+      setUserProfile(null);
+      throw new Error('This account has been disabled. Please contact the Super Administrator.');
+    }
+
+    // Step 5: Verify trusted administrative/staff role
+    const validStaffRoles = ['CLINIC_ADMIN', 'admin', 'SUPER_ADMIN', 'DOCTOR', 'RECEPTIONIST'];
+    if (!validStaffRoles.includes(profile.role)) {
+      await firebaseSignOut(auth);
+      setUser(null);
+      setUserProfile(null);
+      throw new Error('Access denied. This account is not authorized to access the Clinic Admin Portal.');
+    }
+
+    // Step 6: Verify clinic assignment for non-Super Admins
+    if (profile.role !== 'SUPER_ADMIN') {
+      const authorizedClinics = profile.clinicIds || profile.accessibleClinicIds || (profile.clinicId ? [profile.clinicId] : []);
+      if (authorizedClinics.length === 0) {
+        await firebaseSignOut(auth);
+        setUser(null);
+        setUserProfile(null);
+        throw new Error('Access denied. No authorized clinic branches have been assigned to this account.');
       }
+
+      if (targetClinicId && !authorizedClinics.includes(targetClinicId)) {
+        await firebaseSignOut(auth);
+        setUser(null);
+        setUserProfile(null);
+        throw new Error('Access denied. You are not authorized to administer the selected clinic branch.');
+      }
+
+      const activeId = targetClinicId || authorizedClinics[0];
+      try {
+        localStorage.setItem('mediqueue_active_clinic_id', activeId);
+      } catch (_) {}
     }
+
+    setUser(cred.user);
+    setUserProfile(profile as UserProfile);
+    return profile as UserProfile;
   };
 
-  // Register Clinic Staff / Admin
+  // Register Clinic Staff / Admin (Restricted to Super Admin)
   const registerAdmin = async (
     email: string, 
     pass: string, 
     clinicId?: string,
     role: UserRole = 'CLINIC_ADMIN'
   ) => {
+    if (!superAdminSessionToken && userProfile?.role !== 'SUPER_ADMIN') {
+      throw new Error('Unauthorized: Only Super Administrators can provision staff accounts.');
+    }
+
     const cred = await createUserWithEmailAndPassword(auth, email, pass);
     const targetClinicId = clinicId || '';
 
@@ -481,15 +531,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       await firebaseSignOut(auth);
     } catch (_) {}
 
+    try {
+      localStorage.removeItem('mediqueue_active_clinic_id');
+    } catch (_) {}
+
     setUser(null);
     setUserProfile(null);
   };
 
-  // Authorization checks
+  // Strict Authorization checks (Never trust mere existence of user object)
   const isSuperAdmin = !!superAdminSessionToken || userProfile?.role === 'SUPER_ADMIN';
-  const isClinicAdmin = isSuperAdmin || userProfile?.role === 'CLINIC_ADMIN' || userProfile?.role === 'admin';
-  const isAdmin = isSuperAdmin || !!user;
-  const userRole: UserRole = isSuperAdmin ? 'SUPER_ADMIN' : (userProfile?.role || (user ? 'CLINIC_ADMIN' : 'patient'));
+  const isClinicAdmin = isSuperAdmin || (!!user && !!userProfile && (userProfile.role === 'CLINIC_ADMIN' || userProfile.role === 'admin'));
+  const isClinicStaff = isClinicAdmin || (!!user && !!userProfile && (userProfile.role === 'DOCTOR' || userProfile.role === 'RECEPTIONIST'));
+  const isAdmin = isSuperAdmin || isClinicAdmin;
+  const userRole: UserRole = isSuperAdmin ? 'SUPER_ADMIN' : (userProfile?.role || 'patient');
 
   return (
     <AuthContext.Provider value={{ 
@@ -500,6 +555,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       isAdmin,
       isSuperAdmin,
       isClinicAdmin,
+      isClinicStaff,
       userRole,
       superAdminSessionToken,
       verifySuperAdminPin,

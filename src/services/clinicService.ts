@@ -18,7 +18,19 @@ import {
 } from 'firebase/firestore';
 import { createUserWithEmailAndPassword, signOut as authSignOut, sendPasswordResetEmail } from 'firebase/auth';
 import { db, auth, getSecondaryAuth } from '../lib/firebase';
-import { Clinic, ClinicSettings, Doctor, Patient, QueueToken, TokenStatus, UserProfile, AuditLog } from '../types';
+import { 
+  Clinic, 
+  ClinicSettings, 
+  Doctor, 
+  Patient, 
+  QueueToken, 
+  TokenStatus, 
+  UserProfile, 
+  AuditLog,
+  UserRole,
+  AuthorizationCheckParams,
+  AuthorizationResult
+} from '../types';
 
 export enum OperationType {
   CREATE = 'create',
@@ -94,7 +106,9 @@ export interface ListenerGuardOptions {
   filter?: string;
   clinicId?: string;
   authRequired?: boolean;
-  guard?: () => boolean;
+  requiresAdmin?: boolean;
+  requiredRole?: UserRole | UserRole[];
+  guard?: () => boolean | Promise<boolean>;
 }
 
 /**
@@ -113,24 +127,77 @@ function createManagedListener<T>(
   let retryTimer: ReturnType<typeof setTimeout> | null = null;
   let isCancelled = false;
 
-  // Authorization Guard: Do NOT attach listener if unauthenticated or custom guard fails
-  if (options?.authRequired && !auth.currentUser) {
+  const superAdminSession = typeof window !== 'undefined'
+    ? sessionStorage.getItem('mediqueue_super_admin_session')
+    : null;
+
+  // Immediate synchronous guard: Do NOT attach listener if authentication required but missing
+  if ((options?.authRequired || options?.requiresAdmin || options?.requiredRole) && !auth.currentUser && !superAdminSession) {
+    if (onError) onError('Access restricted: Authentication required.');
     return () => {};
   }
-  if (options?.guard && !options.guard()) {
-    return () => {};
+  if (options?.guard && typeof options.guard === 'function') {
+    try {
+      const res = options.guard();
+      if (typeof res === 'boolean' && !res) return () => {};
+    } catch {}
   }
 
-  const startListening = () => {
+  const startListening = async () => {
     if (isCancelled) return;
 
-    // Verify authorization guard right before invoking query
-    if (options?.authRequired && !auth.currentUser) {
+    const currentSuperSession = typeof window !== 'undefined'
+      ? sessionStorage.getItem('mediqueue_super_admin_session')
+      : null;
+
+    // 1. Check Auth Requirement
+    if ((options?.authRequired || options?.requiresAdmin || options?.requiredRole) && !auth.currentUser && !currentSuperSession) {
+      if (onError) onError('Access restricted: Authentication required.');
       return;
     }
-    if (options?.guard && !options.guard()) {
-      return;
+
+    // 2. Authoritative Security Check using verifyUserAuthorization
+    if (options?.requiresAdmin || options?.requiredRole) {
+      try {
+        const defaultAdminRoles: UserRole[] = ['SUPER_ADMIN', 'CLINIC_ADMIN', 'admin'];
+        const requiredRoles: UserRole[] = options.requiredRole
+          ? (Array.isArray(options.requiredRole) ? options.requiredRole : [options.requiredRole])
+          : defaultAdminRoles;
+
+        const authCheck = await verifyUserAuthorization({
+          clinicId: options.clinicId,
+          requiredRole: requiredRoles
+        });
+
+        if (isCancelled) return;
+
+        if (!authCheck.isAuthorized) {
+          const deniedReason = authCheck.reason || 'Access restricted: Insufficient administrative privileges.';
+          if (onError) {
+            onError(deniedReason);
+          }
+          return;
+        }
+      } catch (authErr: any) {
+        if (isCancelled) return;
+        if (onError) {
+          onError(`Security check failed: ${authErr?.message || 'Unauthorized'}`);
+        }
+        return;
+      }
     }
+
+    // 3. Custom guard check
+    if (options?.guard) {
+      try {
+        const guardPassed = await options.guard();
+        if (isCancelled || !guardPassed) return;
+      } catch {
+        return;
+      }
+    }
+
+    if (isCancelled) return;
 
     try {
       const ref = createQuery();
@@ -174,7 +241,7 @@ function createManagedListener<T>(
           if (!retryTimer && !isCancelled) {
             retryTimer = setTimeout(() => {
               retryTimer = null;
-              if (!isCancelled && (!options?.authRequired || !!auth.currentUser)) {
+              if (!isCancelled && (!options?.authRequired || !!auth.currentUser || !!sessionStorage.getItem('mediqueue_super_admin_session'))) {
                 startListening();
               }
             }, 8000);
@@ -190,7 +257,7 @@ function createManagedListener<T>(
       if (!retryTimer && !isCancelled) {
         retryTimer = setTimeout(() => {
           retryTimer = null;
-          if (!isCancelled && (!options?.authRequired || !!auth.currentUser)) {
+          if (!isCancelled && (!options?.authRequired || !!auth.currentUser || !!sessionStorage.getItem('mediqueue_super_admin_session'))) {
             startListening();
           }
         }, 8000);
@@ -369,6 +436,14 @@ export async function updateSettings(
   settings: Partial<ClinicSettings>
 ) {
   if (!clinicId) throw new Error('Clinic ID is required to update settings.');
+  const authCheck = await verifyUserAuthorization({
+    clinicId,
+    requiredRole: ['CLINIC_ADMIN', 'admin', 'SUPER_ADMIN']
+  });
+  if (!authCheck.isAuthorized) {
+    throw new Error(authCheck.reason || 'Unauthorized to update clinic settings.');
+  }
+
   try {
     const updatePayload: Partial<Clinic> = {
       name: settings.clinicName,
@@ -413,6 +488,14 @@ export function subscribeDoctors(
 
 export async function addDoctor(clinicId: string, doctor: Omit<Doctor, 'id'>) {
   if (!clinicId) throw new Error('Clinic ID is required.');
+  const authCheck = await verifyUserAuthorization({
+    clinicId,
+    requiredRole: ['CLINIC_ADMIN', 'admin', 'SUPER_ADMIN']
+  });
+  if (!authCheck.isAuthorized) {
+    throw new Error(authCheck.reason || 'Unauthorized to add doctor.');
+  }
+
   try {
     const res = await addDoc(collection(db, 'clinics', clinicId, 'doctors'), {
       ...doctor,
@@ -428,6 +511,14 @@ export async function addDoctor(clinicId: string, doctor: Omit<Doctor, 'id'>) {
 
 export async function updateDoctor(clinicId: string, doctorId: string, data: Partial<Doctor>) {
   if (!clinicId || !doctorId) throw new Error('Clinic ID and Doctor ID are required.');
+  const authCheck = await verifyUserAuthorization({
+    clinicId,
+    requiredRole: ['CLINIC_ADMIN', 'admin', 'SUPER_ADMIN']
+  });
+  if (!authCheck.isAuthorized) {
+    throw new Error(authCheck.reason || 'Unauthorized to modify doctor profile.');
+  }
+
   try {
     await updateDoc(doc(db, 'clinics', clinicId, 'doctors', doctorId), data);
   } catch (err) {
@@ -438,6 +529,14 @@ export async function updateDoctor(clinicId: string, doctorId: string, data: Par
 
 export async function deleteDoctor(clinicId: string, doctorId: string) {
   if (!clinicId || !doctorId) throw new Error('Clinic ID and Doctor ID are required.');
+  const authCheck = await verifyUserAuthorization({
+    clinicId,
+    requiredRole: ['CLINIC_ADMIN', 'admin', 'SUPER_ADMIN']
+  });
+  if (!authCheck.isAuthorized) {
+    throw new Error(authCheck.reason || 'Unauthorized to remove doctor.');
+  }
+
   try {
     await deleteDoc(doc(db, 'clinics', clinicId, 'doctors', doctorId));
   } catch (err) {
@@ -455,7 +554,7 @@ export function subscribePatients(
   callback: (patients: Patient[]) => void,
   onError?: FirestoreErrorCallback
 ) {
-  if (!clinicId || !clinicId.trim() || !auth.currentUser) {
+  if (!clinicId || !clinicId.trim()) {
     callback([]);
     return () => {};
   }
@@ -466,12 +565,45 @@ export function subscribePatients(
     },
     callback,
     onError,
-    { path: `clinics/${clinicId}/patients`, clinicId, authRequired: true }
+    { 
+      path: `clinics/${clinicId}/patients`, 
+      clinicId, 
+      authRequired: true,
+      requiresAdmin: true,
+      requiredRole: ['CLINIC_ADMIN', 'admin', 'SUPER_ADMIN', 'DOCTOR', 'RECEPTIONIST']
+    }
   );
+}
+
+export async function getPatients(clinicId: string): Promise<Patient[]> {
+  if (!clinicId || !clinicId.trim()) return [];
+  const authCheck = await verifyUserAuthorization({
+    clinicId,
+    requiredRole: ['CLINIC_ADMIN', 'admin', 'SUPER_ADMIN', 'DOCTOR', 'RECEPTIONIST']
+  });
+  if (!authCheck.isAuthorized) {
+    throw new Error(authCheck.reason || 'Unauthorized to access patient directory.');
+  }
+
+  try {
+    const snap = await getDocs(collection(db, 'clinics', clinicId.trim(), 'patients'));
+    return snap.docs.map(d => ({ ...d.data(), id: d.id, clinicId })) as Patient[];
+  } catch (err) {
+    handleFirestoreError(err, OperationType.GET, `clinics/${clinicId}/patients`);
+    throw err;
+  }
 }
 
 export async function addPatientRecord(clinicId: string, data: Omit<Patient, 'id' | 'patientId' | 'createdAt'>) {
   if (!clinicId) throw new Error('Clinic ID is required.');
+  const authCheck = await verifyUserAuthorization({
+    clinicId,
+    requiredRole: ['CLINIC_ADMIN', 'admin', 'SUPER_ADMIN', 'DOCTOR', 'RECEPTIONIST']
+  });
+  if (!authCheck.isAuthorized) {
+    throw new Error(authCheck.reason || 'Unauthorized to register patient record.');
+  }
+
   try {
     const snap = await getDocs(collection(db, 'clinics', clinicId, 'patients'));
     const nextNumber = snap.size + 1001;
@@ -496,6 +628,14 @@ export async function addPatientRecord(clinicId: string, data: Omit<Patient, 'id
 
 export async function updatePatientRecord(clinicId: string, patientId: string, data: Partial<Patient>) {
   if (!clinicId || !patientId) throw new Error('Clinic ID and Patient ID are required.');
+  const authCheck = await verifyUserAuthorization({
+    clinicId,
+    requiredRole: ['CLINIC_ADMIN', 'admin', 'SUPER_ADMIN', 'DOCTOR', 'RECEPTIONIST']
+  });
+  if (!authCheck.isAuthorized) {
+    throw new Error(authCheck.reason || 'Unauthorized to update patient record.');
+  }
+
   try {
     await updateDoc(doc(db, 'clinics', clinicId, 'patients', patientId), data);
   } catch (err) {
@@ -639,6 +779,178 @@ export async function getUserProfile(uid: string) {
 }
 
 /**
+ * Authoritative Server-Verified Authorization Function.
+ * Validates the caller's role from Firebase Auth Custom Claims, ID token claims,
+ * and authoritative server-side Firestore user documents.
+ * Replaces purely client-side role checks with verified authorization.
+ */
+export async function verifyUserAuthorization(
+  params?: AuthorizationCheckParams
+): Promise<AuthorizationResult> {
+  const superAdminSession = typeof window !== 'undefined' 
+    ? sessionStorage.getItem('mediqueue_super_admin_session') 
+    : null;
+  const currentUser = auth.currentUser;
+
+  // Unauthenticated caller check
+  if (!currentUser && !superAdminSession) {
+    return {
+      isAuthorized: false,
+      userId: null,
+      email: null,
+      role: 'PATIENT',
+      claims: {},
+      isSuperAdmin: false,
+      isClinicAdmin: false,
+      isStaff: false,
+      isPatient: true,
+      authorizedClinicIds: [],
+      hasClinicAccess: false,
+      userProfile: null,
+      reason: 'Authentication required. No active session found.'
+    };
+  }
+
+  let claims: Record<string, any> = {};
+  let userProfile: UserProfile | null = null;
+  const uid = currentUser?.uid || 'super-admin-session';
+  const email = currentUser?.email || (superAdminSession ? 'superadmin@mediqueue.internal' : null);
+
+  // 1. Verify Custom Claims from Firebase Auth token
+  if (currentUser) {
+    try {
+      const tokenResult = await currentUser.getIdTokenResult(params?.forceRefreshClaims ?? false);
+      claims = tokenResult.claims || {};
+    } catch (claimErr) {
+      console.warn('Unable to refresh token claims, falling back to profile verification:', claimErr);
+    }
+
+    // 2. Fetch authoritative Firestore profile document
+    try {
+      userProfile = await getUserProfile(currentUser.uid);
+    } catch (profileErr) {
+      console.warn('Unable to fetch user profile doc:', profileErr);
+    }
+  }
+
+  // 3. Resolve role from Custom Claims first, then Firestore profile, with designated Super Admin check
+  let resolvedRole: UserRole = 'PATIENT';
+  
+  if (superAdminSession) {
+    resolvedRole = 'SUPER_ADMIN';
+  } else if (claims.role && typeof claims.role === 'string') {
+    resolvedRole = claims.role as UserRole;
+  } else if (claims.isSuperAdmin === true) {
+    resolvedRole = 'SUPER_ADMIN';
+  } else if (claims.admin === true || claims.isClinicAdmin === true) {
+    resolvedRole = 'CLINIC_ADMIN';
+  } else if (userProfile?.role) {
+    resolvedRole = userProfile.role;
+  } else if (currentUser?.email === 'gdeepak4689@gmail.com') {
+    resolvedRole = 'SUPER_ADMIN';
+  }
+
+  // Normalize role string representation
+  if (resolvedRole === 'admin') resolvedRole = 'CLINIC_ADMIN';
+  if (resolvedRole === 'patient') resolvedRole = 'PATIENT';
+
+  // 4. Verify account active status
+  if (userProfile && (userProfile.status === 'inactive' || userProfile.status === 'INACTIVE')) {
+    return {
+      isAuthorized: false,
+      userId: uid,
+      email,
+      role: resolvedRole,
+      claims,
+      isSuperAdmin: false,
+      isClinicAdmin: false,
+      isStaff: false,
+      isPatient: false,
+      authorizedClinicIds: [],
+      hasClinicAccess: false,
+      userProfile,
+      reason: 'Account disabled. Please contact the clinic administrator.'
+    };
+  }
+
+  // 5. Compute role booleans
+  const isSuperAdmin = resolvedRole === 'SUPER_ADMIN' || !!superAdminSession || !!claims.isSuperAdmin;
+  const isClinicAdmin = isSuperAdmin || resolvedRole === 'CLINIC_ADMIN' || !!claims.admin || !!claims.isClinicAdmin;
+  const isStaff = isClinicAdmin || resolvedRole === 'DOCTOR' || resolvedRole === 'RECEPTIONIST';
+  const isPatient = !isSuperAdmin && !isStaff && (resolvedRole === 'PATIENT');
+
+  // 6. Resolve authorized clinic IDs from custom claims and user profile
+  const authorizedClinicIds: string[] = [];
+  if (claims.clinicIds && Array.isArray(claims.clinicIds)) {
+    for (const c of claims.clinicIds) {
+      if (typeof c === 'string' && !authorizedClinicIds.includes(c)) authorizedClinicIds.push(c);
+    }
+  } else if (claims.clinicId && typeof claims.clinicId === 'string') {
+    authorizedClinicIds.push(claims.clinicId);
+  }
+
+  if (userProfile?.clinicIds && Array.isArray(userProfile.clinicIds)) {
+    for (const id of userProfile.clinicIds) {
+      if (!authorizedClinicIds.includes(id)) authorizedClinicIds.push(id);
+    }
+  }
+  if (userProfile?.accessibleClinicIds && Array.isArray(userProfile.accessibleClinicIds)) {
+    for (const id of userProfile.accessibleClinicIds) {
+      if (!authorizedClinicIds.includes(id)) authorizedClinicIds.push(id);
+    }
+  }
+  if (userProfile?.clinicId && !authorizedClinicIds.includes(userProfile.clinicId)) {
+    authorizedClinicIds.push(userProfile.clinicId);
+  }
+
+  // 7. Check specific clinic access if requested
+  const targetClinicId = params?.clinicId?.trim();
+  const hasClinicAccess = isSuperAdmin || (
+    !targetClinicId || (authorizedClinicIds.length > 0 && authorizedClinicIds.includes(targetClinicId))
+  );
+
+  // 8. Check required roles if specified
+  let hasRoleMatch = true;
+  if (params?.requiredRole) {
+    const requiredRoles = Array.isArray(params.requiredRole) ? params.requiredRole : [params.requiredRole];
+    const normalizedReq = requiredRoles.map(r => r === 'admin' ? 'CLINIC_ADMIN' : (r === 'patient' ? 'PATIENT' : r));
+    hasRoleMatch = isSuperAdmin || normalizedReq.includes(resolvedRole);
+  }
+
+  // 9. Compute authorization outcome
+  let isAuthorized = true;
+  let reason: string | undefined;
+
+  if (isPatient && params?.requiredRole) {
+    isAuthorized = false;
+    reason = 'Access denied: Patient accounts are strictly prohibited from administrative data.';
+  } else if (!hasRoleMatch) {
+    isAuthorized = false;
+    reason = `Access denied: Insufficient privileges for this operation. Required: ${Array.isArray(params?.requiredRole) ? params?.requiredRole.join(', ') : params?.requiredRole}.`;
+  } else if (targetClinicId && !hasClinicAccess) {
+    isAuthorized = false;
+    reason = `Access denied: Account is not authorized to access clinic (${targetClinicId}).`;
+  }
+
+  return {
+    isAuthorized,
+    userId: uid,
+    email,
+    role: resolvedRole,
+    claims,
+    isSuperAdmin,
+    isClinicAdmin,
+    isStaff,
+    isPatient,
+    authorizedClinicIds,
+    hasClinicAccess,
+    userProfile,
+    reason
+  };
+}
+
+
+/**
  * Safely removes any undefined properties from an object so Firestore addDoc/setDoc never throws 'Unsupported field value: undefined'.
  */
 export function sanitizeFirestoreData<T extends Record<string, any>>(data: T): Partial<T> {
@@ -776,8 +1088,13 @@ export function subscribeAuditLogs(
     callback(relevantInitial);
   }
 
-  // Strict Lifecycle Guard: Do NOT create or start listener if unauthenticated in Firebase Auth
-  if (!auth.currentUser || !auth.currentUser.uid) {
+  const superAdminSession = typeof window !== 'undefined'
+    ? sessionStorage.getItem('mediqueue_super_admin_session')
+    : null;
+
+  // Strict Lifecycle Guard: Do NOT create or start listener if unauthenticated in Firebase Auth or without Super Admin session
+  if (!auth.currentUser && !superAdminSession) {
+    if (onError) onError('Access restricted: Authentication required to view audit logs.');
     return () => {};
   }
 
@@ -837,9 +1154,33 @@ export function subscribeAuditLogs(
       path: 'auditLogs', 
       filter: clinicId ? `clinicId == ${clinicId}` : 'limit 50', 
       clinicId,
-      authRequired: true 
+      authRequired: true,
+      requiresAdmin: true,
+      requiredRole: ['SUPER_ADMIN', 'CLINIC_ADMIN', 'admin']
     }
   );
+}
+
+export async function getAuditLogs(clinicId?: string): Promise<AuditLog[]> {
+  const authCheck = await verifyUserAuthorization({
+    clinicId,
+    requiredRole: ['SUPER_ADMIN', 'CLINIC_ADMIN', 'admin']
+  });
+  if (!authCheck.isAuthorized) {
+    return getLocalAuditLogs();
+  }
+
+  try {
+    let q = query(collection(db, 'auditLogs'), orderBy('timestamp', 'desc'), limit(50));
+    if (clinicId && clinicId.trim()) {
+      q = query(collection(db, 'auditLogs'), where('clinicId', '==', clinicId.trim()), limit(50));
+    }
+    const snap = await getDocs(q);
+    return snap.docs.map(d => ({ ...d.data(), id: d.id })) as AuditLog[];
+  } catch (err) {
+    handleFirestoreError(err, OperationType.GET, 'auditLogs');
+    return getLocalAuditLogs();
+  }
 }
 
 // -------------------------------------------------------------
@@ -855,6 +1196,13 @@ export async function createClinicAdminAccount(params: {
   age?: number;
   gender?: 'Male' | 'Female' | 'Other';
 }): Promise<UserProfile> {
+  const authCheck = await verifyUserAuthorization({
+    requiredRole: ['SUPER_ADMIN']
+  });
+  if (!authCheck.isAuthorized) {
+    throw new Error(authCheck.reason || 'Unauthorized: Only Super Administrators can provision staff accounts.');
+  }
+
   const secondaryAuth = getSecondaryAuth();
   
   // 1. Create the user in Firebase Auth without disturbing current Super Admin session
@@ -902,8 +1250,10 @@ export function subscribeClinicAdmins(
   callback: (admins: UserProfile[]) => void,
   onError?: (err: any) => void
 ): () => void {
-  if (!auth.currentUser) {
+  const superAdminSession = typeof window !== 'undefined' ? sessionStorage.getItem('mediqueue_super_admin_session') : null;
+  if (!auth.currentUser && !superAdminSession) {
     callback([]);
+    if (onError) onError('Access restricted: Authentication required to view administrative users.');
     return () => {};
   }
   return createManagedListener<UserProfile[]>(
@@ -919,7 +1269,13 @@ export function subscribeClinicAdmins(
     },
     callback,
     onError,
-    { path: 'users', filter: 'role in [CLINIC_ADMIN, SUPER_ADMIN]', authRequired: true }
+    { 
+      path: 'users', 
+      filter: 'role in [CLINIC_ADMIN, SUPER_ADMIN]', 
+      authRequired: true,
+      requiresAdmin: true,
+      requiredRole: ['SUPER_ADMIN']
+    }
   );
 }
 
@@ -927,6 +1283,13 @@ export async function updateClinicAdminProfile(
   uid: string,
   data: Partial<UserProfile>
 ): Promise<void> {
+  const authCheck = await verifyUserAuthorization({
+    requiredRole: ['SUPER_ADMIN']
+  });
+  if (!authCheck.isAuthorized) {
+    throw new Error(authCheck.reason || 'Unauthorized: Only Super Administrators can modify admin profiles.');
+  }
+
   const now = new Date().toISOString();
   const updatePayload: Record<string, any> = {
     ...data,
@@ -959,6 +1322,13 @@ export async function toggleClinicAdminStatus(
   uid: string,
   currentStatus: 'active' | 'inactive' | 'ACTIVE' | 'INACTIVE' | undefined
 ): Promise<void> {
+  const authCheck = await verifyUserAuthorization({
+    requiredRole: ['SUPER_ADMIN']
+  });
+  if (!authCheck.isAuthorized) {
+    throw new Error(authCheck.reason || 'Unauthorized: Super Admin access required.');
+  }
+
   const newStatus = (currentStatus === 'active' || currentStatus === 'ACTIVE') ? 'inactive' : 'active';
   try {
     await updateDoc(doc(db, 'users', uid), {

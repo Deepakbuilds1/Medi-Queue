@@ -154,21 +154,24 @@ service cloud.firestore {
         isSignedIn() && hasUserDoc() && isClinicStaff(resource.data.clinicId)
       );
 
-      // User can create their own profile (cannot self-assign SUPER_ADMIN); Super Admin can create any profile
+      // User can create their own profile strictly as a PATIENT; Super Admin can create any profile
       allow create: if isSuperAdmin() || (
-        isOwner(userId) && request.resource.data.role != 'SUPER_ADMIN'
+        isOwner(userId) && 
+        request.resource.data.role in ['PATIENT', 'patient']
       );
 
       // Super Admin can update any profile;
-      // User can update their own profile without escalating role or changing clinic assignments;
+      // User can update their own profile only as long as role remains PATIENT and clinic assignment is unchanged;
       // Clinic Admin can update staff roles for their assigned clinic (cannot grant SUPER_ADMIN)
       allow update: if isSuperAdmin() || (
         isOwner(userId) && 
-        request.resource.data.role == resource.data.role &&
-        request.resource.data.role != 'SUPER_ADMIN'
+        resource.data.role in ['PATIENT', 'patient'] &&
+        request.resource.data.role in ['PATIENT', 'patient'] &&
+        (!('clinicIds' in request.resource.data) || request.resource.data.clinicIds == resource.data.clinicIds) &&
+        (!('accessibleClinicIds' in request.resource.data) || request.resource.data.accessibleClinicIds == resource.data.accessibleClinicIds)
       ) || (
         isSignedIn() && hasUserDoc() && isClinicAdmin(resource.data.clinicId) &&
-        request.resource.data.role != 'SUPER_ADMIN'
+        request.resource.data.role in ['CLINIC_ADMIN', 'admin', 'DOCTOR', 'RECEPTIONIST', 'PATIENT', 'patient']
       );
 
       // Only Super Admin can delete users

@@ -155,3 +155,25 @@ export type AdminRoute =
   | '/admin/reports'
   | '/admin/settings'
   | '/admin/super-admin';
+
+export interface AuthorizationCheckParams {
+  clinicId?: string;
+  requiredRole?: UserRole | UserRole[];
+  forceRefreshClaims?: boolean;
+}
+
+export interface AuthorizationResult {
+  isAuthorized: boolean;
+  userId: string | null;
+  email: string | null;
+  role: UserRole;
+  claims: Record<string, any>;
+  isSuperAdmin: boolean;
+  isClinicAdmin: boolean;
+  isStaff: boolean;
+  isPatient: boolean;
+  authorizedClinicIds: string[];
+  hasClinicAccess: boolean;
+  userProfile: UserProfile | null;
+  reason?: string;
+}

@@ -65,20 +65,25 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({
 
     setLoading(true);
     try {
-      // Authenticate clinic staff user with Firebase Auth
-      await login(trimmedEmail, password);
+      // Authenticate clinic staff user with Firebase Auth and verify backend role authorization
+      const authenticatedProfile = await login(trimmedEmail, password, selectedClinicId);
 
       // Set active clinic for Clinic Admin portal
-      if (selectedClinicId) {
-        switchClinic(selectedClinicId);
+      const targetId = selectedClinicId || authenticatedProfile?.clinicId || (authenticatedProfile?.clinicIds && authenticatedProfile.clinicIds[0]);
+      if (targetId) {
+        switchClinic(targetId);
       }
 
       onLoginSuccess();
     } catch (err: unknown) {
       const firebaseError = err as { code?: string; message?: string };
       
-      if (firebaseError.code === 'auth/wrong-password' || firebaseError.code === 'auth/invalid-credential') {
-        setError('Invalid clinic email or password. Please verify your credentials and try again.');
+      if (
+        firebaseError.code === 'auth/wrong-password' || 
+        firebaseError.code === 'auth/invalid-credential' || 
+        firebaseError.code === 'auth/user-not-found'
+      ) {
+        setError('Invalid clinic admin email or password. Please verify your credentials and try again.');
       } else if (firebaseError.code === 'auth/too-many-requests') {
         setError('Too many failed login attempts. Please try again later.');
       } else {

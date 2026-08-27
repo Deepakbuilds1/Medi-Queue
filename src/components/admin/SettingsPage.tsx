@@ -11,11 +11,11 @@ interface SettingsPageProps {
 export const SettingsPage: React.FC<SettingsPageProps> = ({ settings }) => {
   const { activeClinicId, activeClinic, editClinic } = useClinic();
 
-  const [clinicName, setClinicName] = useState(activeClinic?.name || settings?.clinicName || 'CITY CARE CLINIC');
-  const [clinicLogo, setClinicLogo] = useState(activeClinic?.logo || settings?.clinicLogo || 'https://images.unsplash.com/photo-1629909613654-28e377c37b09?w=150&auto=format&fit=crop&q=80');
-  const [clinicAddress, setClinicAddress] = useState(activeClinic?.address || settings?.clinicAddress || '123 Healthcare Boulevard, Medical District');
-  const [phone, setPhone] = useState(activeClinic?.phone || settings?.phone || '+1 (800) 555-0199');
-  const [email, setEmail] = useState(activeClinic?.email || settings?.email || 'gdeepak4689@gmail.com');
+  const [clinicName, setClinicName] = useState(activeClinic?.name || settings?.clinicName || '');
+  const [clinicLogo, setClinicLogo] = useState(activeClinic?.logo || settings?.clinicLogo || '');
+  const [clinicAddress, setClinicAddress] = useState(activeClinic?.address || settings?.clinicAddress || '');
+  const [phone, setPhone] = useState(activeClinic?.phone || settings?.phone || '');
+  const [email, setEmail] = useState(activeClinic?.email || settings?.email || '');
   const [tokenPrefix, setTokenPrefix] = useState(activeClinic?.tokenPrefix || settings?.tokenPrefix || 'A');
   const [startingTokenNumber, setStartingTokenNumber] = useState(activeClinic?.startingTokenNumber || settings?.startingTokenNumber || 1);
   const [enableSound, setEnableSound] = useState(activeClinic?.tokenDisplaySettings?.enableSound ?? true);
@@ -85,7 +85,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ settings }) => {
           </div>
           <div>
             <h2 className="text-base font-bold text-slate-900 dark:text-white">
-              Clinic Configuration ({activeClinic?.name || 'City Care Clinic'})
+              Clinic Configuration {activeClinic?.name ? `(${activeClinic.name})` : ''}
             </h2>
             <p className="text-xs text-slate-500">Update Profile Details, Logo & Token Generation Rules • Scoped to /clinics/{activeClinicId}</p>
           </div>

@@ -265,7 +265,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
         email: newAdminForm.email,
         password: newAdminForm.password,
         phone: newAdminForm.phone,
-        clinicIds: newAdminForm.clinicIds.length > 0 ? newAdminForm.clinicIds : [allClinics[0]?.id || 'clinic_citycare']
+        clinicIds: newAdminForm.clinicIds.length > 0 ? newAdminForm.clinicIds : (allClinics[0]?.id ? [allClinics[0].id] : [])
       });
       setNotification(`Created new Clinic Admin: ${newAdminForm.email}`);
       setIsCreateAdminModalOpen(false);
@@ -435,7 +435,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                   </span>
                 </div>
                 <h2 className="text-xl md:text-2xl font-black text-slate-900 dark:text-white flex items-center gap-2.5">
-                  <span>{activeClinic?.name || 'City Care Clinic'}</span>
+                  <span>{activeClinic?.name || (activeClinicId ? `Clinic: ${activeClinicId}` : 'Select a Clinic')}</span>
                   <span className={`text-[10px] uppercase font-extrabold px-2.5 py-0.5 rounded-md ${
                     activeClinic?.status === 'ACTIVE'
                       ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300'

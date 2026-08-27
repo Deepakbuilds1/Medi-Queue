@@ -89,7 +89,7 @@ export const ReportsPage: React.FC<ReportsPageProps> = ({ doctors, todayTokens }
    * Compiles executive KPI summary, doctor breakdown, and today's full token log.
    */
   const downloadTodayTokenStatisticsCSV = () => {
-    const clinicName = activeClinic?.name || 'City Care Clinic';
+    const clinicName = activeClinic?.name || activeClinicId || 'Clinic';
     const todayDateStr = getTodayDateString();
     const generatedTimestamp = new Date().toLocaleString();
 
@@ -205,7 +205,7 @@ export const ReportsPage: React.FC<ReportsPageProps> = ({ doctors, todayTokens }
     const headers = ['Token Number', 'Clinic', 'Patient Name', 'Age', 'Gender', 'Phone', 'Doctor', 'Room', 'Status', 'Date', 'Time'];
     const rows = reportTokens.map(t => [
       escapeCsv(t.tokenNumber),
-      escapeCsv(activeClinic?.name || 'City Care Clinic'),
+      escapeCsv(activeClinic?.name || activeClinicId || 'Clinic'),
       escapeCsv(t.patientName),
       escapeCsv(t.patientAge || ''),
       escapeCsv(t.patientGender || ''),
@@ -241,9 +241,11 @@ export const ReportsPage: React.FC<ReportsPageProps> = ({ doctors, todayTokens }
           <div>
             <h2 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
               <span>Clinic Operational Reports</span>
-              <span className="text-xs font-semibold px-2 py-0.5 bg-blue-50 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 rounded-lg border border-blue-200 dark:border-blue-800">
-                {activeClinic?.name || 'City Care Clinic'}
-              </span>
+              {activeClinic?.name && (
+                <span className="text-xs font-semibold px-2 py-0.5 bg-blue-50 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 rounded-lg border border-blue-200 dark:border-blue-800">
+                  {activeClinic.name}
+                </span>
+              )}
             </h2>
             <p className="text-xs text-slate-500">Patient Volume & Doctor Throughput Analytics • Scoped to /clinics/{activeClinicId}</p>
           </div>

@@ -123,6 +123,15 @@ const MainAppContent: React.FC = () => {
     setCurrentPath(path);
   };
 
+  // Automatically redirect patient user to their clinic portal post-login
+  useEffect(() => {
+    if (user && userProfile && (userProfile.role === 'PATIENT' || userProfile.role === 'patient')) {
+      if (currentPath.startsWith('/admin') || currentPath === '/') {
+        navigate('/patient');
+      }
+    }
+  }, [user, userProfile, currentPath]);
+
   if (authLoading) {
     return (
       <div className="w-screen h-screen bg-slate-900 flex items-center justify-center text-white">
@@ -133,6 +142,21 @@ const MainAppContent: React.FC = () => {
       </div>
     );
   }
+
+  const resolvedClinicSettings: ClinicSettings | null = settings || activeClinic ? {
+    clinicName: activeClinic?.name || settings?.clinicName || (activeClinicId ? `Clinic: ${activeClinicId}` : 'MediQueue Clinic'),
+    clinicLogo: activeClinic?.logo || settings?.clinicLogo || '',
+    clinicAddress: activeClinic?.address || settings?.clinicAddress || '',
+    phone: activeClinic?.phone || settings?.phone || '',
+    email: activeClinic?.email || settings?.email || '',
+    tokenPrefix: activeClinic?.tokenPrefix || settings?.tokenPrefix || 'A',
+    startingTokenNumber: activeClinic?.startingTokenNumber || settings?.startingTokenNumber || 1,
+    tokenDisplaySettings: activeClinic?.tokenDisplaySettings || settings?.tokenDisplaySettings || {
+      enableSound: true,
+      autoRefreshInterval: 5,
+      announcementVoice: true
+    }
+  } : null;
 
   // 1. PUBLIC PATIENT PORTAL ROUTE
   if (currentPath === '/patient') {
@@ -146,20 +170,7 @@ const MainAppContent: React.FC = () => {
           </div>
         )}
         <PatientPortal
-          settings={settings || activeClinic ? {
-            clinicName: activeClinic?.name || 'CITY CARE CLINIC',
-            clinicLogo: activeClinic?.logo || '',
-            clinicAddress: activeClinic?.address || '',
-            phone: activeClinic?.phone || '',
-            email: activeClinic?.email || '',
-            tokenPrefix: activeClinic?.tokenPrefix || 'A',
-            startingTokenNumber: activeClinic?.startingTokenNumber || 1,
-            tokenDisplaySettings: activeClinic?.tokenDisplaySettings || {
-              enableSound: true,
-              autoRefreshInterval: 5,
-              announcementVoice: true
-            }
-          } : null}
+          settings={resolvedClinicSettings}
           onNavigateToAdminLogin={() => navigate('/admin/login')}
           onNavigateToPublicDisplay={() => navigate('/display')}
         />
@@ -179,20 +190,7 @@ const MainAppContent: React.FC = () => {
           </div>
         )}
         <PublicDisplay
-          settings={settings || activeClinic ? {
-            clinicName: activeClinic?.name || 'CITY CARE CLINIC',
-            clinicLogo: activeClinic?.logo || '',
-            clinicAddress: activeClinic?.address || '',
-            phone: activeClinic?.phone || '',
-            email: activeClinic?.email || '',
-            tokenPrefix: activeClinic?.tokenPrefix || 'A',
-            startingTokenNumber: activeClinic?.startingTokenNumber || 1,
-            tokenDisplaySettings: activeClinic?.tokenDisplaySettings || {
-              enableSound: true,
-              autoRefreshInterval: 5,
-              announcementVoice: true
-            }
-          } : null}
+          settings={resolvedClinicSettings}
           onNavigateBack={() => navigate('/patient')}
         />
       </>
@@ -214,20 +212,7 @@ const MainAppContent: React.FC = () => {
   if ((!user && !isSuperAdmin) || currentPath === '/admin/login') {
     return (
       <AdminLogin
-        settings={settings || activeClinic ? {
-          clinicName: activeClinic?.name || 'CITY CARE CLINIC',
-          clinicLogo: activeClinic?.logo || '',
-          clinicAddress: activeClinic?.address || '',
-          phone: activeClinic?.phone || '',
-          email: activeClinic?.email || '',
-          tokenPrefix: activeClinic?.tokenPrefix || 'A',
-          startingTokenNumber: activeClinic?.startingTokenNumber || 1,
-          tokenDisplaySettings: activeClinic?.tokenDisplaySettings || {
-            enableSound: true,
-            autoRefreshInterval: 5,
-            announcementVoice: true
-          }
-        } : null}
+        settings={resolvedClinicSettings}
         onLoginSuccess={() => navigate('/admin/dashboard')}
         onNavigateToPatientPortal={() => navigate('/patient')}
         onNavigateToSuperAdmin={() => navigate('/super-admin/login')}
@@ -267,20 +252,7 @@ const MainAppContent: React.FC = () => {
       <AdminLayout
         currentRoute={adminRoute}
         onRouteChange={(route) => navigate(route)}
-        settings={settings || activeClinic ? {
-          clinicName: activeClinic?.name || 'CITY CARE CLINIC',
-          clinicLogo: activeClinic?.logo || '',
-          clinicAddress: activeClinic?.address || '',
-          phone: activeClinic?.phone || '',
-          email: activeClinic?.email || '',
-          tokenPrefix: activeClinic?.tokenPrefix || 'A',
-          startingTokenNumber: activeClinic?.startingTokenNumber || 1,
-          tokenDisplaySettings: activeClinic?.tokenDisplaySettings || {
-            enableSound: true,
-            autoRefreshInterval: 5,
-            announcementVoice: true
-          }
-        } : null}
+        settings={resolvedClinicSettings}
         onOpenPatientRegistration={() => setIsPatientRegOpen(true)}
         onNavigateToPatientPortal={() => navigate('/patient')}
         onNavigateToPublicDisplay={() => navigate('/display')}

@@ -92,7 +92,7 @@ export const DoctorManagementPage: React.FC<DoctorManagementPageProps> = ({ doct
           </div>
           <div>
             <h2 className="text-base font-bold text-slate-900 dark:text-white">
-              Doctor Directory ({activeClinic?.name || 'City Care Clinic'})
+              Doctor Directory {activeClinic?.name ? `(${activeClinic.name})` : ''}
             </h2>
             <p className="text-xs text-slate-500">Configure Doctor Profiles, Rooms, and Token Prefix Assignments</p>
           </div>

@@ -74,7 +74,7 @@ export const PatientListPage: React.FC<PatientListPageProps> = ({ patients, toke
           </div>
           <div>
             <h2 className="text-base font-bold text-slate-900 dark:text-white">
-              Registered Patient Directory ({activeClinic?.name || 'City Care Clinic'})
+              Registered Patient Directory {activeClinic?.name ? `(${activeClinic.name})` : ''}
             </h2>
             <p className="text-xs text-slate-500">Manage Patient Profiles & Consult History • Scoped to /clinics/{activeClinicId}</p>
           </div>

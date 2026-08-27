@@ -33,7 +33,7 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({
 
   // Clinic selection for Clinic Admin login
   const [selectedClinicId, setSelectedClinicId] = useState<string>(() => {
-    return activeClinicId || (allClinics.length > 0 ? allClinics[0].id : 'clinic_citycare');
+    return activeClinicId || (allClinics.length > 0 ? allClinics[0].id : '');
   });
 
   // Clinic Admin Email & Password state

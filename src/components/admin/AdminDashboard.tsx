@@ -190,7 +190,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
         <div className="flex items-center gap-2 ml-auto">
           <span className="text-[11px] font-semibold text-slate-500 hidden sm:inline">
-            Active Tenant: <strong className="text-slate-800 dark:text-slate-200">{activeClinic?.name || 'City Care Clinic'}</strong>
+            Active Tenant: <strong className="text-slate-800 dark:text-slate-200">{activeClinic?.name || (activeClinicId ? `Clinic: ${activeClinicId}` : 'None')}</strong>
           </span>
           <button
             onClick={onOpenPatientRegistration}
@@ -254,7 +254,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               <div className="flex items-center gap-2">
                 <span className="w-2.5 h-2.5 rounded-full bg-blue-500 animate-pulse" />
                 <p className="text-xs font-extrabold text-blue-600 dark:text-blue-400 uppercase tracking-wider">
-                  Active Consultation Console ({activeClinic?.name || 'City Care Clinic'})
+                  Active Consultation Console {activeClinic?.name ? `(${activeClinic.name})` : ''}
                 </p>
               </div>
               <button
@@ -389,7 +389,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               <div className="w-10 h-10 bg-slate-700 rounded-full flex items-center justify-center mx-auto text-white">
                 <Building2 className="w-5 h-5 text-blue-400" />
               </div>
-              <p className="text-xs font-bold text-white uppercase">{activeClinic?.name || 'City Care Clinic'}</p>
+              <p className="text-xs font-bold text-white uppercase">{activeClinic?.name || 'Clinic'}</p>
 
               <div className="bg-slate-900/90 rounded-lg p-3 border border-slate-800">
                 <p className="text-[10px] text-slate-400 uppercase font-semibold">NOW SERVING</p>

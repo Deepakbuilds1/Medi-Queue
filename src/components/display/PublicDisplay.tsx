@@ -46,7 +46,7 @@ export const PublicDisplay: React.FC<PublicDisplayProps> = ({ settings, onNaviga
     return () => unsubscribe();
   }, [activeClinicId]);
 
-  const clinicName = activeClinic?.name || settings?.clinicName || 'CITY CARE CLINIC';
+  const clinicName = activeClinic?.name || settings?.clinicName || (activeClinicId ? `Clinic: ${activeClinicId}` : 'MediQueue Public Display');
   const clinicLogo = activeClinic?.logo || settings?.clinicLogo;
 
   const activeServing = publicQueue.nowServing[0];

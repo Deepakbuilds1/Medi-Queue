@@ -13,9 +13,7 @@ import { auth, db } from '../lib/firebase';
 import { 
   saveUserProfile, 
   getUserProfile, 
-  logAuditEvent, 
-  DEFAULT_CLINIC_ID, 
-  INITIAL_CLINICS 
+  logAuditEvent 
 } from '../services/clinicService';
 import { UserProfile, UserRole } from '../types';
 import { formatFirestoreError } from '../utils/errorUtils';
@@ -59,9 +57,9 @@ const ensureSuperAdminFirebaseAuth = async (
         age: 40,
         gender: 'Other',
         role: 'SUPER_ADMIN',
-        clinicId: DEFAULT_CLINIC_ID,
-        clinicIds: INITIAL_CLINICS.map(c => c.id),
-        accessibleClinicIds: INITIAL_CLINICS.map(c => c.id),
+        clinicId: '',
+        clinicIds: [],
+        accessibleClinicIds: [],
         status: 'active',
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
@@ -154,9 +152,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 age: 40,
                 gender: 'Other',
                 role: 'SUPER_ADMIN',
-                clinicId: DEFAULT_CLINIC_ID,
-                clinicIds: INITIAL_CLINICS.map(c => c.id),
-                accessibleClinicIds: INITIAL_CLINICS.map(c => c.id),
+                clinicId: '',
+                clinicIds: [],
+                accessibleClinicIds: [],
                 status: 'active',
                 createdAt: new Date().toISOString()
               });
@@ -192,7 +190,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, []);
 
-  // Firebase Auth State Listener (for Clinic Admins & Staff)
+  // Firebase Auth State Listener (for Clinic Admins, Staff & Patients)
   useEffect(() => {
     let isMounted = true;
 
@@ -205,7 +203,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           let profile = await getUserProfile(currentUser.uid);
           
           if (!profile) {
-            // For existing auth user without profile, check email domain or default safely
             const isDefaultSuper = currentUser.email === 'gdeepak4689@gmail.com' || currentUser.email === 'superadmin@mediqueue.internal';
             const newProfile: UserProfile = {
               uid: currentUser.uid,
@@ -215,10 +212,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               age: 30,
               gender: 'Other',
               role: isDefaultSuper ? 'SUPER_ADMIN' : 'PATIENT',
-              clinicId: DEFAULT_CLINIC_ID,
-              clinicName: 'City Care Clinic',
-              clinicIds: [DEFAULT_CLINIC_ID],
-              accessibleClinicIds: [DEFAULT_CLINIC_ID],
+              clinicId: '',
+              clinicName: '',
+              clinicIds: [],
+              accessibleClinicIds: [],
               status: 'active',
               createdAt: new Date().toISOString()
             };
@@ -240,8 +237,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           if (isMounted) {
             setUserProfile(profile as UserProfile);
             
-            // If logged-in user is a patient, immediately load their associated clinicId into storage
-            if (profile && (profile.role === 'PATIENT' || profile.role === 'patient') && profile.clinicId) {
+            // If logged-in user has an associated clinicId, automatically update localStorage
+            if (profile && profile.clinicId) {
               try {
                 localStorage.setItem('mediqueue_active_clinic_id', profile.clinicId);
               } catch (_) {}
@@ -253,14 +250,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
           // Audit log successful login for staff/admins
           if (profile?.role !== 'PATIENT' && profile?.role !== 'patient') {
-            const resolvedClinicId = profile?.clinicId || DEFAULT_CLINIC_ID;
-            const clinicObj = INITIAL_CLINICS.find(c => c.id === resolvedClinicId);
-            logAuditEvent({
-              action: 'CLINIC_ADMIN_LOGIN',
-              clinicId: resolvedClinicId,
-              clinicName: clinicObj?.name,
-              details: { email: currentUser.email }
-            });
+            const resolvedClinicId = profile?.clinicId;
+            if (resolvedClinicId) {
+              logAuditEvent({
+                action: 'CLINIC_ADMIN_LOGIN',
+                clinicId: resolvedClinicId,
+                clinicName: profile?.clinicName,
+                details: { email: currentUser.email }
+              });
+            }
           }
         } catch (err) {
           console.warn('Auth profile initialization notice:', formatFirestoreError(err, 'Failed to fetch user profile'));
@@ -308,9 +306,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       age: 40,
       gender: 'Other',
       role: 'SUPER_ADMIN',
-      clinicId: DEFAULT_CLINIC_ID,
-      clinicIds: INITIAL_CLINICS.map(c => c.id),
-      accessibleClinicIds: INITIAL_CLINICS.map(c => c.id),
+      clinicId: '',
+      clinicIds: [],
+      accessibleClinicIds: [],
       status: 'active',
       createdAt: new Date().toISOString()
     };
@@ -319,10 +317,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setLoading(false);
     setAuthReady(true);
 
-    // Audit log successful Super Admin authentication (No secrets or PIN logged)
+    // Audit log successful Super Admin authentication
     logAuditEvent({
       action: 'SUPER_ADMIN_LOGIN',
-      clinicId: DEFAULT_CLINIC_ID,
       clinicName: 'MediQueue System Global',
       actorRole: 'SUPER_ADMIN',
       details: {
@@ -358,7 +355,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     role: UserRole = 'CLINIC_ADMIN'
   ) => {
     const cred = await createUserWithEmailAndPassword(auth, email, pass);
-    const targetClinicId = clinicId || DEFAULT_CLINIC_ID;
+    const targetClinicId = clinicId || '';
 
     // Staff accounts cannot register as Super Admin from client
     const assignedRole: UserRole = role === 'SUPER_ADMIN' ? 'CLINIC_ADMIN' : role;
@@ -372,13 +369,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       gender: 'Male',
       role: assignedRole,
       clinicId: targetClinicId,
-      clinicIds: [targetClinicId],
-      accessibleClinicIds: [targetClinicId],
+      clinicIds: targetClinicId ? [targetClinicId] : [],
+      accessibleClinicIds: targetClinicId ? [targetClinicId] : [],
       status: 'active',
       createdAt: new Date().toISOString()
     };
     const saved = await saveUserProfile(profileData);
     setUserProfile(saved as UserProfile);
+    if (targetClinicId) {
+      try {
+        localStorage.setItem('mediqueue_active_clinic_id', targetClinicId);
+      } catch (_) {}
+    }
   };
 
   const signUpPatient = async (
@@ -404,8 +406,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       role: 'PATIENT',
       clinicId: profileData.clinicId,
       clinicName: profileData.clinicName,
-      clinicIds: [profileData.clinicId],
-      accessibleClinicIds: [profileData.clinicId],
+      clinicIds: profileData.clinicId ? [profileData.clinicId] : [],
+      accessibleClinicIds: profileData.clinicId ? [profileData.clinicId] : [],
       activeClinicId: profileData.clinicId,
       status: 'active',
       createdAt: new Date().toISOString(),
@@ -458,7 +460,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       logAuditEvent({
         action: 'SUPER_ADMIN_LOGOUT',
-        clinicId: DEFAULT_CLINIC_ID,
         clinicName: 'MediQueue System Global',
         actorRole: 'SUPER_ADMIN',
         details: { timestamp: new Date().toISOString() }
@@ -468,11 +469,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setSuperAdminSessionToken(null);
     } else if (user) {
       const activeClinicId = userProfile?.clinicId;
-      const clinicObj = activeClinicId ? INITIAL_CLINICS.find(c => c.id === activeClinicId) : undefined;
       logAuditEvent({
         action: 'ADMIN_LOGOUT',
         clinicId: activeClinicId,
-        clinicName: clinicObj?.name,
+        clinicName: userProfile?.clinicName,
         details: { email: user.email }
       });
     }

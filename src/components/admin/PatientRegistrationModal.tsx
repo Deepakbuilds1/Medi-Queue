@@ -94,7 +94,7 @@ export const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> =
             <div>
               <h2 className="text-base font-bold">Register New Patient</h2>
               <p className="text-xs text-slate-400">
-                Clinic: {activeClinic?.name || 'City Care Clinic'} ({activeClinicId})
+                Clinic: {activeClinic?.name || activeClinicId || 'None'}
               </p>
             </div>
           </div>

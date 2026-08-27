@@ -16,7 +16,7 @@ export type UserRole =
   | 'admin';
 
 export interface Clinic {
-  id: string; // e.g. 'clinic_citycare', 'clinic_apollo'
+  id: string; // Firestore document ID
   name: string;
   slug: string;
   logo: string;

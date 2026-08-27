@@ -13,7 +13,7 @@ interface TokenReceiptModalProps {
 export const TokenReceiptModal: React.FC<TokenReceiptModalProps> = ({
   isOpen,
   token,
-  clinicName = 'CITY CARE CLINIC',
+  clinicName = 'MediQueue Clinic',
   clinicLogo,
   onClose
 }) => {

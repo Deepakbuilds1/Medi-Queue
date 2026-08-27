@@ -6,9 +6,7 @@ import {
   createClinic, 
   updateClinic, 
   toggleClinicStatus, 
-  logAuditEvent,
-  DEFAULT_CLINIC_ID, 
-  INITIAL_CLINICS 
+  logAuditEvent 
 } from '../services/clinicService';
 import { useAuth } from './AuthContext';
 import { formatFirestoreError } from '../utils/errorUtils';
@@ -43,28 +41,26 @@ const ClinicContext = createContext<ClinicContextType | undefined>(undefined);
 export const ClinicProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { userProfile, isSuperAdmin, user } = useAuth();
   
-  // Raw clinic list from Firestore / fallbacks
-  const [allClinics, setAllClinics] = useState<Clinic[]>(INITIAL_CLINICS);
+  // Raw clinic list from Firestore (starts empty)
+  const [allClinics, setAllClinics] = useState<Clinic[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Active clinic ID state with localStorage persistence
+  // Active clinic ID state with localStorage persistence (no hardcoded default clinic)
   const [activeClinicId, setActiveClinicIdState] = useState<string>(() => {
     try {
       const saved = localStorage.getItem('mediqueue_active_clinic_id');
-      if (saved && INITIAL_CLINICS.some(c => c.id === saved)) {
-        return saved;
+      if (saved && typeof saved === 'string' && saved.trim()) {
+        return saved.trim();
       }
     } catch {
-      // Ignore localStorage errors
+      // Ignore storage read errors
     }
-    return DEFAULT_CLINIC_ID;
+    return '';
   });
 
-  // Detailed current clinic object
-  const [activeClinic, setActiveClinic] = useState<Clinic | null>(() => {
-    return INITIAL_CLINICS.find(c => c.id === DEFAULT_CLINIC_ID) || INITIAL_CLINICS[0];
-  });
+  // Detailed current clinic object (null when no clinic selected or found)
+  const [activeClinic, setActiveClinic] = useState<Clinic | null>(null);
 
   // 1. Subscribe to all clinics from Firestore
   useEffect(() => {
@@ -72,11 +68,8 @@ export const ClinicProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const unsub = subscribeClinics(
       (list) => {
         if (!isMounted) return;
-        if (list && list.length > 0) {
-          setAllClinics(list);
-        } else {
-          setAllClinics(INITIAL_CLINICS);
-        }
+        const validList = Array.isArray(list) ? list : [];
+        setAllClinics(validList);
         setLoading(false);
         setError(null);
       },
@@ -84,7 +77,7 @@ export const ClinicProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         if (!isMounted) return;
         const msg = formatFirestoreError(err, 'Could not retrieve clinic list');
         console.warn('Clinic subscription notice:', msg);
-        setAllClinics(INITIAL_CLINICS);
+        setAllClinics([]);
         setLoading(false);
       }
     );
@@ -95,49 +88,101 @@ export const ClinicProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     };
   }, []);
 
-  // 2. Synchronize clinic access based on user role & login changes
+  // 2. Synchronize clinic access based on loaded clinics, user role, & persistence
   useEffect(() => {
+    if (loading) return;
+
+    // Check if saved clinicId in localStorage exists in loaded Firestore clinics
+    let currentSavedId = '';
+    try {
+      currentSavedId = localStorage.getItem('mediqueue_active_clinic_id') || '';
+    } catch {}
+
+    if (currentSavedId && !allClinics.some(c => c.id === currentSavedId)) {
+      // Stale clinic ID detected; remove from localStorage
+      try {
+        localStorage.removeItem('mediqueue_active_clinic_id');
+      } catch {}
+    }
+
     if (!user) {
-      // When unauthenticated, ensure valid default
-      if (!allClinics.some(c => c.id === activeClinicId)) {
-        setActiveClinicIdState(DEFAULT_CLINIC_ID);
+      // Unauthenticated / Public visitor:
+      // If the current activeClinicId does not exist in loaded clinics, reset to empty
+      if (activeClinicId && !allClinics.some(c => c.id === activeClinicId)) {
+        setActiveClinicIdState('');
+        setActiveClinic(null);
+        try {
+          localStorage.removeItem('mediqueue_active_clinic_id');
+        } catch {}
       }
       setError(null);
       return;
     }
 
     if (isSuperAdmin) {
-      // Super Admin retains their chosen clinic or default
-      if (!activeClinicId || !allClinics.some(c => c.id === activeClinicId)) {
-        setActiveClinicIdState(DEFAULT_CLINIC_ID);
+      // Super Admin: retains chosen clinic if it exists, or selects first available if active is invalid
+      if (activeClinicId && !allClinics.some(c => c.id === activeClinicId)) {
+        const fallbackId = allClinics.length > 0 ? allClinics[0].id : '';
+        setActiveClinicIdState(fallbackId);
+        try {
+          if (fallbackId) {
+            localStorage.setItem('mediqueue_active_clinic_id', fallbackId);
+          } else {
+            localStorage.removeItem('mediqueue_active_clinic_id');
+          }
+        } catch {}
       }
       setError(null);
     } else if (userProfile) {
       // Patient user: lock active clinic to their registered clinicId
       if (userProfile.role === 'PATIENT' || userProfile.role === 'patient') {
-        const patientClinicId = userProfile.clinicId || DEFAULT_CLINIC_ID;
-        if (activeClinicId !== patientClinicId) {
-          setActiveClinicIdState(patientClinicId);
+        const patientClinicId = userProfile.clinicId || '';
+        if (patientClinicId && allClinics.some(c => c.id === patientClinicId)) {
+          if (activeClinicId !== patientClinicId) {
+            setActiveClinicIdState(patientClinicId);
+            try {
+              localStorage.setItem('mediqueue_active_clinic_id', patientClinicId);
+            } catch {}
+          }
+          setError(null);
+        } else if (patientClinicId && allClinics.length > 0 && !allClinics.some(c => c.id === patientClinicId)) {
+          // Registered clinic is no longer in Firestore
+          setActiveClinicIdState('');
+          setActiveClinic(null);
           try {
-            localStorage.setItem('mediqueue_active_clinic_id', patientClinicId);
+            localStorage.removeItem('mediqueue_active_clinic_id');
           } catch {}
+          setError('Your registered clinic is no longer available. Please contact the clinic administrator.');
+        } else if (!patientClinicId) {
+          // No clinic assigned yet
+          if (activeClinicId && !allClinics.some(c => c.id === activeClinicId)) {
+            setActiveClinicIdState('');
+            setActiveClinic(null);
+          }
+          setError(null);
         }
-        setError(null);
         return;
       }
 
+      // Clinic Staff (CLINIC_ADMIN, DOCTOR, RECEPTIONIST)
       const allowedClinicIds = userProfile.clinicIds || userProfile.accessibleClinicIds || (userProfile.clinicId ? [userProfile.clinicId] : []);
+      const validAllowedClinics = allowedClinicIds.filter(id => allClinics.some(c => c.id === id));
       
       if (userProfile.role === 'CLINIC_ADMIN' || userProfile.role === 'admin' || userProfile.role === 'DOCTOR' || userProfile.role === 'RECEPTIONIST') {
-        if (allowedClinicIds.length === 0) {
-          setError('No clinic has been assigned to this account. Please contact the Super Admin.');
+        if (validAllowedClinics.length === 0) {
+          setActiveClinicIdState('');
+          setActiveClinic(null);
+          try {
+            localStorage.removeItem('mediqueue_active_clinic_id');
+          } catch {}
+          setError('No valid clinic has been assigned to this account. Please contact the Super Admin.');
           return;
         }
         
         setError(null);
-        // If current activeClinicId is not among user's allowed clinics, set to first assigned
-        if (!allowedClinicIds.includes(activeClinicId)) {
-          const firstAllowed = allowedClinicIds[0];
+        // If current activeClinicId is not among user's valid allowed clinics, set to first assigned
+        if (!validAllowedClinics.includes(activeClinicId)) {
+          const firstAllowed = validAllowedClinics[0];
           setActiveClinicIdState(firstAllowed);
           try {
             localStorage.setItem('mediqueue_active_clinic_id', firstAllowed);
@@ -145,7 +190,7 @@ export const ClinicProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         }
       }
     }
-  }, [user, userProfile, isSuperAdmin, allClinics, activeClinicId]);
+  }, [user, userProfile, isSuperAdmin, allClinics, activeClinicId, loading]);
 
   // 3. Filter visible clinics according to Role-Based Access Control (RBAC)
   const accessibleClinics = useMemo(() => {
@@ -155,7 +200,7 @@ export const ClinicProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
 
     if (userProfile && (userProfile.role === 'CLINIC_ADMIN' || userProfile.role === 'admin' || userProfile.role === 'DOCTOR' || userProfile.role === 'RECEPTIONIST')) {
-      // Clinic Staff sees their assigned clinics (both from clinicIds and accessibleClinicIds)
+      // Clinic Staff sees their assigned clinics
       const allowedList = userProfile.clinicIds || userProfile.accessibleClinicIds || (userProfile.clinicId ? [userProfile.clinicId] : []);
       const allowedSet = new Set<string>(allowedList);
       return allClinics.filter(c => allowedSet.has(c.id));
@@ -171,14 +216,14 @@ export const ClinicProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
 
     // Guest views only ACTIVE clinics
-    const activeOnly = allClinics.filter(c => c.status === 'ACTIVE');
-    return activeOnly.length > 0 ? activeOnly : allClinics;
+    return allClinics.filter(c => c.status === 'ACTIVE');
   }, [allClinics, isSuperAdmin, userProfile]);
 
   // 4. Subscribe to the active clinic document details
   useEffect(() => {
     let isMounted = true;
     if (!activeClinicId || typeof activeClinicId !== 'string' || !activeClinicId.trim()) {
+      setActiveClinic(null);
       return;
     }
 
@@ -195,16 +240,24 @@ export const ClinicProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         if (clinicDoc) {
           setActiveClinic(clinicDoc);
         } else {
-          // Document does not exist in Firestore; use standard fallback (normal state)
-          const fallback = allClinics.find(c => c.id === activeClinicId) || INITIAL_CLINICS[0];
-          setActiveClinic(fallback);
+          // Document does not exist in Firestore; clean up stale active state without loops
+          const fallback = allClinics.find(c => c.id === activeClinicId);
+          if (fallback) {
+            setActiveClinic(fallback);
+          } else {
+            setActiveClinic(null);
+            setActiveClinicIdState('');
+            try {
+              localStorage.removeItem('mediqueue_active_clinic_id');
+            } catch {}
+          }
         }
       },
       (err) => {
         if (!isMounted) return;
         const msg = formatFirestoreError(err, `Could not retrieve details for clinic ${activeClinicId}`);
         console.warn('Active clinic fetch notice:', msg);
-        const fallback = allClinics.find(c => c.id === activeClinicId) || INITIAL_CLINICS[0];
+        const fallback = allClinics.find(c => c.id === activeClinicId) || null;
         setActiveClinic(fallback);
       }
     );
@@ -217,19 +270,26 @@ export const ClinicProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   // 5. Centralized switchClinic implementation
   const switchClinic = useCallback((clinicId: string) => {
-    if (!clinicId) return;
+    if (!clinicId || !clinicId.trim()) {
+      try {
+        localStorage.removeItem('mediqueue_active_clinic_id');
+      } catch {}
+      setActiveClinicIdState('');
+      setActiveClinic(null);
+      return;
+    }
 
-    // Validate if the clinic exists
+    // Validate if the clinic exists in loaded Firestore clinics
     const targetClinic = allClinics.find(c => c.id === clinicId);
     if (!targetClinic) {
-      console.warn(`Clinic ${clinicId} not found.`);
+      // Do not set or keep non-existent clinic
       return;
     }
 
     // RBAC validation: Non-super admins and patients cannot switch to unauthorized clinics
     if (user && !isSuperAdmin && userProfile) {
       if (userProfile.role === 'PATIENT' || userProfile.role === 'patient') {
-        if (clinicId !== userProfile.clinicId) {
+        if (userProfile.clinicId && clinicId !== userProfile.clinicId) {
           console.warn(`Access denied: Patient accounts are locked to registered clinic ${userProfile.clinicId}`);
           return;
         }

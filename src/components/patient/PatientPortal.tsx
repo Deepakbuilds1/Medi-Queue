@@ -125,7 +125,7 @@ export const PatientPortal: React.FC<PatientPortalProps> = ({
     }
   };
 
-  const clinicName = activeClinic?.name || settings?.clinicName || 'CITY CARE CLINIC';
+  const clinicName = activeClinic?.name || settings?.clinicName || (activeClinicId ? `Clinic: ${activeClinicId}` : 'MediQueue Clinic');
   const clinicLogo = activeClinic?.logo || settings?.clinicLogo;
 
   const getStatusColor = (status: string) => {

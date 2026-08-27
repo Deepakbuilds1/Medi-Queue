@@ -63,7 +63,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
   ];
 
   const currentClinic = clinics.find(c => c.id === activeClinicId);
-  const clinicName = currentClinic?.name || settings?.clinicName || 'CITY CARE CLINIC';
+  const clinicName = currentClinic?.name || settings?.clinicName || (activeClinicId ? `Clinic: ${activeClinicId}` : 'MediQueue Clinic');
   const clinicLogo = currentClinic?.logo || settings?.clinicLogo;
 
   const formattedDate = dateTime.toLocaleDateString('en-US', {

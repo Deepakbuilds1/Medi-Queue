@@ -164,7 +164,7 @@ export const TokenQueuePage: React.FC<TokenQueuePageProps> = ({ tokens, doctors 
           </div>
           <div>
             <h2 className="text-base font-bold text-slate-900 dark:text-white">
-              Token Queue Management ({activeClinic?.name || 'City Care Clinic'})
+              Token Queue Management {activeClinic?.name ? `(${activeClinic.name})` : ''}
             </h2>
             <p className="text-xs text-slate-500">Live Queue & Action Control Console • Isolated /clinics/{activeClinicId}</p>
           </div>

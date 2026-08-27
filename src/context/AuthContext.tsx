@@ -239,6 +239,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
           if (isMounted) {
             setUserProfile(profile as UserProfile);
+            
+            // If logged-in user is a patient, immediately load their associated clinicId into storage
+            if (profile && (profile.role === 'PATIENT' || profile.role === 'patient') && profile.clinicId) {
+              try {
+                localStorage.setItem('mediqueue_active_clinic_id', profile.clinicId);
+              } catch (_) {}
+            }
+            
             setLoading(false);
             setAuthReady(true);
           }
@@ -326,11 +334,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Clinic Admin / Staff Email & Password Login
   const login = async (email: string, pass: string) => {
-    const cred = await signInWithEmailAndPassword(auth, email, pass);
+    const cred = await signInWithEmailAndPassword(auth, email.trim(), pass);
     const profile = await getUserProfile(cred.user.uid);
     if (profile && (profile.status === 'inactive' || profile.status === 'INACTIVE')) {
       await firebaseSignOut(auth);
       throw new Error('This account has been disabled. Please contact the Super Admin.');
+    }
+    if (profile) {
+      setUserProfile(profile as UserProfile);
+      if (profile.clinicId) {
+        try {
+          localStorage.setItem('mediqueue_active_clinic_id', profile.clinicId);
+        } catch (_) {}
+      }
     }
   };
 
@@ -396,6 +412,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       updatedAt: new Date().toISOString()
     };
     const saved = await saveUserProfile(fullProfile);
+    if (fullProfile.clinicId) {
+      try {
+        localStorage.setItem('mediqueue_active_clinic_id', fullProfile.clinicId);
+      } catch (_) {}
+    }
     setUserProfile(saved as UserProfile);
     return saved as UserProfile;
   };
@@ -407,6 +428,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (profile.status === 'inactive' || profile.status === 'INACTIVE') {
         await firebaseSignOut(auth);
         throw new Error('This account has been deactivated. Please contact clinic support.');
+      }
+      if (profile.clinicId) {
+        try {
+          localStorage.setItem('mediqueue_active_clinic_id', profile.clinicId);
+        } catch (_) {}
       }
       setUserProfile(profile as UserProfile);
       return profile as UserProfile;

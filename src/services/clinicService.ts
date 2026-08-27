@@ -1279,6 +1279,35 @@ export function subscribeClinicAdmins(
   );
 }
 
+export function subscribeUsers(
+  callback: (users: UserProfile[]) => void,
+  onError?: (err: any) => void
+): () => void {
+  const superAdminSession = typeof window !== 'undefined' ? sessionStorage.getItem('mediqueue_super_admin_session') : null;
+  if (!auth.currentUser && !superAdminSession) {
+    callback([]);
+    if (onError) onError('Access restricted: Authentication required to view users collection.');
+    return () => {};
+  }
+  return createManagedListener<UserProfile[]>(
+    () => collection(db, 'users'),
+    (snapshot) => {
+      return snapshot.docs.map((d: any) => ({
+        ...d.data(),
+        uid: d.id
+      })) as UserProfile[];
+    },
+    callback,
+    onError,
+    { 
+      path: 'users', 
+      authRequired: true,
+      requiresAdmin: true,
+      requiredRole: ['SUPER_ADMIN']
+    }
+  );
+}
+
 export async function updateClinicAdminProfile(
   uid: string,
   data: Partial<UserProfile>

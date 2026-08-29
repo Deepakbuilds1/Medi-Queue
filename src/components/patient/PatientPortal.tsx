@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Bell, Monitor, Ticket, PlusCircle, User, LogOut } from 'lucide-react';
+import { Search, Bell, Monitor, Ticket, PlusCircle, User, LogOut, Settings as SettingsIcon, HelpCircle, ShieldCheck, FileText, AlertTriangle, Cookie, Accessibility } from 'lucide-react';
 import { ClinicSettings, QueueToken } from '../../types';
 import { lookupTokenByNumber, subscribePublicQueue, subscribeUserTokens } from '../../services/clinicService';
 import { playTokenCallSound } from '../../lib/sound';
@@ -7,17 +7,28 @@ import { useAuth } from '../../context/AuthContext';
 import { useClinic } from '../../context/ClinicContext';
 import { PatientAuthModal } from './PatientAuthModal';
 import { BookTokenSection } from './BookTokenSection';
+import { LegalDocType } from '../legal/LegalPagesModal';
 
 interface PatientPortalProps {
   settings: ClinicSettings | null;
   onNavigateToAdminLogin: () => void;
   onNavigateToPublicDisplay: () => void;
+  onOpenLegalDoc?: (doc: LegalDocType) => void;
+  onOpenHelpCenter?: () => void;
+  onOpenCookiePreferences?: () => void;
+  onOpenAccountSettings?: () => void;
+  onOpenForgotPassword?: () => void;
 }
 
 export const PatientPortal: React.FC<PatientPortalProps> = ({
   settings,
   onNavigateToAdminLogin,
-  onNavigateToPublicDisplay
+  onNavigateToPublicDisplay,
+  onOpenLegalDoc,
+  onOpenHelpCenter,
+  onOpenCookiePreferences,
+  onOpenAccountSettings,
+  onOpenForgotPassword,
 }) => {
   const { user, userProfile, logout } = useAuth();
   const { activeClinicId, activeClinic, clinics, switchClinic } = useClinic();
@@ -222,15 +233,49 @@ export const PatientPortal: React.FC<PatientPortalProps> = ({
           )}
 
           {user ? (
-            <button
-              onClick={logout}
-              className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
-            >
-              <LogOut className="w-3.5 h-3.5" />
-              Sign Out
-            </button>
+            <div className="flex items-center gap-2">
+              {onOpenAccountSettings && (
+                <button
+                  type="button"
+                  onClick={onOpenAccountSettings}
+                  className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-teal-400 hover:text-teal-300 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+                  title="Account Settings"
+                >
+                  <SettingsIcon className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Settings</span>
+                </button>
+              )}
+              {onOpenHelpCenter && (
+                <button
+                  type="button"
+                  onClick={onOpenHelpCenter}
+                  className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+                  title="Help Center"
+                >
+                  <HelpCircle className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Help</span>
+                </button>
+              )}
+              <button
+                onClick={logout}
+                className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span>Sign Out</span>
+              </button>
+            </div>
           ) : (
-            <div className="flex gap-2">
+            <div className="flex items-center gap-2">
+              {onOpenHelpCenter && (
+                <button
+                  type="button"
+                  onClick={onOpenHelpCenter}
+                  className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  <HelpCircle className="w-3.5 h-3.5" />
+                  <span>Help</span>
+                </button>
+              )}
               <button
                 onClick={() => { setAuthModalMode('signin'); setIsAuthModalOpen(true); }}
                 className="px-3 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-bold transition-colors cursor-pointer"
@@ -525,12 +570,178 @@ export const PatientPortal: React.FC<PatientPortalProps> = ({
         isOpen={isAuthModalOpen}
         initialMode={authModalMode}
         onClose={() => setIsAuthModalOpen(false)}
+        onOpenForgotPassword={onOpenForgotPassword}
+        onOpenLegalDoc={onOpenLegalDoc}
       />
 
-      {/* Footer */}
-      <footer className="bg-slate-900 text-slate-400 text-center py-4 px-4 text-xs border-t border-slate-800">
-        <p className="font-medium text-slate-300">{clinicName} Multi-Clinic Token System</p>
-        <p className="text-[10px] text-slate-500 mt-0.5">Active Tenant: {activeClinicId}</p>
+      {/* Production Footer with Verified Legal, Emergency & Support Links */}
+      <footer className="bg-slate-900 text-slate-400 py-8 px-4 text-xs border-t border-slate-800 space-y-6">
+        <div className="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-6 text-left">
+          
+          {/* Col 1: Brand & Clinic Info */}
+          <div className="space-y-2 md:col-span-1">
+            <div className="flex items-center gap-2">
+              <div className="w-6 h-6 bg-teal-600 rounded-lg flex items-center justify-center font-bold text-white text-xs">
+                M
+              </div>
+              <span className="font-extrabold text-white text-sm">MediQueue</span>
+            </div>
+            <p className="text-[11px] text-slate-400 leading-relaxed">
+              Multi-Clinic Queue Management & Token OS for {clinicName}.
+            </p>
+            <p className="text-[10px] text-slate-500 font-mono">
+              Tenant ID: {activeClinicId}
+            </p>
+          </div>
+
+          {/* Col 2: Legal & Disclosures */}
+          <div className="space-y-2">
+            <h4 className="font-bold text-slate-200 uppercase tracking-wider text-[10px]">
+              Legal & Compliance
+            </h4>
+            <ul className="space-y-1.5 text-[11px]">
+              <li>
+                <button
+                  type="button"
+                  onClick={() => onOpenLegalDoc && onOpenLegalDoc('privacy')}
+                  className="hover:text-teal-400 transition-colors cursor-pointer"
+                >
+                  Privacy Policy
+                </button>
+              </li>
+              <li>
+                <button
+                  type="button"
+                  onClick={() => onOpenLegalDoc && onOpenLegalDoc('terms')}
+                  className="hover:text-teal-400 transition-colors cursor-pointer"
+                >
+                  Terms of Service
+                </button>
+              </li>
+              <li>
+                <button
+                  type="button"
+                  onClick={() => onOpenLegalDoc && onOpenLegalDoc('disclaimer')}
+                  className="text-amber-400 hover:text-amber-300 font-semibold transition-colors cursor-pointer flex items-center gap-1"
+                >
+                  <AlertTriangle className="w-3 h-3" />
+                  <span>Medical Disclaimer</span>
+                </button>
+              </li>
+              <li>
+                <button
+                  type="button"
+                  onClick={() => onOpenLegalDoc && onOpenLegalDoc('cancellation')}
+                  className="hover:text-teal-400 transition-colors cursor-pointer"
+                >
+                  Cancellation Policy
+                </button>
+              </li>
+            </ul>
+          </div>
+
+          {/* Col 3: Architecture & Security */}
+          <div className="space-y-2">
+            <h4 className="font-bold text-slate-200 uppercase tracking-wider text-[10px]">
+              Security & Privacy
+            </h4>
+            <ul className="space-y-1.5 text-[11px]">
+              <li>
+                <button
+                  type="button"
+                  onClick={() => onOpenLegalDoc && onOpenLegalDoc('security')}
+                  className="hover:text-teal-400 transition-colors cursor-pointer"
+                >
+                  Security Architecture
+                </button>
+              </li>
+              <li>
+                <button
+                  type="button"
+                  onClick={() => onOpenLegalDoc && onOpenLegalDoc('cookies')}
+                  className="hover:text-teal-400 transition-colors cursor-pointer"
+                >
+                  Cookie & Storage Policy
+                </button>
+              </li>
+              <li>
+                <button
+                  type="button"
+                  onClick={onOpenCookiePreferences}
+                  className="hover:text-teal-400 transition-colors cursor-pointer text-teal-400"
+                >
+                  Cookie Preferences
+                </button>
+              </li>
+              <li>
+                <button
+                  type="button"
+                  onClick={() => onOpenLegalDoc && onOpenLegalDoc('accessibility')}
+                  className="hover:text-teal-400 transition-colors cursor-pointer"
+                >
+                  Accessibility Statement
+                </button>
+              </li>
+            </ul>
+          </div>
+
+          {/* Col 4: Support & Navigation */}
+          <div className="space-y-2">
+            <h4 className="font-bold text-slate-200 uppercase tracking-wider text-[10px]">
+              Assistance & Help
+            </h4>
+            <ul className="space-y-1.5 text-[11px]">
+              <li>
+                <button
+                  type="button"
+                  onClick={onOpenHelpCenter}
+                  className="hover:text-teal-400 transition-colors cursor-pointer text-teal-400 font-semibold"
+                >
+                  Help Center & FAQs
+                </button>
+              </li>
+              <li>
+                <button
+                  type="button"
+                  onClick={onNavigateToPublicDisplay}
+                  className="hover:text-emerald-400 transition-colors cursor-pointer"
+                >
+                  TV Waiting Display
+                </button>
+              </li>
+              <li>
+                <button
+                  type="button"
+                  onClick={onNavigateToAdminLogin}
+                  className="hover:text-white transition-colors cursor-pointer"
+                >
+                  Clinic Admin Portal
+                </button>
+              </li>
+              {user && (
+                <li>
+                  <button
+                    type="button"
+                    onClick={onOpenAccountSettings}
+                    className="hover:text-teal-400 transition-colors cursor-pointer"
+                  >
+                    Account & Data Export
+                  </button>
+                </li>
+              )}
+            </ul>
+          </div>
+
+        </div>
+
+        {/* Bottom copyright & emergency warning */}
+        <div className="max-w-4xl mx-auto pt-6 border-t border-slate-800 flex flex-col sm:flex-row items-center justify-between text-[11px] text-slate-500 gap-3">
+          <p>© {new Date().getFullYear()} {clinicName}. All rights reserved.</p>
+          <div className="flex items-center gap-1.5 text-amber-500/90 text-[10px]">
+            <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+            <span>Emergency medical cases: Dial 911 / 112 immediately.</span>
+          </div>
+        </div>
       </footer>
 
     </div>

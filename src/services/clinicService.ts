@@ -1156,7 +1156,14 @@ export function subscribeAuditLogs(
       clinicId,
       authRequired: true,
       requiresAdmin: true,
-      requiredRole: ['SUPER_ADMIN', 'CLINIC_ADMIN', 'admin']
+      requiredRole: ['SUPER_ADMIN', 'CLINIC_ADMIN', 'admin'],
+      guard: async () => {
+        const check = await verifyUserAuthorization({
+          clinicId,
+          requiredRole: ['SUPER_ADMIN', 'CLINIC_ADMIN', 'admin']
+        });
+        return check.isAuthorized;
+      }
     }
   );
 }
@@ -1274,7 +1281,13 @@ export function subscribeClinicAdmins(
       filter: 'role in [CLINIC_ADMIN, SUPER_ADMIN]', 
       authRequired: true,
       requiresAdmin: true,
-      requiredRole: ['SUPER_ADMIN']
+      requiredRole: ['SUPER_ADMIN'],
+      guard: async () => {
+        const check = await verifyUserAuthorization({
+          requiredRole: ['SUPER_ADMIN']
+        });
+        return check.isAuthorized;
+      }
     }
   );
 }
@@ -1303,7 +1316,13 @@ export function subscribeUsers(
       path: 'users', 
       authRequired: true,
       requiresAdmin: true,
-      requiredRole: ['SUPER_ADMIN']
+      requiredRole: ['SUPER_ADMIN'],
+      guard: async () => {
+        const check = await verifyUserAuthorization({
+          requiredRole: ['SUPER_ADMIN']
+        });
+        return check.isAuthorized;
+      }
     }
   );
 }

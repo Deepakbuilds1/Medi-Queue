@@ -14,19 +14,24 @@ import {
 import { useAuth } from '../../context/AuthContext';
 import { useClinic } from '../../context/ClinicContext';
 import { ClinicSettings, Clinic } from '../../types';
+import { LegalDocType } from '../legal/LegalPagesModal';
 
 interface AdminLoginProps {
   settings: ClinicSettings | null;
   onLoginSuccess: () => void;
   onNavigateToPatientPortal: () => void;
   onNavigateToSuperAdmin?: () => void;
+  onOpenLegalDoc?: (doc: LegalDocType) => void;
+  onOpenHelpCenter?: () => void;
 }
 
 export const AdminLogin: React.FC<AdminLoginProps> = ({ 
   settings, 
   onLoginSuccess,
   onNavigateToPatientPortal,
-  onNavigateToSuperAdmin
+  onNavigateToSuperAdmin,
+  onOpenLegalDoc,
+  onOpenHelpCenter,
 }) => {
   const { login, resetPassword } = useAuth();
   const { allClinics, switchClinic, activeClinicId } = useClinic();
@@ -298,6 +303,41 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({
               <ArrowLeft className="w-3 h-3" />
               <span>Patient Portal</span>
             </button>
+          </div>
+
+          {/* Legal and Security Links */}
+          <div className="pt-3 border-t border-slate-800/60 flex items-center justify-between text-[11px] text-slate-500">
+            <span className="flex items-center gap-1 text-[10px]">
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
+              <span>RBAC Enforced</span>
+            </span>
+            {onOpenLegalDoc && (
+              <div className="flex items-center gap-2 text-[10px]">
+                <button
+                  type="button"
+                  onClick={() => onOpenLegalDoc('security')}
+                  className="hover:text-emerald-400 hover:underline"
+                >
+                  Security
+                </button>
+                <span>•</span>
+                <button
+                  type="button"
+                  onClick={() => onOpenLegalDoc('privacy')}
+                  className="hover:text-emerald-400 hover:underline"
+                >
+                  Privacy
+                </button>
+                <span>•</span>
+                <button
+                  type="button"
+                  onClick={() => onOpenLegalDoc('terms')}
+                  className="hover:text-emerald-400 hover:underline"
+                >
+                  Terms
+                </button>
+              </div>
+            )}
           </div>
 
         </div>

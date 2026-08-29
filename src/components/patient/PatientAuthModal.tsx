@@ -25,13 +25,17 @@ interface PatientAuthModalProps {
   onClose: () => void;
   onSuccess?: () => void;
   initialMode?: 'signin' | 'signup';
+  onOpenForgotPassword?: () => void;
+  onOpenLegalDoc?: (doc: string) => void;
 }
 
 export const PatientAuthModal: React.FC<PatientAuthModalProps> = ({
   isOpen,
   onClose,
   onSuccess,
-  initialMode = 'signup'
+  initialMode = 'signup',
+  onOpenForgotPassword,
+  onOpenLegalDoc,
 }) => {
   const { signInPatient, signUpPatient } = useAuth();
   const { allClinics, switchClinic } = useClinic();
@@ -566,7 +570,21 @@ export const PatientAuthModal: React.FC<PatientAuthModalProps> = ({
               </div>
 
               <div>
-                <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1">Password *</label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-[11px] font-bold text-slate-700 uppercase">Password *</label>
+                  {onOpenForgotPassword && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onClose();
+                        onOpenForgotPassword();
+                      }}
+                      className="text-[10px] font-bold text-teal-700 hover:text-teal-900 underline cursor-pointer"
+                    >
+                      Forgot password?
+                    </button>
+                  )}
+                </div>
                 <div className="relative">
                   <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
                   <input
@@ -610,10 +628,46 @@ export const PatientAuthModal: React.FC<PatientAuthModalProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="p-3 bg-slate-50 border-t border-slate-200 text-center shrink-0">
+        <div className="p-3 bg-slate-50 border-t border-slate-200 text-center shrink-0 space-y-1">
           <p className="text-[10px] text-slate-400">
             MediQueue OS • Multi-Tenant Clinic Isolation & Security
           </p>
+          {onOpenLegalDoc && (
+            <div className="flex items-center justify-center gap-2 text-[10px] text-slate-500">
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  onOpenLegalDoc('privacy');
+                }}
+                className="hover:underline hover:text-teal-700"
+              >
+                Privacy Policy
+              </button>
+              <span>•</span>
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  onOpenLegalDoc('terms');
+                }}
+                className="hover:underline hover:text-teal-700"
+              >
+                Terms of Service
+              </button>
+              <span>•</span>
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  onOpenLegalDoc('disclaimer');
+                }}
+                className="hover:underline hover:text-amber-600 font-semibold"
+              >
+                Medical Disclaimer
+              </button>
+            </div>
+          )}
         </div>
 
       </div>

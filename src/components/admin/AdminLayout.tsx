@@ -16,11 +16,16 @@ import {
   X,
   ShieldCheck,
   ChevronDown,
-  Sparkles
+  Sparkles,
+  HelpCircle,
+  FileText,
+  UserCheck,
+  Cookie
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useClinic } from '../../context/ClinicContext';
 import { AdminRoute, ClinicSettings } from '../../types';
+import { LegalDocType } from '../legal/LegalPagesModal';
 
 interface AdminLayoutProps {
   currentRoute: AdminRoute;
@@ -29,6 +34,10 @@ interface AdminLayoutProps {
   onOpenPatientRegistration: () => void;
   onNavigateToPatientPortal: () => void;
   onNavigateToPublicDisplay: () => void;
+  onOpenLegalDoc?: (doc: LegalDocType) => void;
+  onOpenHelpCenter?: () => void;
+  onOpenCookiePreferences?: () => void;
+  onOpenAccountSettings?: () => void;
   children: React.ReactNode;
 }
 
@@ -39,6 +48,10 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
   onOpenPatientRegistration,
   onNavigateToPatientPortal,
   onNavigateToPublicDisplay,
+  onOpenLegalDoc,
+  onOpenHelpCenter,
+  onOpenCookiePreferences,
+  onOpenAccountSettings,
   children
 }) => {
   const { logout, user, userProfile, isSuperAdmin, userRole } = useAuth();
@@ -235,7 +248,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
           <div className="pt-3 mt-3 border-t border-slate-800 space-y-1">
             <button
               onClick={onNavigateToPatientPortal}
-              className="w-full p-2.5 rounded-xl flex items-center gap-3 text-xs font-semibold text-slate-400 hover:bg-slate-800/60 hover:text-blue-300 transition-colors cursor-pointer text-left"
+              className="w-full p-2 rounded-xl flex items-center gap-2.5 text-xs font-semibold text-slate-400 hover:bg-slate-800/60 hover:text-blue-300 transition-colors cursor-pointer text-left"
             >
               <Building2 className="w-4 h-4 text-slate-400" />
               <span>Patient Portal</span>
@@ -243,18 +256,52 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
             
             <button
               onClick={onNavigateToPublicDisplay}
-              className="w-full p-2.5 rounded-xl flex items-center gap-3 text-xs font-semibold text-slate-400 hover:bg-slate-800/60 hover:text-emerald-300 transition-colors cursor-pointer text-left"
+              className="w-full p-2 rounded-xl flex items-center gap-2.5 text-xs font-semibold text-slate-400 hover:bg-slate-800/60 hover:text-emerald-300 transition-colors cursor-pointer text-left"
             >
               <Monitor className="w-4 h-4 text-emerald-400" />
               <span>TV Public Display</span>
             </button>
+
+            {onOpenHelpCenter && (
+              <button
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  onOpenHelpCenter();
+                }}
+                className="w-full p-2 rounded-xl flex items-center gap-2.5 text-xs font-semibold text-slate-400 hover:bg-slate-800/60 hover:text-teal-300 transition-colors cursor-pointer text-left"
+              >
+                <HelpCircle className="w-4 h-4 text-teal-400" />
+                <span>Help & Troubleshooting</span>
+              </button>
+            )}
+
+            {onOpenLegalDoc && (
+              <button
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  onOpenLegalDoc('security');
+                }}
+                className="w-full p-2 rounded-xl flex items-center gap-2.5 text-xs font-semibold text-slate-400 hover:bg-slate-800/60 hover:text-slate-200 transition-colors cursor-pointer text-left"
+              >
+                <FileText className="w-4 h-4 text-slate-400" />
+                <span>Legal & Compliance</span>
+              </button>
+            )}
           </div>
         </nav>
 
         {/* Sidebar Footer Admin Profile & Logout */}
-        <div className="p-4 border-t border-slate-800 bg-slate-950/50">
+        <div className="p-3 border-t border-slate-800 bg-slate-950/50">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2.5 overflow-hidden">
+            <button
+              type="button"
+              onClick={() => {
+                setMobileMenuOpen(false);
+                onOpenAccountSettings && onOpenAccountSettings();
+              }}
+              className="flex items-center gap-2.5 overflow-hidden text-left hover:opacity-80 transition-opacity cursor-pointer flex-1 mr-2"
+              title="Account & Security Settings"
+            >
               <div className={`w-7 h-7 rounded-full text-white font-bold flex items-center justify-center text-xs shrink-0 ${
                 isSuperAdmin ? 'bg-indigo-600' : 'bg-slate-700'
               }`}>
@@ -268,7 +315,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
                   {isSuperAdmin ? 'Super Administrator' : (userRole || 'Clinic Admin')}
                 </span>
               </div>
-            </div>
+            </button>
             <button
               onClick={() => logout()}
               title="Logout"

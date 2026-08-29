@@ -17,7 +17,16 @@ import { TokenReceiptModal } from './components/common/TokenReceiptModal';
 import { PatientPortal } from './components/patient/PatientPortal';
 import { PublicDisplay } from './components/display/PublicDisplay';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
-import { WifiOff, RefreshCw, ShieldAlert, LogOut, ArrowRight, Building2 } from 'lucide-react';
+import { LegalPagesModal, LegalDocType } from './components/legal/LegalPagesModal';
+import { CookieConsentBanner } from './components/legal/CookieConsentBanner';
+import { CookiePreferencesModal } from './components/legal/CookiePreferencesModal';
+import { HelpCenterModal } from './components/help/HelpCenterModal';
+import { AccountSettingsModal } from './components/account/AccountSettingsModal';
+import { OfflineIndicator } from './components/states/OfflineIndicator';
+import { NotFoundPage } from './components/states/NotFoundPage';
+import { ForbiddenPage } from './components/states/ForbiddenPage';
+import { MaintenancePage } from './components/states/MaintenancePage';
+import { WifiOff, RefreshCw } from 'lucide-react';
 import { auth } from './lib/firebase';
 import { 
   ClinicSettings, 
@@ -49,9 +58,13 @@ const MainAppContent: React.FC = () => {
   // Connection Error Banner State
   const [connectionError, setConnectionError] = useState<string | null>(null);
 
-  // Modals State
+  // Modals & Overlay States
   const [isPatientRegOpen, setIsPatientRegOpen] = useState(false);
   const [generatedToken, setGeneratedToken] = useState<QueueToken | null>(null);
+  const [legalModalDoc, setLegalModalDoc] = useState<LegalDocType | null>(null);
+  const [isCookiePreferencesOpen, setIsCookiePreferencesOpen] = useState(false);
+  const [isHelpCenterOpen, setIsHelpCenterOpen] = useState(false);
+  const [isAccountSettingsOpen, setIsAccountSettingsOpen] = useState(false);
 
   // User classification
   const isSuperAdminUser = isSuperAdmin;
@@ -135,6 +148,7 @@ const MainAppContent: React.FC = () => {
   const navigate = (path: string) => {
     window.history.pushState({}, '', path);
     setCurrentPath(path);
+    window.scrollTo(0, 0);
   };
 
   if (authLoading || !authReady) {
@@ -163,10 +177,26 @@ const MainAppContent: React.FC = () => {
     }
   } : null;
 
+  // Dedicated direct URL route handlers
+  if (currentPath === '/maintenance') {
+    return <MaintenancePage onRetry={() => navigate('/patient')} />;
+  }
+
+  if (currentPath === '/forbidden' || currentPath === '/403') {
+    return (
+      <ForbiddenPage
+        requiredRole="Staff Administrator"
+        onNavigateHome={() => navigate('/patient')}
+        onSwitchClinic={() => navigate('/admin/login')}
+      />
+    );
+  }
+
   // 1. PUBLIC PATIENT PORTAL ROUTE
-  if (currentPath === '/patient') {
+  if (currentPath === '/patient' || currentPath === '/') {
     return (
       <>
+        <OfflineIndicator />
         {connectionError && (
           <div className="bg-amber-600 text-white text-xs py-2 px-4 flex items-center justify-center gap-2 font-bold sticky top-0 z-50 animate-pulse">
             <WifiOff className="w-4 h-4" />
@@ -179,6 +209,27 @@ const MainAppContent: React.FC = () => {
           onNavigateToAdminLogin={() => navigate('/admin/login')}
           onNavigateToPublicDisplay={() => navigate('/display')}
         />
+        <CookieConsentBanner
+          onOpenPreferences={() => setIsCookiePreferencesOpen(true)}
+          onOpenPrivacyPolicy={() => setLegalModalDoc('cookies')}
+        />
+        <CookiePreferencesModal
+          isOpen={isCookiePreferencesOpen}
+          onClose={() => setIsCookiePreferencesOpen(false)}
+        />
+        <LegalPagesModal
+          isOpen={!!legalModalDoc}
+          initialDoc={legalModalDoc || 'privacy'}
+          onOpenCookiePreferences={() => {
+            setLegalModalDoc(null);
+            setIsCookiePreferencesOpen(true);
+          }}
+          onClose={() => setLegalModalDoc(null)}
+        />
+        <HelpCenterModal
+          isOpen={isHelpCenterOpen}
+          onClose={() => setIsHelpCenterOpen(false)}
+        />
       </>
     );
   }
@@ -187,6 +238,7 @@ const MainAppContent: React.FC = () => {
   if (currentPath === '/display') {
     return (
       <>
+        <OfflineIndicator />
         {connectionError && (
           <div className="bg-amber-600 text-white text-xs py-2 px-4 flex items-center justify-center gap-2 font-bold sticky top-0 z-50 animate-pulse">
             <WifiOff className="w-4 h-4" />
@@ -205,108 +257,121 @@ const MainAppContent: React.FC = () => {
   // 3. SUPER ADMIN PIN-ONLY LOGIN ROUTE (/super-admin/login)
   if (currentPath === '/super-admin/login' || (currentPath.startsWith('/super-admin') && !isSuperAdminUser)) {
     return (
-      <SuperAdminLogin
-        onLoginSuccess={() => navigate('/admin/super-admin')}
-        onNavigateToClinicAdmin={() => navigate('/admin/login')}
-        onNavigateToPatientPortal={() => navigate('/patient')}
-      />
+      <>
+        <OfflineIndicator />
+        <SuperAdminLogin
+          onLoginSuccess={() => navigate('/admin/super-admin')}
+          onNavigateToClinicAdmin={() => navigate('/admin/login')}
+          onNavigateToPatientPortal={() => navigate('/patient')}
+        />
+        <CookieConsentBanner
+          onOpenPreferences={() => setIsCookiePreferencesOpen(true)}
+          onOpenPrivacyPolicy={() => setLegalModalDoc('cookies')}
+        />
+        <CookiePreferencesModal
+          isOpen={isCookiePreferencesOpen}
+          onClose={() => setIsCookiePreferencesOpen(false)}
+        />
+        <LegalPagesModal
+          isOpen={!!legalModalDoc}
+          initialDoc={legalModalDoc || 'security'}
+          onClose={() => setLegalModalDoc(null)}
+        />
+      </>
     );
   }
 
   // 4. CRITICAL SECURITY GUARD: PATIENT ACCOUNTS ATTEMPTING TO ACCESS ADMIN VIEWS
-  if (isPatientUser && (currentPath.startsWith('/admin') || currentPath === '/')) {
+  if (isPatientUser && currentPath.startsWith('/admin')) {
     return (
-      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-4 font-sans text-white selection:bg-rose-500 selection:text-white">
-        <div className="w-full max-w-md bg-slate-900/95 border border-red-900/60 rounded-3xl p-8 text-center space-y-5 shadow-2xl backdrop-blur-xl">
-          <div className="w-16 h-16 rounded-2xl bg-red-950/80 border border-red-800/80 text-red-400 mx-auto flex items-center justify-center shadow-lg shadow-red-950/50">
-            <ShieldAlert className="w-8 h-8" />
-          </div>
-          
-          <div className="space-y-1.5">
-            <h2 className="text-lg font-bold text-white tracking-tight">Access Denied: Patient Account</h2>
-            <p className="text-xs text-slate-400 leading-relaxed">
-              This account (<span className="text-slate-200 font-medium">{user?.email}</span>) is registered as a <span className="text-red-300 font-semibold">Patient</span> and is strictly prohibited from accessing the Clinic Admin Portal.
-            </p>
-          </div>
-
-          <div className="pt-2 flex flex-col gap-2.5">
-            <button
-              type="button"
-              onClick={() => navigate('/patient')}
-              className="w-full py-3 px-4 bg-teal-700 hover:bg-teal-600 active:bg-teal-800 text-white font-bold text-xs rounded-xl shadow-lg shadow-teal-700/20 transition-all flex items-center justify-center gap-2 cursor-pointer"
-            >
-              <ArrowRight className="w-4 h-4" />
-              <span>Go to Patient Portal</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={async () => {
-                await logout();
-                navigate('/admin/login');
-              }}
-              className="w-full py-2.5 px-4 bg-slate-800 hover:bg-slate-700 active:bg-slate-900 text-slate-300 hover:text-white font-semibold text-xs rounded-xl border border-slate-700/80 transition-all flex items-center justify-center gap-2 cursor-pointer"
-            >
-              <LogOut className="w-3.5 h-3.5" />
-              <span>Sign Out & Switch Account</span>
-            </button>
-          </div>
-        </div>
-      </div>
+      <>
+        <OfflineIndicator />
+        <ForbiddenPage
+          requiredRole="Clinic Administrator or Super Admin"
+          onNavigateHome={() => navigate('/patient')}
+          onSwitchClinic={async () => {
+            await logout();
+            navigate('/admin/login');
+          }}
+        />
+      </>
     );
   }
 
   // 5. CLINIC ADMIN LOGIN ROUTE (when unauthenticated or explicitly on /admin/login)
   if ((!user && !isSuperAdminUser) || currentPath === '/admin/login') {
     return (
-      <AdminLogin
-        settings={resolvedClinicSettings}
-        onLoginSuccess={() => navigate('/admin/dashboard')}
-        onNavigateToPatientPortal={() => navigate('/patient')}
-        onNavigateToSuperAdmin={() => navigate('/super-admin/login')}
-      />
+      <>
+        <OfflineIndicator />
+        <AdminLogin
+          settings={resolvedClinicSettings}
+          onLoginSuccess={() => navigate('/admin/dashboard')}
+          onNavigateToPatientPortal={() => navigate('/patient')}
+          onNavigateToSuperAdmin={() => navigate('/super-admin/login')}
+          onOpenLegalDoc={(doc) => setLegalModalDoc(doc)}
+          onOpenHelpCenter={() => setIsHelpCenterOpen(true)}
+        />
+        <CookieConsentBanner
+          onOpenPreferences={() => setIsCookiePreferencesOpen(true)}
+          onOpenPrivacyPolicy={() => setLegalModalDoc('cookies')}
+        />
+        <CookiePreferencesModal
+          isOpen={isCookiePreferencesOpen}
+          onClose={() => setIsCookiePreferencesOpen(false)}
+        />
+        <LegalPagesModal
+          isOpen={!!legalModalDoc}
+          initialDoc={legalModalDoc || 'privacy'}
+          onClose={() => setLegalModalDoc(null)}
+        />
+        <HelpCenterModal
+          isOpen={isHelpCenterOpen}
+          onClose={() => setIsHelpCenterOpen(false)}
+        />
+      </>
     );
   }
 
   // 6. UNAUTHORIZED USER (Logged in with no administrative privileges)
   if (!isSuperAdminUser && !isClinicStaffUser) {
     return (
-      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-4 font-sans text-white">
-        <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-3xl p-8 text-center space-y-5 shadow-2xl">
-          <div className="w-16 h-16 rounded-2xl bg-amber-950/80 border border-amber-800/80 text-amber-400 mx-auto flex items-center justify-center">
-            <ShieldAlert className="w-8 h-8" />
-          </div>
-          <div className="space-y-1.5">
-            <h2 className="text-lg font-bold text-white">Unauthorized Access</h2>
-            <p className="text-xs text-slate-400">
-              Your account does not possess administrator permissions for this medical facility.
-            </p>
-          </div>
-          <div className="pt-2 flex flex-col gap-2">
-            <button
-              type="button"
-              onClick={() => navigate('/patient')}
-              className="w-full py-3 px-4 bg-teal-700 hover:bg-teal-600 text-white font-bold text-xs rounded-xl transition-all cursor-pointer"
-            >
-              Go to Patient Portal
-            </button>
-            <button
-              type="button"
-              onClick={async () => {
-                await logout();
-                navigate('/admin/login');
-              }}
-              className="w-full py-2.5 px-4 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs rounded-xl transition-all cursor-pointer"
-            >
-              Sign In with Admin Account
-            </button>
-          </div>
-        </div>
-      </div>
+      <>
+        <OfflineIndicator />
+        <ForbiddenPage
+          requiredRole="Clinic Staff Administrator"
+          onNavigateHome={() => navigate('/patient')}
+          onSwitchClinic={async () => {
+            await logout();
+            navigate('/admin/login');
+          }}
+        />
+      </>
     );
   }
 
-  // 7. NORMALIZE ROUTE FOR ADMIN LAYOUT
+  // 7. NORMALIZE ROUTE FOR ADMIN LAYOUT OR HANDLE 404
+  const validAdminPrefixes = [
+    '/admin/dashboard',
+    '/admin/tokens',
+    '/admin/patients',
+    '/admin/doctors',
+    '/admin/reports',
+    '/admin/settings',
+    '/admin/super-admin'
+  ];
+
+  const isMatchedAdminRoute = validAdminPrefixes.some(prefix => currentPath.startsWith(prefix));
+
+  if (!isMatchedAdminRoute && !currentPath.startsWith('/admin')) {
+    return (
+      <NotFoundPage
+        onNavigateHome={() => navigate(isSuperAdmin ? '/admin/super-admin' : '/admin/dashboard')}
+        onNavigateAdmin={() => navigate('/admin/dashboard')}
+        onNavigateDisplay={() => navigate('/display')}
+      />
+    );
+  }
+
   let adminRoute: AdminRoute = '/admin/dashboard';
   if ((currentPath.startsWith('/admin/super-admin') || currentPath.startsWith('/super-admin')) && isSuperAdmin) {
     adminRoute = '/admin/super-admin';
@@ -331,6 +396,8 @@ const MainAppContent: React.FC = () => {
       onNavigateToLogin={() => navigate('/admin/login')}
     >
       <div className="relative">
+        <OfflineIndicator />
+
         {connectionError && (
           <div className="bg-amber-600 text-white text-xs py-2 px-4 flex items-center justify-center gap-2 font-bold sticky top-0 z-50 animate-pulse">
             <WifiOff className="w-4 h-4" />
@@ -346,6 +413,10 @@ const MainAppContent: React.FC = () => {
           onOpenPatientRegistration={() => setIsPatientRegOpen(true)}
           onNavigateToPatientPortal={() => navigate('/patient')}
           onNavigateToPublicDisplay={() => navigate('/display')}
+          onOpenLegalDoc={(doc) => setLegalModalDoc(doc)}
+          onOpenHelpCenter={() => setIsHelpCenterOpen(true)}
+          onOpenCookiePreferences={() => setIsCookiePreferencesOpen(true)}
+          onOpenAccountSettings={() => setIsAccountSettingsOpen(true)}
         >
           {/* Super Admin Dashboard Route (Strictly Protected) */}
           {adminRoute === '/admin/super-admin' && isSuperAdmin && (
@@ -419,6 +490,28 @@ const MainAppContent: React.FC = () => {
             clinicName={activeClinic?.name || settings?.clinicName}
             clinicLogo={activeClinic?.logo || settings?.clinicLogo}
             onClose={() => setGeneratedToken(null)}
+          />
+
+          {/* Global Modals for Admin */}
+          <LegalPagesModal
+            isOpen={!!legalModalDoc}
+            initialDoc={legalModalDoc || 'privacy'}
+            onClose={() => setLegalModalDoc(null)}
+          />
+
+          <HelpCenterModal
+            isOpen={isHelpCenterOpen}
+            onClose={() => setIsHelpCenterOpen(false)}
+          />
+
+          <CookiePreferencesModal
+            isOpen={isCookiePreferencesOpen}
+            onClose={() => setIsCookiePreferencesOpen(false)}
+          />
+
+          <AccountSettingsModal
+            isOpen={isAccountSettingsOpen}
+            onClose={() => setIsAccountSettingsOpen(false)}
           />
 
         </AdminLayout>

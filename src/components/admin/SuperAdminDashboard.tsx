@@ -39,6 +39,7 @@ import {
   sendClinicAdminPasswordReset,
   subscribeAuditLogs 
 } from '../../services/clinicService';
+import { SecurityTestSuite } from './SecurityTestSuite';
 
 interface SuperAdminDashboardProps {
   onSwitchClinicAndNavigate: (clinicId: string) => void;
@@ -57,7 +58,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
   const { user, userRole, isSuperAdmin, loading: authLoading, authReady } = useAuth();
 
   // Navigation Tab
-  const [activeTab, setActiveTab] = useState<'clinics' | 'admins' | 'audit'>('clinics');
+  const [activeTab, setActiveTab] = useState<'clinics' | 'admins' | 'audit' | 'security-tests'>('clinics');
 
   // Clinic list state
   const [searchQuery, setSearchQuery] = useState('');
@@ -418,6 +419,18 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
         >
           <History className="w-4 h-4" />
           <span>System Audit Logs ({auditLogs.length})</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('security-tests')}
+          className={`pb-3 px-4 text-xs font-bold flex items-center gap-2 border-b-2 transition-all cursor-pointer ${
+            activeTab === 'security-tests'
+              ? 'border-emerald-500 text-emerald-600 dark:text-emerald-400'
+              : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+          }`}
+        >
+          <ShieldCheck className="w-4 h-4 text-emerald-500" />
+          <span>Security & Emulator Tests (17 Tests)</span>
         </button>
       </div>
 
@@ -891,6 +904,13 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
               </table>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* TAB 4: AUTOMATED SECURITY & EMULATOR TEST SUITE */}
+      {activeTab === 'security-tests' && (
+        <div className="space-y-6">
+          <SecurityTestSuite />
         </div>
       )}
 

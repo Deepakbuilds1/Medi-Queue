@@ -27,6 +27,7 @@ import { NotFoundPage } from './components/states/NotFoundPage';
 import { ForbiddenPage } from './components/states/ForbiddenPage';
 import { MaintenancePage } from './components/states/MaintenancePage';
 import { WifiOff, RefreshCw } from 'lucide-react';
+import { SpeedInsights } from '@vercel/speed-insights/react';
 import { auth } from './lib/firebase';
 import { 
   ClinicSettings, 
@@ -528,6 +529,7 @@ export function App() {
           <MainAppContent />
         </ClinicProvider>
       </AuthProvider>
+      <SpeedInsights />
     </ErrorBoundary>
   );
 }

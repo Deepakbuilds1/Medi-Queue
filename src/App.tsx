@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { SpeedInsights } from '@vercel/speed-insights/react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ClinicProvider, useClinic } from './context/ClinicContext';
 import { AdminLayout } from './components/admin/AdminLayout';
@@ -528,6 +529,7 @@ export function App() {
           <MainAppContent />
         </ClinicProvider>
       </AuthProvider>
+      <SpeedInsights />
     </ErrorBoundary>
   );
 }

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   ShieldCheck, 
   Lock, 
@@ -8,9 +8,11 @@ import {
   ArrowLeft, 
   AlertCircle,
   Delete,
-  Fingerprint
+  Fingerprint,
+  RefreshCw
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { runAuthDiagnostics } from '../../services/authDiagnosticService';
 
 interface SuperAdminLoginProps {
   onLoginSuccess: () => void;
@@ -28,7 +30,14 @@ export const SuperAdminLogin: React.FC<SuperAdminLoginProps> = ({
   const [showPin, setShowPin] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [remainingAttempts, setRemainingAttempts] = useState<number | null>(null);
   const [lockedSeconds, setLockedSeconds] = useState<number | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  // Run startup diagnostics on mount
+  useEffect(() => {
+    runAuthDiagnostics().catch(() => {});
+  }, []);
 
   // Lockout countdown timer
   useEffect(() => {
@@ -45,6 +54,15 @@ export const SuperAdminLogin: React.FC<SuperAdminLoginProps> = ({
     return () => clearInterval(timer);
   }, [lockedSeconds]);
 
+  // Clean up any pending network requests on unmount
+  useEffect(() => {
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
+  }, []);
+
   const handleSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (lockedSeconds && lockedSeconds > 0) return;
@@ -57,21 +75,66 @@ export const SuperAdminLogin: React.FC<SuperAdminLoginProps> = ({
       return;
     }
 
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+    const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second request timeout
+
     setLoading(true);
+
     try {
       const response = await fetch('/api/super-admin/verify-pin', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
         body: JSON.stringify({ pin: submittedPin }),
+        signal: controller.signal,
       });
 
-      const data = await response.json();
+      clearTimeout(timeoutId);
+
+      // Handle non-JSON or HTML responses (e.g., if misconfigured or 404)
+      const contentType = response.headers.get('content-type') || '';
+      let data: any = {};
+
+      if (contentType.includes('application/json')) {
+        data = await response.json();
+      } else {
+        const textResp = await response.text();
+        if (textResp.startsWith('<!DOCTYPE html') || textResp.startsWith('<html')) {
+          throw new Error('AUTH_ENDPOINT_UNAVAILABLE');
+        }
+        try {
+          data = JSON.parse(textResp);
+        } catch {
+          throw new Error('AUTH_INVALID_RESPONSE');
+        }
+      }
 
       if (!response.ok || !data.success) {
-        if (data.locked && data.remainingSeconds) {
-          setLockedSeconds(data.remainingSeconds);
+        if (response.status === 429 || data.locked) {
+          const remainingSec = data.remainingSeconds || 900;
+          setLockedSeconds(remainingSec);
+          setError(data.error || `Too many failed attempts. Temporary lockout active for ${remainingSec} seconds.`);
+        } else if (response.status === 401) {
+          if (typeof data.remainingAttempts === 'number') {
+            setRemainingAttempts(data.remainingAttempts);
+            setError(`Invalid Super Admin PIN. ${data.remainingAttempts} attempt(s) remaining before lockout.`);
+          } else {
+            setError(data.error || 'Invalid Super Admin PIN.');
+          }
+        } else if (response.status === 400) {
+          setError(data.error || 'Super Admin PIN format is invalid.');
+        } else if (response.status === 404) {
+          setError('Authentication service endpoint not found (404). Please verify deployment configuration.');
+        } else {
+          setError(data.error || 'Authentication failed. Please verify your PIN and try again.');
         }
-        setError(data.error || 'Invalid Super Admin PIN.');
         setPin('');
         return;
       }
@@ -79,10 +142,19 @@ export const SuperAdminLogin: React.FC<SuperAdminLoginProps> = ({
       // Server verified successfully - apply session in AuthContext
       await verifySuperAdminPin(data.sessionToken, data.user);
       onLoginSuccess();
-    } catch {
-      setError('Unable to reach authentication server. Please check your network connection.');
+    } catch (err: any) {
+      if (err?.name === 'AbortError') {
+        setError('Authentication request timed out after 15 seconds. Please try again.');
+      } else if (err?.message === 'AUTH_ENDPOINT_UNAVAILABLE') {
+        setError('Authentication server endpoint is currently unavailable. Please refresh or verify server status.');
+      } else if (err?.message === 'AUTH_INVALID_RESPONSE') {
+        setError('Authentication server returned an unexpected response format.');
+      } else {
+        setError('Unable to reach authentication server. Please check server availability and connection.');
+      }
     } finally {
       setLoading(false);
+      abortControllerRef.current = null;
     }
   };
 
@@ -104,6 +176,7 @@ export const SuperAdminLogin: React.FC<SuperAdminLoginProps> = ({
     if (lockedSeconds && lockedSeconds > 0) return;
     setPin('');
     setError(null);
+    setRemainingAttempts(null);
   };
 
   return (
@@ -237,8 +310,8 @@ export const SuperAdminLogin: React.FC<SuperAdminLoginProps> = ({
             >
               {loading ? (
                 <>
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  <span>Verifying PIN...</span>
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                  <span>Unlocking Super Admin...</span>
                 </>
               ) : (
                 <>

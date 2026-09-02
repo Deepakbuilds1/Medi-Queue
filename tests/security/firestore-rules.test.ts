@@ -44,20 +44,28 @@ const OTHER_PATIENT_EMAIL = 'patient.jane@example.com';
 const CLINIC_ALPHA_ID = 'clinic_alpha_101';
 const CLINIC_BETA_ID = 'clinic_beta_202';
 
-describe('Firestore Security Rules: RBAC & Privileged Fields Protection', () => {
+describe.skipIf(!process.env.FIRESTORE_EMULATOR_HOST)('Firestore Security Rules: RBAC & Privileged Fields Protection', () => {
   beforeAll(async () => {
+    if (!process.env.FIRESTORE_EMULATOR_HOST) return;
     const rules = fs.readFileSync(RULES_PATH, 'utf8');
     testEnv = await initializeTestEnvironment({
       projectId: PROJECT_ID,
       firestore: {
         rules,
-        host: process.env.FIRESTORE_EMULATOR_HOST?.split(':')[0] || '127.0.0.1',
-        port: parseInt(process.env.FIRESTORE_EMULATOR_HOST?.split(':')[1] || '8080', 10),
+        host: process.env.FIRESTORE_EMULATOR_HOST.split(':')[0] || '127.0.0.1',
+        port: parseInt(process.env.FIRESTORE_EMULATOR_HOST.split(':')[1] || '8080', 10),
       },
     });
   });
 
+  afterAll(async () => {
+    if (testEnv) {
+      await testEnv.cleanup();
+    }
+  });
+
   beforeEach(async () => {
+    if (!testEnv) return;
     await testEnv.clearFirestore();
 
     // Seed master users and clinic resources using security rules bypass

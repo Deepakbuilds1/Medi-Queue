@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Mail, KeyRound, ArrowRight, X, CheckCircle2, AlertCircle, ShieldCheck } from 'lucide-react';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth, parseAuthError, logAuthError } from '../../context/AuthContext';
 
 interface ForgotPasswordModalProps {
   isOpen: boolean;
@@ -31,7 +31,8 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email || !email.includes('@')) {
+    const cleanEmail = email.trim();
+    if (!cleanEmail || !cleanEmail.includes('@')) {
       setError('Please provide a valid email address.');
       return;
     }
@@ -40,13 +41,16 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({
     setError(null);
 
     try {
-      await resetPassword(email.trim());
+      await resetPassword(cleanEmail);
       setSuccess(true);
     } catch (err: any) {
-      console.error('Password reset dispatch failed:', err);
-      // Account enumeration protection: show success or clear instructions unless network fails completely
-      if (err?.code === 'auth/network-request-failed') {
-        setError('Network connectivity failure. Please verify your internet connection.');
+      logAuthError('Password Reset', err);
+      const parsed = parseAuthError(err);
+      // Account enumeration protection: show network error if offline, else succeed
+      if (parsed.isNetworkError) {
+        setError(parsed.userMessage);
+      } else if (parsed.code === 'auth/invalid-email') {
+        setError(parsed.userMessage);
       } else {
         setSuccess(true);
       }

@@ -16,9 +16,8 @@ import {
   Search,
   MapPin
 } from 'lucide-react';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth, parseAuthError, logAuthError } from '../../context/AuthContext';
 import { useClinic } from '../../context/ClinicContext';
-import { parseAuthError, logAuthError } from '../../services/authErrorHandler';
 import { Clinic } from '../../types';
 
 interface PatientAuthModalProps {

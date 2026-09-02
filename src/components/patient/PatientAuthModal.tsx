@@ -19,6 +19,7 @@ import {
 import { useAuth, parseAuthError, logAuthError } from '../../context/AuthContext';
 import { useClinic } from '../../context/ClinicContext';
 import { Clinic } from '../../types';
+import { normalizeFirebaseError, safeRender, AppErrorState } from '../../utils/errorUtils';
 
 interface PatientAuthModalProps {
   isOpen: boolean;
@@ -64,14 +65,23 @@ export const PatientAuthModal: React.FC<PatientAuthModalProps> = ({
   const [signInPassword, setSignInPassword] = useState('');
 
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [errorState, setErrorState] = useState<AppErrorState | null>(null);
+
+  const setSafeError = (err: unknown, defaultFallback = 'An error occurred. Please try again.') => {
+    if (!err) {
+      setErrorState(null);
+      return;
+    }
+    const normalized = normalizeFirebaseError(err, defaultFallback);
+    setErrorState(normalized);
+  };
 
   // Initialize selected clinic when modal opens
   useEffect(() => {
     if (isOpen) {
       setMode(initialMode);
       setSignupStep(1);
-      setError(null);
+      setErrorState(null);
       if (activeClinics.length > 0 && !selectedClinicId) {
         setSelectedClinicId(activeClinics[0].id);
       }
@@ -89,14 +99,14 @@ export const PatientAuthModal: React.FC<PatientAuthModalProps> = ({
   });
 
   const handleStep1Continue = () => {
-    setError(null);
+    setErrorState(null);
     if (!selectedClinicId) {
-      setError('Please select a clinic to proceed with registration.');
+      setSafeError('Please select a clinic to proceed with registration.');
       return;
     }
     const target = allClinics.find(c => c.id === selectedClinicId);
     if (!target || target.status !== 'ACTIVE') {
-      setError('This clinic is currently unavailable. Please select another clinic.');
+      setSafeError('This clinic is currently unavailable. Please select another clinic.');
       return;
     }
     setSignupStep(2);
@@ -104,40 +114,40 @@ export const PatientAuthModal: React.FC<PatientAuthModalProps> = ({
 
   const handleSignUpSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError(null);
+    setErrorState(null);
 
     // Validate step 1 clinic selection
     if (!selectedClinic || selectedClinic.status !== 'ACTIVE') {
-      setError('The selected clinic is currently unavailable. Please select another clinic.');
+      setSafeError('The selected clinic is currently unavailable. Please select another clinic.');
       setSignupStep(1);
       return;
     }
 
     // Validate inputs
     if (!name.trim()) {
-      setError('Please enter your full name.');
+      setSafeError('Please enter your full name.');
       return;
     }
     if (!phone.trim()) {
-      setError('Please enter your mobile phone number.');
+      setSafeError('Please enter your mobile phone number.');
       return;
     }
     if (!email.trim()) {
-      setError('Please enter a valid email address.');
+      setSafeError('Please enter a valid email address.');
       return;
     }
     if (password.length < 6) {
-      setError('Password must be at least 6 characters in length.');
+      setSafeError('Password must be at least 6 characters in length.');
       return;
     }
     if (password !== confirmPassword) {
-      setError('Passwords do not match. Please re-enter your password.');
+      setSafeError('Passwords do not match. Please re-enter your password.');
       return;
     }
 
     setLoading(true);
     try {
-      const savedProfile = await signUpPatient(email.trim(), password, {
+      await signUpPatient(email.trim(), password, {
         name: name.trim(),
         phone: phone.trim(),
         age: age ? Number(age) : 30,
@@ -151,10 +161,9 @@ export const PatientAuthModal: React.FC<PatientAuthModalProps> = ({
 
       if (onSuccess) onSuccess();
       onClose();
-    } catch (err: any) {
+    } catch (err: unknown) {
       logAuthError('Patient Registration', err);
-      const parsed = parseAuthError(err, 'Registration failed. Please try again.');
-      setError(parsed.userMessage);
+      setSafeError(err, 'Registration failed. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -162,11 +171,11 @@ export const PatientAuthModal: React.FC<PatientAuthModalProps> = ({
 
   const handleSignInSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError(null);
+    setErrorState(null);
 
     const cleanEmail = signInEmail.trim();
     if (!cleanEmail || !signInPassword) {
-      setError('Please enter your email and password.');
+      setSafeError('Please enter your email and password.');
       return;
     }
 
@@ -181,10 +190,10 @@ export const PatientAuthModal: React.FC<PatientAuthModalProps> = ({
 
       if (onSuccess) onSuccess();
       onClose();
-    } catch (err: any) {
+    } catch (err: unknown) {
       logAuthError('Patient Sign In', err);
-      const parsed = parseAuthError(err, 'Sign in failed. Please verify your email and password.');
-      setError(parsed.userMessage);
+      const normalized = normalizeFirebaseError(err, 'Sign in failed. Please verify your email and password.');
+      setErrorState(normalized);
     } finally {
       setLoading(false);
     }
@@ -231,7 +240,7 @@ export const PatientAuthModal: React.FC<PatientAuthModalProps> = ({
             onClick={() => { 
               setMode('signup'); 
               setSignupStep(1); 
-              setError(null); 
+              setErrorState(null); 
             }}
             className={`flex-1 py-3 text-center transition-all cursor-pointer ${
               mode === 'signup' 
@@ -245,7 +254,7 @@ export const PatientAuthModal: React.FC<PatientAuthModalProps> = ({
             type="button"
             onClick={() => { 
               setMode('signin'); 
-              setError(null); 
+              setErrorState(null); 
             }}
             className={`flex-1 py-3 text-center transition-all cursor-pointer ${
               mode === 'signin' 
@@ -260,10 +269,10 @@ export const PatientAuthModal: React.FC<PatientAuthModalProps> = ({
         {/* Modal Body with Scroll */}
         <div className="p-5 overflow-y-auto flex-1 text-slate-800 text-xs space-y-4">
           
-          {error && (
-            <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-xl font-medium flex items-start gap-2 animate-in fade-in">
+          {errorState && (
+            <div role="alert" className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-xl font-medium flex items-start gap-2 animate-in fade-in">
               <AlertCircle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
-              <span className="leading-relaxed">{error}</span>
+              <span className="leading-relaxed">{safeRender(errorState.message)}</span>
             </div>
           )}
 
@@ -307,7 +316,7 @@ export const PatientAuthModal: React.FC<PatientAuthModalProps> = ({
                           key={clinic.id}
                           onClick={() => {
                             setSelectedClinicId(clinic.id);
-                            setError(null);
+                            setErrorState(null);
                           }}
                           className={`p-3.5 rounded-xl border transition-all cursor-pointer flex items-start justify-between gap-3 ${
                             isSelected
@@ -596,7 +605,7 @@ export const PatientAuthModal: React.FC<PatientAuthModalProps> = ({
                   onClick={() => {
                     setMode('signup');
                     setSignupStep(1);
-                    setError(null);
+                    setErrorState(null);
                   }}
                   className="text-[11px] font-bold text-teal-700 hover:text-teal-900 underline cursor-pointer"
                 >

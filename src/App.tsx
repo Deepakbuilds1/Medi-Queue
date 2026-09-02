@@ -41,6 +41,7 @@ import {
   subscribePatients, 
   subscribeTodayTokens 
 } from './services/clinicService';
+import { getErrorMessage, safeRender } from './utils/errorUtils';
 
 const MainAppContent: React.FC = () => {
   const { user, userProfile, loading: authLoading, authReady, isSuperAdmin, isClinicAdmin, isClinicStaff, userRole, logout } = useAuth();
@@ -96,12 +97,12 @@ const MainAppContent: React.FC = () => {
     const unsubSettings = subscribeSettings(
       activeClinicId,
       (s) => setSettings(s),
-      (err) => setConnectionError(err)
+      (err) => setConnectionError(getErrorMessage(err, 'Connection notice: unable to sync clinic settings'))
     );
     const unsubDoctors = subscribeDoctors(
       activeClinicId,
       (d) => setDoctors(d),
-      (err) => setConnectionError(err)
+      (err) => setConnectionError(getErrorMessage(err, 'Connection notice: unable to sync doctors directory'))
     );
 
     let unsubPatients: (() => void) | null = null;
@@ -116,7 +117,7 @@ const MainAppContent: React.FC = () => {
         unsubPatients = subscribePatients(
           activeClinicId,
           (p) => setPatients(p),
-          (err) => setConnectionError(err)
+          (err) => setConnectionError(getErrorMessage(err, 'Connection notice: unable to sync patients directory'))
         );
       }
 
@@ -124,7 +125,7 @@ const MainAppContent: React.FC = () => {
       unsubTokens = subscribeTodayTokens(
         activeClinicId,
         (t) => setTokens(t),
-        (err) => setConnectionError(err)
+        (err) => setConnectionError(getErrorMessage(err, 'Connection notice: unable to sync today queue'))
       );
     }
 
@@ -200,7 +201,7 @@ const MainAppContent: React.FC = () => {
         {connectionError && (
           <div className="bg-amber-600 text-white text-xs py-2 px-4 flex items-center justify-center gap-2 font-bold sticky top-0 z-50 animate-pulse">
             <WifiOff className="w-4 h-4" />
-            <span>{connectionError}</span>
+            <span>{safeRender(connectionError)}</span>
             <RefreshCw className="w-3.5 h-3.5 animate-spin ml-2" />
           </div>
         )}
@@ -242,7 +243,7 @@ const MainAppContent: React.FC = () => {
         {connectionError && (
           <div className="bg-amber-600 text-white text-xs py-2 px-4 flex items-center justify-center gap-2 font-bold sticky top-0 z-50 animate-pulse">
             <WifiOff className="w-4 h-4" />
-            <span>{connectionError}</span>
+            <span>{safeRender(connectionError)}</span>
             <RefreshCw className="w-3.5 h-3.5 animate-spin ml-2" />
           </div>
         )}
@@ -401,7 +402,7 @@ const MainAppContent: React.FC = () => {
         {connectionError && (
           <div className="bg-amber-600 text-white text-xs py-2 px-4 flex items-center justify-center gap-2 font-bold sticky top-0 z-50 animate-pulse">
             <WifiOff className="w-4 h-4" />
-            <span>{connectionError}</span>
+            <span>{safeRender(connectionError)}</span>
             <RefreshCw className="w-3.5 h-3.5 animate-spin ml-2" />
           </div>
         )}

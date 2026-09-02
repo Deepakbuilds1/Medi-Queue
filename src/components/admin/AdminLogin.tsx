@@ -15,6 +15,7 @@ import { useAuth, parseAuthError, logAuthError } from '../../context/AuthContext
 import { useClinic } from '../../context/ClinicContext';
 import { ClinicSettings, Clinic } from '../../types';
 import { LegalDocType } from '../legal/LegalPagesModal';
+import { normalizeFirebaseError, safeRender, AppErrorState } from '../../utils/errorUtils';
 
 interface AdminLoginProps {
   settings: ClinicSettings | null;
@@ -47,7 +48,7 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({
   const [showPassword, setShowPassword] = useState(false);
   
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [errorState, setErrorState] = useState<AppErrorState | null>(null);
   const [infoMessage, setInfoMessage] = useState<string | null>(null);
 
   const [showForgotPassword, setShowForgotPassword] = useState(false);
@@ -59,12 +60,12 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({
 
   const handleClinicAdminLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError(null);
+    setErrorState(null);
     setInfoMessage(null);
 
     const trimmedEmail = email.trim();
     if (!trimmedEmail || !password) {
-      setError('Please enter both email and password.');
+      setErrorState(normalizeFirebaseError('Please enter both email and password.'));
       return;
     }
 
@@ -82,8 +83,8 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({
       onLoginSuccess();
     } catch (err: unknown) {
       logAuthError('Admin Login', err);
-      const parsed = parseAuthError(err, 'Login failed. Please check your credentials.');
-      setError(parsed.userMessage);
+      const normalized = normalizeFirebaseError(err, 'Login failed. Please check your credentials.');
+      setErrorState(normalized);
     } finally {
       setLoading(false);
     }
@@ -93,15 +94,15 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({
     e.preventDefault();
     if (!resetEmail.trim()) return;
     setResetLoading(true);
-    setError(null);
+    setErrorState(null);
     try {
       await resetPassword(resetEmail.trim());
       setInfoMessage(`Password reset link sent to ${resetEmail.trim()}. Check your inbox.`);
       setShowForgotPassword(false);
     } catch (err: unknown) {
       logAuthError('Admin Password Reset', err);
-      const parsed = parseAuthError(err, 'Failed to send reset email.');
-      setError(parsed.userMessage);
+      const normalized = normalizeFirebaseError(err, 'Failed to send reset email.');
+      setErrorState(normalized);
     } finally {
       setResetLoading(false);
     }
@@ -145,10 +146,10 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({
         <div className="p-6 md:p-8 space-y-4">
           
           {/* Alerts */}
-          {error && (
-            <div className="p-3 bg-red-950/60 border border-red-800/80 rounded-xl text-xs text-red-300 animate-in fade-in flex items-start gap-2">
+          {errorState && (
+            <div role="alert" className="p-3 bg-red-950/60 border border-red-800/80 rounded-xl text-xs text-red-300 animate-in fade-in flex items-start gap-2">
               <span className="shrink-0 text-red-400 font-bold">✕</span>
-              <span>{error}</span>
+              <span>{safeRender(errorState.message)}</span>
             </div>
           )}
 
@@ -206,7 +207,7 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({
                   value={email}
                   onChange={(e) => {
                     setEmail(e.target.value);
-                    setError(null);
+                    setErrorState(null);
                   }}
                   required
                   placeholder="admin@clinic.com"
@@ -237,7 +238,7 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({
                   value={password}
                   onChange={(e) => {
                     setPassword(e.target.value);
-                    setError(null);
+                    setErrorState(null);
                   }}
                   required
                   placeholder="••••••••"

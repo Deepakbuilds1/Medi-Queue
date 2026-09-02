@@ -20,6 +20,7 @@ import {
 import { useAuth } from '../../context/AuthContext';
 import { useClinic } from '../../context/ClinicContext';
 import { QueueToken } from '../../types';
+import { getErrorMessage, safeRender } from '../../utils/errorUtils';
 
 interface AccountSettingsModalProps {
   isOpen: boolean;
@@ -63,9 +64,9 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
     try {
       await resetPassword(userEmail);
       setResetEmailSent(true);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Password reset error:', err);
-      setResetError(err.message || 'Failed to dispatch password recovery email.');
+      setResetError(getErrorMessage(err, 'Failed to dispatch password recovery email.'));
     } finally {
       setResetting(false);
     }
@@ -303,9 +304,9 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
               )}
 
               {resetError && (
-                <div className="p-3 bg-red-50 dark:bg-red-950/60 border border-red-200 dark:border-red-800 text-red-800 dark:text-red-200 rounded-xl flex items-center gap-2 font-semibold">
+                <div role="alert" className="p-3 bg-red-50 dark:bg-red-950/60 border border-red-200 dark:border-red-800 text-red-800 dark:text-red-200 rounded-xl flex items-center gap-2 font-semibold">
                   <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
-                  <span>{resetError}</span>
+                  <span>{safeRender(resetError)}</span>
                 </div>
               )}
 

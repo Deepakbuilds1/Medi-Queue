@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { runAuthDiagnostics } from '../../services/authDiagnosticService';
+import { safeRender, getErrorMessage } from '../../utils/errorUtils';
 
 interface SuperAdminLoginProps {
   onLoginSuccess: () => void;
@@ -208,10 +209,10 @@ export const SuperAdminLogin: React.FC<SuperAdminLoginProps> = ({
           
           {/* Error / Lockout Alert */}
           {error && (
-            <div className="p-3 bg-red-950/60 border border-red-800/80 rounded-2xl flex items-start gap-2.5 text-xs text-red-200 animate-in fade-in">
+            <div role="alert" className="p-3 bg-red-950/60 border border-red-800/80 rounded-2xl flex items-start gap-2.5 text-xs text-red-200 animate-in fade-in">
               <AlertCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
               <div className="flex-1">
-                <span className="font-semibold">{error}</span>
+                <span className="font-semibold">{safeRender(error)}</span>
                 {lockedSeconds !== null && lockedSeconds > 0 && (
                   <div className="mt-1 font-mono text-[11px] text-red-300 font-bold">
                     Retry in: {lockedSeconds}s

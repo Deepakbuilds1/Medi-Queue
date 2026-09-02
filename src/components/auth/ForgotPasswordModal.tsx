@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Mail, KeyRound, ArrowRight, X, CheckCircle2, AlertCircle, ShieldCheck } from 'lucide-react';
 import { useAuth, parseAuthError, logAuthError } from '../../context/AuthContext';
+import { normalizeFirebaseError, safeRender, AppErrorState } from '../../utils/errorUtils';
 
 interface ForgotPasswordModalProps {
   isOpen: boolean;
@@ -17,13 +18,13 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({
   const [email, setEmail] = useState(initialEmail);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [errorState, setErrorState] = useState<AppErrorState | null>(null);
 
   React.useEffect(() => {
     if (isOpen) {
       setEmail(initialEmail);
       setSuccess(false);
-      setError(null);
+      setErrorState(null);
     }
   }, [isOpen, initialEmail]);
 
@@ -33,24 +34,24 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({
     e.preventDefault();
     const cleanEmail = email.trim();
     if (!cleanEmail || !cleanEmail.includes('@')) {
-      setError('Please provide a valid email address.');
+      setErrorState(normalizeFirebaseError('Please provide a valid email address.'));
       return;
     }
 
     setLoading(true);
-    setError(null);
+    setErrorState(null);
 
     try {
       await resetPassword(cleanEmail);
       setSuccess(true);
-    } catch (err: any) {
+    } catch (err: unknown) {
       logAuthError('Password Reset', err);
-      const parsed = parseAuthError(err);
+      const normalized = normalizeFirebaseError(err);
       // Account enumeration protection: show network error if offline, else succeed
-      if (parsed.isNetworkError) {
-        setError(parsed.userMessage);
-      } else if (parsed.code === 'auth/invalid-email') {
-        setError(parsed.userMessage);
+      if (normalized.isNetworkError) {
+        setErrorState(normalized);
+      } else if (normalized.code === 'auth/invalid-email') {
+        setErrorState(normalized);
       } else {
         setSuccess(true);
       }
@@ -132,10 +133,10 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({
                 Enter your registered email address below. We'll send you a password reset link to re-establish access to your account.
               </p>
 
-              {error && (
-                <div className="p-3 bg-red-50 dark:bg-red-950/60 border border-red-200 dark:border-red-800 text-red-800 dark:text-red-200 rounded-xl flex items-center gap-2 font-medium text-xs">
+              {errorState && (
+                <div role="alert" className="p-3 bg-red-50 dark:bg-red-950/60 border border-red-200 dark:border-red-800 text-red-800 dark:text-red-200 rounded-xl flex items-center gap-2 font-medium text-xs">
                   <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
-                  <span>{error}</span>
+                  <span>{safeRender(errorState.message)}</span>
                 </div>
               )}
 

@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useClinic } from '../../context/ClinicContext';
+import { parseAuthError, logAuthError } from '../../services/authErrorHandler';
 import { ClinicSettings, Clinic } from '../../types';
 import { LegalDocType } from '../legal/LegalPagesModal';
 
@@ -81,19 +82,9 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({
 
       onLoginSuccess();
     } catch (err: unknown) {
-      const firebaseError = err as { code?: string; message?: string };
-      
-      if (
-        firebaseError.code === 'auth/wrong-password' || 
-        firebaseError.code === 'auth/invalid-credential' || 
-        firebaseError.code === 'auth/user-not-found'
-      ) {
-        setError('Invalid clinic admin email or password. Please verify your credentials and try again.');
-      } else if (firebaseError.code === 'auth/too-many-requests') {
-        setError('Too many failed login attempts. Please try again later.');
-      } else {
-        setError(firebaseError.message || 'Login failed. Please check your credentials.');
-      }
+      logAuthError('Admin Login', err);
+      const parsed = parseAuthError(err, 'Login failed. Please check your credentials.');
+      setError(parsed.userMessage);
     } finally {
       setLoading(false);
     }
@@ -109,8 +100,9 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({
       setInfoMessage(`Password reset link sent to ${resetEmail.trim()}. Check your inbox.`);
       setShowForgotPassword(false);
     } catch (err: unknown) {
-      const errObj = err as { message?: string };
-      setError(errObj.message || 'Failed to send reset email.');
+      logAuthError('Admin Password Reset', err);
+      const parsed = parseAuthError(err, 'Failed to send reset email.');
+      setError(parsed.userMessage);
     } finally {
       setResetLoading(false);
     }

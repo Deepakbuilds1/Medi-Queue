@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Settings as SettingsIcon, Building2, Phone, Mail, MapPin, Hash, Image, Save, CheckCircle2 } from 'lucide-react';
+import { Settings as SettingsIcon, Building2, Phone, Mail, MapPin, Hash, Save, CheckCircle2 } from 'lucide-react';
 import { ClinicSettings } from '../../types';
 import { updateSettings } from '../../services/clinicService';
 import { useClinic } from '../../context/ClinicContext';
+import { ClinicBrandingSection } from './ClinicBrandingSection';
 
 interface SettingsPageProps {
   settings: ClinicSettings | null;
@@ -12,7 +13,6 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ settings }) => {
   const { activeClinicId, activeClinic, editClinic } = useClinic();
 
   const [clinicName, setClinicName] = useState(activeClinic?.name || settings?.clinicName || '');
-  const [clinicLogo, setClinicLogo] = useState(activeClinic?.logo || settings?.clinicLogo || '');
   const [clinicAddress, setClinicAddress] = useState(activeClinic?.address || settings?.clinicAddress || '');
   const [phone, setPhone] = useState(activeClinic?.phone || settings?.phone || '');
   const [email, setEmail] = useState(activeClinic?.email || settings?.email || '');
@@ -26,7 +26,6 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ settings }) => {
   useEffect(() => {
     if (activeClinic) {
       setClinicName(activeClinic.name);
-      setClinicLogo(activeClinic.logo || '');
       setClinicAddress(activeClinic.address || '');
       setPhone(activeClinic.phone || '');
       setEmail(activeClinic.email || '');
@@ -44,7 +43,6 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ settings }) => {
     try {
       await updateSettings(activeClinicId, {
         clinicName,
-        clinicLogo,
         clinicAddress,
         phone,
         email,
@@ -58,7 +56,6 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ settings }) => {
       });
       await editClinic(activeClinicId, {
         name: clinicName,
-        logo: clinicLogo,
         address: clinicAddress,
         phone,
         email,
@@ -75,7 +72,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ settings }) => {
   };
 
   return (
-    <div className="space-y-4 max-w-4xl mx-auto animate-in fade-in duration-200">
+    <div className="space-y-6 max-w-4xl mx-auto animate-in fade-in duration-200">
       
       {/* Header */}
       <div className="flex items-center justify-between bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xs">
@@ -87,10 +84,17 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ settings }) => {
             <h2 className="text-base font-bold text-slate-900 dark:text-white">
               Clinic Configuration {activeClinic?.name ? `(${activeClinic.name})` : ''}
             </h2>
-            <p className="text-xs text-slate-500">Update Profile Details, Logo & Token Generation Rules • Scoped to /clinics/{activeClinicId}</p>
+            <p className="text-xs text-slate-500">Update Profile Details, Logo Branding & Token Generation Rules • Scoped to /clinics/{activeClinicId}</p>
           </div>
         </div>
       </div>
+
+      {/* Clinic Branding & Logo Section */}
+      <ClinicBrandingSection
+        clinicId={activeClinicId}
+        clinicName={activeClinic?.name || clinicName || 'MediQueue Clinic'}
+        currentLogo={activeClinic?.logo || activeClinic?.logoUrl || settings?.clinicLogo || ''}
+      />
 
       {savedSuccess && (
         <div className="p-3.5 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200 text-xs rounded-xl flex items-center gap-2 font-semibold">
@@ -125,21 +129,6 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ settings }) => {
 
           <div>
             <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-              Clinic Logo URL
-            </label>
-            <div className="relative">
-              <Image className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
-              <input
-                type="url"
-                value={clinicLogo}
-                onChange={(e) => setClinicLogo(e.target.value)}
-                className="w-full pl-9 pr-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-xs"
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
               Contact Phone
             </label>
             <div className="relative">
@@ -167,20 +156,20 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ settings }) => {
               />
             </div>
           </div>
-        </div>
 
-        <div>
-          <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-            Clinic Address
-          </label>
-          <div className="relative">
-            <MapPin className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
-            <input
-              type="text"
-              value={clinicAddress}
-              onChange={(e) => setClinicAddress(e.target.value)}
-              className="w-full pl-9 pr-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-xs"
-            />
+          <div>
+            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+              Clinic Address
+            </label>
+            <div className="relative">
+              <MapPin className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+              <input
+                type="text"
+                value={clinicAddress}
+                onChange={(e) => setClinicAddress(e.target.value)}
+                className="w-full pl-9 pr-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-xs"
+              />
+            </div>
           </div>
         </div>
 
@@ -239,7 +228,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ settings }) => {
             className="px-6 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl shadow-md shadow-blue-600/20 transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
           >
             <Save className="w-4 h-4" />
-            {saving ? 'Saving Changes...' : 'Save Settings'}
+            {saving ? 'Saving Changes...' : 'Save General Settings'}
           </button>
         </div>
 

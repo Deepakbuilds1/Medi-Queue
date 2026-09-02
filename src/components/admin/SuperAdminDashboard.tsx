@@ -26,7 +26,9 @@ import {
   Lock,
   Clock,
   Shield,
-  Layers
+  Layers,
+  Image as ImageIcon,
+  X
 } from 'lucide-react';
 import { Clinic, Doctor, QueueToken, Patient, UserProfile, AuditLog } from '../../types';
 import { useClinic } from '../../context/ClinicContext';
@@ -40,6 +42,7 @@ import {
   subscribeAuditLogs 
 } from '../../services/clinicService';
 import { SecurityTestSuite } from './SecurityTestSuite';
+import { ClinicBrandingSection } from './ClinicBrandingSection';
 
 interface SuperAdminDashboardProps {
   onSwitchClinicAndNavigate: (clinicId: string) => void;
@@ -66,6 +69,10 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [selectedClinicToEdit, setSelectedClinicToEdit] = useState<Clinic | null>(null);
+
+  // Clinic Branding modal state
+  const [isBrandingModalOpen, setIsBrandingModalOpen] = useState(false);
+  const [selectedClinicForBranding, setSelectedClinicForBranding] = useState<Clinic | null>(null);
 
   // Clinic Form state
   const [createForm, setCreateForm] = useState({
@@ -228,6 +235,11 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
     setSelectedClinicToEdit(clinic);
     setEditForm({ ...clinic });
     setIsEditModalOpen(true);
+  };
+
+  const handleOpenBranding = (clinic: Clinic) => {
+    setSelectedClinicForBranding(clinic);
+    setIsBrandingModalOpen(true);
   };
 
   const handleEditSubmit = async (e: React.FormEvent) => {
@@ -430,7 +442,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
           }`}
         >
           <ShieldCheck className="w-4 h-4 text-emerald-500" />
-          <span>Security & Emulator Tests (17 Tests)</span>
+          <span>Security & Emulator Tests (19 Tests)</span>
         </button>
       </div>
 
@@ -637,6 +649,14 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
 
                   <div className="p-4 bg-slate-50 dark:bg-slate-900/40 border-t border-slate-100 dark:border-slate-700/60 flex items-center justify-between gap-2">
                     <div className="flex items-center gap-1.5">
+                      <button
+                        onClick={() => handleOpenBranding(clinic)}
+                        title="Manage Clinic Branding & Logo"
+                        className="p-1.5 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 rounded-lg transition-colors cursor-pointer"
+                      >
+                        <ImageIcon className="w-4 h-4" />
+                      </button>
+
                       <button
                         onClick={() => handleOpenEdit(clinic)}
                         title="Edit Clinic Settings"
@@ -1302,6 +1322,48 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* CLINIC BRANDING / LOGO MODAL */}
+      {isBrandingModalOpen && selectedClinicForBranding && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-xs p-4 overflow-y-auto">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl max-w-2xl w-full border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white shadow-2xl animate-in zoom-in-95 overflow-hidden">
+            <div className="flex items-center justify-between p-4 border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/60">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white font-bold">
+                  <ImageIcon className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-sm">Clinic Branding Management</h3>
+                  <span className="text-[11px] text-slate-500 dark:text-slate-400 font-mono">
+                    Clinic: {selectedClinicForBranding.name} ({selectedClinicForBranding.id})
+                  </span>
+                </div>
+              </div>
+              <button 
+                onClick={() => setIsBrandingModalOpen(false)} 
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 font-bold p-1 rounded-lg cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-4">
+              <ClinicBrandingSection
+                clinicId={selectedClinicForBranding.id}
+                clinicName={selectedClinicForBranding.name}
+                currentLogo={selectedClinicForBranding.logo || selectedClinicForBranding.logoUrl || ''}
+                isSuperAdminView={true}
+                onLogoUpdated={(newUrl) => {
+                  setNotification(`Logo updated for ${selectedClinicForBranding.name}`);
+                }}
+                onLogoRemoved={() => {
+                  setNotification(`Logo removed for ${selectedClinicForBranding.name}`);
+                }}
+              />
+            </div>
           </div>
         </div>
       )}

@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
-import { Stethoscope, Plus, Edit, UserCheck, UserX, X, Building2 } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import { Stethoscope, Plus, Edit, UserCheck, UserX, X, Building2, UploadCloud, Loader2, Image as ImageIcon } from 'lucide-react';
 import { Doctor } from '../../types';
-import { addDoctor, updateDoctor } from '../../services/clinicService';
+import { addDoctor, updateDoctor, uploadDoctorAvatar } from '../../services/clinicService';
 import { useClinic } from '../../context/ClinicContext';
 
 interface DoctorManagementPageProps {
@@ -18,7 +18,11 @@ export const DoctorManagementPage: React.FC<DoctorManagementPageProps> = ({ doct
   const [specialization, setSpecialization] = useState('');
   const [roomNumber, setRoomNumber] = useState('');
   const [tokenPrefix, setTokenPrefix] = useState('A');
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [avatarPreview, setAvatarPreview] = useState<string>('');
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [saving, setSaving] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const handleOpenAdd = () => {
     setName('');
@@ -26,6 +30,8 @@ export const DoctorManagementPage: React.FC<DoctorManagementPageProps> = ({ doct
     setRoomNumber(`Room ${doctors.length + 1}`);
     const nextPrefixChar = String.fromCharCode(65 + (doctors.length % 26));
     setTokenPrefix(nextPrefixChar);
+    setAvatarFile(null);
+    setAvatarPreview('');
     setShowAddModal(true);
   };
 
@@ -35,6 +41,19 @@ export const DoctorManagementPage: React.FC<DoctorManagementPageProps> = ({ doct
     setSpecialization(doc.specialization);
     setRoomNumber(doc.roomNumber);
     setTokenPrefix(doc.tokenPrefix);
+    setAvatarFile(null);
+    setAvatarPreview(doc.avatarUrl || '');
+  };
+
+  const handleAvatarSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files && files[0]) {
+      const file = files[0];
+      setAvatarFile(file);
+      const reader = new FileReader();
+      reader.onload = () => setAvatarPreview(reader.result as string);
+      reader.readAsDataURL(file);
+    }
   };
 
   const handleSaveAdd = async (e: React.FormEvent) => {
@@ -42,18 +61,25 @@ export const DoctorManagementPage: React.FC<DoctorManagementPageProps> = ({ doct
     if (!name.trim()) return;
     setSaving(true);
     try {
-      await addDoctor(activeClinicId, {
+      const newDoc = await addDoctor(activeClinicId, {
         name: name.trim(),
         specialization: specialization.trim() || 'General Practitioner',
         roomNumber: roomNumber.trim() || 'Room 1',
         tokenPrefix: tokenPrefix.trim().toUpperCase() || 'A',
         status: 'ACTIVE'
       });
+
+      if (avatarFile && newDoc?.id) {
+        setUploadingAvatar(true);
+        await uploadDoctorAvatar(activeClinicId, newDoc.id, avatarFile);
+      }
+
       setShowAddModal(false);
     } catch (err) {
       console.error('Failed to add doctor:', err);
     } finally {
       setSaving(false);
+      setUploadingAvatar(false);
     }
   };
 
@@ -68,11 +94,18 @@ export const DoctorManagementPage: React.FC<DoctorManagementPageProps> = ({ doct
         roomNumber,
         tokenPrefix: tokenPrefix.toUpperCase()
       });
+
+      if (avatarFile) {
+        setUploadingAvatar(true);
+        await uploadDoctorAvatar(activeClinicId, editingDoctor.id, avatarFile);
+      }
+
       setEditingDoctor(null);
     } catch (err) {
       console.error('Failed to update doctor:', err);
     } finally {
       setSaving(false);
+      setUploadingAvatar(false);
     }
   };
 
@@ -122,9 +155,20 @@ export const DoctorManagementPage: React.FC<DoctorManagementPageProps> = ({ doct
               <div className="space-y-3">
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-400 font-bold rounded-xl flex items-center justify-center text-sm border border-blue-200 dark:border-blue-900">
-                      {doc.tokenPrefix}
-                    </div>
+                    {doc.avatarUrl ? (
+                      <div className="w-11 h-11 rounded-xl overflow-hidden border border-blue-200 dark:border-blue-900 shadow-xs bg-slate-100 dark:bg-slate-900 shrink-0">
+                        <img 
+                          src={doc.avatarUrl} 
+                          alt={doc.name} 
+                          className="w-full h-full object-cover" 
+                          referrerPolicy="no-referrer"
+                        />
+                      </div>
+                    ) : (
+                      <div className="w-11 h-11 bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-400 font-bold rounded-xl flex items-center justify-center text-sm border border-blue-200 dark:border-blue-900 shrink-0">
+                        {doc.tokenPrefix}
+                      </div>
+                    )}
                     <div>
                       <h3 className="font-bold text-sm text-slate-900 dark:text-white">{doc.name}</h3>
                       <p className="text-xs text-slate-500 font-medium">{doc.specialization}</p>
@@ -145,6 +189,12 @@ export const DoctorManagementPage: React.FC<DoctorManagementPageProps> = ({ doct
                     <span className="text-slate-400">Token Prefix:</span>
                     <span className="font-mono font-bold text-blue-600 dark:text-blue-400">"{doc.tokenPrefix}-"</span>
                   </div>
+                  {doc.avatarFolder && (
+                    <div className="flex justify-between text-[10px] text-slate-400 pt-1 border-t border-slate-100 dark:border-slate-800">
+                      <span>ImageKit:</span>
+                      <span className="font-mono">{doc.avatarFolder}</span>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -240,6 +290,34 @@ export const DoctorManagementPage: React.FC<DoctorManagementPageProps> = ({ doct
                 </div>
               </div>
 
+              {/* Doctor Avatar Profile Picture (ImageKit) */}
+              <div className="p-3 bg-slate-50 dark:bg-slate-900/60 rounded-xl border border-slate-200 dark:border-slate-700 space-y-2">
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                  Doctor Profile Photo (ImageKit)
+                </label>
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-xl bg-slate-200 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 flex items-center justify-center overflow-hidden shrink-0">
+                    {avatarPreview ? (
+                      <img src={avatarPreview} alt="Avatar Preview" className="w-full h-full object-cover" />
+                    ) : (
+                      <ImageIcon className="w-5 h-5 text-slate-400" />
+                    )}
+                  </div>
+                  <div className="flex-1">
+                    <input
+                      type="file"
+                      ref={fileInputRef}
+                      onChange={handleAvatarSelect}
+                      accept="image/png, image/jpeg, image/jpg, image/webp"
+                      className="text-[11px] text-slate-500 file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer"
+                    />
+                    <p className="text-[10px] text-slate-400 mt-1">
+                      Stored in <code className="font-mono">/clinics/{activeClinicId}/doctors/</code>
+                    </p>
+                  </div>
+                </div>
+              </div>
+
               <div className="pt-3 border-t border-slate-100 dark:border-slate-700 flex justify-end gap-2">
                 <button
                   type="button"
@@ -250,10 +328,11 @@ export const DoctorManagementPage: React.FC<DoctorManagementPageProps> = ({ doct
                 </button>
                 <button
                   type="submit"
-                  disabled={saving}
-                  className="px-4 py-2 bg-blue-600 text-white font-bold text-xs rounded-lg hover:bg-blue-500 shadow-xs cursor-pointer"
+                  disabled={saving || uploadingAvatar}
+                  className="px-4 py-2 bg-blue-600 text-white font-bold text-xs rounded-lg hover:bg-blue-500 shadow-xs cursor-pointer flex items-center gap-1.5"
                 >
-                  {saving ? 'Saving...' : 'Save Doctor Profile'}
+                  {(saving || uploadingAvatar) && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                  <span>{saving || uploadingAvatar ? 'Saving & Uploading...' : 'Save Doctor Profile'}</span>
                 </button>
               </div>
             </form>

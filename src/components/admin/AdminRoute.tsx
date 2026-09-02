@@ -41,7 +41,7 @@ export const AdminRoute: React.FC<AdminRouteProps> = ({
         const result = await verifyUserAuthorization({
           clinicId: activeClinicId || undefined,
           requiredRole: requiredRoles,
-          forceRefreshClaims: true
+          forceRefreshClaims: false
         });
 
         if (!isCancelled) {
@@ -79,7 +79,7 @@ export const AdminRoute: React.FC<AdminRouteProps> = ({
     return () => {
       isCancelled = true;
     };
-  }, [user, userProfile, activeClinicId, authReady, authLoading, isSuperAdmin]);
+  }, [user?.uid, userProfile?.role, userProfile?.clinicId, activeClinicId, authReady, authLoading, isSuperAdmin]);
 
   // 1. Loading State
   if (authLoading || !authReady || authStatus.verifying) {

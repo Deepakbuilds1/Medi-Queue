@@ -99,7 +99,7 @@ interface AuthContextType {
       clinicName: string;
     }
   ) => Promise<UserProfile>;
-  signInPatient: (email: string, pass: string) => Promise<UserProfile | null>;
+  signInPatient: (email: string, pass: string) => Promise<UserProfile>;
   resetPassword: (email: string) => Promise<void>;
   logout: () => Promise<void>;
 }
@@ -201,30 +201,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (currentUser && !activeSuperToken) {
         setUser(currentUser);
         try {
-          let profile = await getUserProfile(currentUser.uid);
+          const profile = await getUserProfile(currentUser.uid);
           
           if (!profile) {
-            const isDefaultSuper = currentUser.email === 'gdeepak4689@gmail.com' || currentUser.email === 'superadmin@mediqueue.internal';
-            const newProfile: UserProfile = {
-              uid: currentUser.uid,
-              email: currentUser.email || '',
-              name: currentUser.displayName || currentUser.email?.split('@')[0] || 'User',
-              phone: '',
-              age: 30,
-              gender: 'Other',
-              role: isDefaultSuper ? 'SUPER_ADMIN' : 'PATIENT',
-              clinicId: '',
-              clinicName: '',
-              clinicIds: [],
-              accessibleClinicIds: [],
-              status: 'active',
-              createdAt: new Date().toISOString()
-            };
-            profile = await saveUserProfile(newProfile) as UserProfile;
+            // Profile does not exist yet; do not auto-create an empty clinic association
+            if (isMounted) {
+              setUserProfile(null);
+              setLoading(false);
+              setAuthReady(true);
+            }
+            return;
           }
           
           // If profile is disabled/inactive, force logout
-          if (profile && (profile.status === 'inactive' || profile.status === 'INACTIVE')) {
+          if (profile.status === 'inactive' || profile.status === 'INACTIVE') {
             await firebaseSignOut(auth);
             if (isMounted) {
               setUser(null);
@@ -445,19 +435,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       clinicName: string;
     }
   ): Promise<UserProfile> => {
-    const cred = await createUserWithEmailAndPassword(auth, email.trim(), pass);
+    const cleanEmail = email?.trim() || '';
+    if (!cleanEmail) throw new Error('Please enter a valid email address.');
+    if (!pass || pass.length < 6) throw new Error('Password must be at least 6 characters in length.');
+    if (!profileData.clinicId) throw new Error('A clinic must be selected for patient registration.');
+
+    const cred = await createUserWithEmailAndPassword(auth, cleanEmail, pass);
     const fullProfile: UserProfile = {
       uid: cred.user.uid,
-      email: email.trim(),
-      name: profileData.name.trim(),
+      email: cleanEmail,
+      name: profileData.name.trim() || 'Patient',
       phone: profileData.phone.trim(),
       age: profileData.age ? Number(profileData.age) : 30,
       gender: profileData.gender || 'Male',
       role: 'PATIENT',
       clinicId: profileData.clinicId,
       clinicName: profileData.clinicName,
-      clinicIds: profileData.clinicId ? [profileData.clinicId] : [],
-      accessibleClinicIds: profileData.clinicId ? [profileData.clinicId] : [],
+      clinicIds: [profileData.clinicId],
+      accessibleClinicIds: [profileData.clinicId],
       activeClinicId: profileData.clinicId,
       status: 'active',
       createdAt: new Date().toISOString(),
@@ -469,27 +464,66 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         localStorage.setItem('mediqueue_active_clinic_id', fullProfile.clinicId);
       } catch (_) {}
     }
+    setUser(cred.user);
     setUserProfile(saved as UserProfile);
     return saved as UserProfile;
   };
 
-  const signInPatient = async (email: string, pass: string): Promise<UserProfile | null> => {
-    const cred = await signInWithEmailAndPassword(auth, email.trim(), pass);
-    const profile = await getUserProfile(cred.user.uid);
-    if (profile) {
-      if (profile.status === 'inactive' || profile.status === 'INACTIVE') {
-        await firebaseSignOut(auth);
-        throw new Error('This account has been deactivated. Please contact clinic support.');
-      }
-      if (profile.clinicId) {
-        try {
-          localStorage.setItem('mediqueue_active_clinic_id', profile.clinicId);
-        } catch (_) {}
-      }
-      setUserProfile(profile as UserProfile);
-      return profile as UserProfile;
+  const signInPatient = async (email: string, pass: string): Promise<UserProfile> => {
+    const cleanEmail = email?.trim() || '';
+    if (!cleanEmail) {
+      throw new Error('Please enter your email address.');
     }
-    return null;
+    if (!pass) {
+      throw new Error('Please enter your password.');
+    }
+
+    // Step 1: Firebase Authentication (Credentials checked only by Firebase Auth)
+    const cred = await signInWithEmailAndPassword(auth, cleanEmail, pass);
+    
+    // Step 2: Fetch application user profile by Firebase UID
+    const profile = await getUserProfile(cred.user.uid, true);
+    
+    // Step 3: Handle missing profile
+    if (!profile) {
+      await firebaseSignOut(auth);
+      setUser(null);
+      setUserProfile(null);
+      throw new Error('Your account profile is incomplete. Please contact the administrator.');
+    }
+
+    // Step 4: Handle inactive / disabled accounts
+    if (profile.status === 'inactive' || profile.status === 'INACTIVE') {
+      await firebaseSignOut(auth);
+      setUser(null);
+      setUserProfile(null);
+      throw new Error('This account has been disabled. Please contact clinic support.');
+    }
+
+    // Step 5: Check role
+    if (profile.role !== 'PATIENT' && profile.role !== 'patient') {
+      await firebaseSignOut(auth);
+      setUser(null);
+      setUserProfile(null);
+      throw new Error('This account is registered as clinic staff. Please sign in via the Staff / Admin Portal.');
+    }
+
+    // Step 6: Verify registered clinic exists on profile
+    if (!profile.clinicId) {
+      await firebaseSignOut(auth);
+      setUser(null);
+      setUserProfile(null);
+      throw new Error('Your account is not associated with any clinic branch. Please contact support.');
+    }
+
+    // Step 7: Synchronize active clinic session
+    try {
+      localStorage.setItem('mediqueue_active_clinic_id', profile.clinicId);
+    } catch (_) {}
+
+    setUser(cred.user);
+    setUserProfile(profile as UserProfile);
+    return profile as UserProfile;
   };
 
   const resetPassword = async (email: string) => {

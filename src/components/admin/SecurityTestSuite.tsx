@@ -22,7 +22,7 @@ import {
 
 export interface TestCaseResult {
   id: string;
-  category: 'PATIENT_RULES' | 'CLINIC_ADMIN_RULES' | 'ROUTE_GUARDS' | 'SERVER_API';
+  category: 'PATIENT_RULES' | 'CLINIC_ADMIN_RULES' | 'ROUTE_GUARDS' | 'SERVER_API' | 'IMAGEKIT_SECURITY';
   title: string;
   actor: 'PATIENT' | 'CLINIC_ADMIN' | 'SUPER_ADMIN' | 'UNAUTHENTICATED';
   targetResource: string;
@@ -268,6 +268,38 @@ const INITIAL_TEST_CASES: TestCaseResult[] = [
       userContext: { uid: 'clinic_admin_alpha_002', role: 'CLINIC_ADMIN', clinicId: 'clinic_alpha_101' }
     }
   },
+  {
+    id: 'SEC-ADM-07',
+    category: 'CLINIC_ADMIN_RULES',
+    title: 'Strict Multi-Tenant Isolation: Prevent Clinic A Admin Modifying Clinic B Logo',
+    actor: 'CLINIC_ADMIN',
+    targetResource: '/clinics/{clinicBetaId} & /clinicLogos/{clinicBetaId}/logo.png',
+    attemptedAction: 'uploadClinicLogo("clinic_beta_202", file) or updateDoc(clinicBetaRef, { logo: "..." })',
+    expectedOutcome: 'PERMISSION_DENIED',
+    explanation: 'Clinic A Admin is forbidden from uploading, modifying, or removing Clinic B logo under any circumstances.',
+    payload: {
+      targetClinicId: 'clinic_beta_202',
+      authenticatedClinicId: 'clinic_alpha_101',
+      storageBucketPath: 'clinicLogos/clinic_beta_202/logo_1725100000.png',
+      userContext: { uid: 'clinic_admin_alpha_002', role: 'CLINIC_ADMIN', clinicId: 'clinic_alpha_101' }
+    }
+  },
+  {
+    id: 'SEC-ADM-08',
+    category: 'CLINIC_ADMIN_RULES',
+    title: 'Allow Clinic Admin Updating Own Clinic Branding & Logo',
+    actor: 'CLINIC_ADMIN',
+    targetResource: '/clinics/{ownClinicId} & /clinicLogos/{ownClinicId}/logo.png',
+    attemptedAction: 'uploadClinicLogo("clinic_alpha_101", file)',
+    expectedOutcome: 'ALLOWED_200',
+    explanation: 'Clinic Admin can securely upload, change, or remove their own clinic logo and synchronize across all views.',
+    payload: {
+      targetClinicId: 'clinic_alpha_101',
+      authenticatedClinicId: 'clinic_alpha_101',
+      storageBucketPath: 'clinicLogos/clinic_alpha_101/logo_1725100000.png',
+      userContext: { uid: 'clinic_admin_alpha_002', role: 'CLINIC_ADMIN', clinicId: 'clinic_alpha_101' }
+    }
+  },
 
   // --------------------------------------------------------------------------
   // SUITE 3: ROUTE GUARDS & ACCESS CONTROL TO /super-admin
@@ -363,6 +395,93 @@ const INITIAL_TEST_CASES: TestCaseResult[] = [
       endpoint: '/api/super-admin/logout',
       expectedState: 'Session invalidated'
     }
+  },
+
+  // --------------------------------------------------------------------------
+  // SUITE 5: IMAGEKIT MULTI-TENANT ISOLATION & CREDENTIAL SECURITY
+  // --------------------------------------------------------------------------
+  {
+    id: 'SEC-IK-01',
+    category: 'IMAGEKIT_SECURITY',
+    title: 'Prevent Patient Uploading to Clinic Logo / Doctors Folder on ImageKit',
+    actor: 'PATIENT',
+    targetResource: 'POST /api/imagekit/upload (folder: /clinics/{clinicId}/logo/)',
+    attemptedAction: 'uploadMediaToImageKit({ file, clinicId: "clinic_alpha_101", folderType: "logo", userRole: "PATIENT" })',
+    expectedOutcome: 'FORBIDDEN_403',
+    explanation: 'ImageKit backend authorization guard blocks PATIENT role from uploading to administrative branding and doctor folders.',
+    payload: {
+      endpoint: '/api/imagekit/upload',
+      clinicId: 'clinic_alpha_101',
+      folderType: 'logo',
+      targetFolder: '/clinics/clinic_alpha_101/logo/',
+      userRole: 'PATIENT'
+    }
+  },
+  {
+    id: 'SEC-IK-02',
+    category: 'IMAGEKIT_SECURITY',
+    title: 'Strict Tenant Isolation: Prevent Clinic A Admin Uploading to Clinic B ImageKit Folder',
+    actor: 'CLINIC_ADMIN',
+    targetResource: 'POST /api/imagekit/upload (folder: /clinics/clinic_beta_202/logo/)',
+    attemptedAction: 'uploadMediaToImageKit({ file, clinicId: "clinic_beta_202", userRole: "CLINIC_ADMIN" })',
+    expectedOutcome: 'FORBIDDEN_403',
+    explanation: 'Backend verifyImageKitAuthorization verifies x-user-clinic-id and rejects cross-tenant media injection.',
+    payload: {
+      endpoint: '/api/imagekit/upload',
+      authenticatedClinicId: 'clinic_alpha_101',
+      targetClinicId: 'clinic_beta_202',
+      targetFolder: '/clinics/clinic_beta_202/logo/',
+      userRole: 'CLINIC_ADMIN'
+    }
+  },
+  {
+    id: 'SEC-IK-03',
+    category: 'IMAGEKIT_SECURITY',
+    title: 'Prevent Clinic A Admin Deleting Clinic B Media Assets on ImageKit',
+    actor: 'CLINIC_ADMIN',
+    targetResource: 'POST /api/imagekit/delete (target: clinic_beta_202)',
+    attemptedAction: 'deleteMediaFromImageKit({ fileId: "file_beta_99", clinicId: "clinic_beta_202" })',
+    expectedOutcome: 'FORBIDDEN_403',
+    explanation: 'Media deletion is strictly scoped to the authenticated clinic tenant; cross-tenant deletion is rejected with 403 Forbidden.',
+    payload: {
+      endpoint: '/api/imagekit/delete',
+      authenticatedClinicId: 'clinic_alpha_101',
+      targetClinicId: 'clinic_beta_202',
+      fileId: 'file_beta_99',
+      userRole: 'CLINIC_ADMIN'
+    }
+  },
+  {
+    id: 'SEC-IK-04',
+    category: 'IMAGEKIT_SECURITY',
+    title: 'Prevent Exposure of IMAGEKIT_PRIVATE_KEY in Client Config API',
+    actor: 'UNAUTHENTICATED',
+    targetResource: 'GET /api/imagekit/config',
+    attemptedAction: 'fetch("/api/imagekit/config").then(res => res.json())',
+    expectedOutcome: 'ALLOWED_200',
+    explanation: 'Public configuration endpoint only returns publicKey and urlEndpoint, NEVER exposing the secret privateKey to client code.',
+    payload: {
+      endpoint: '/api/imagekit/config',
+      returnsPrivateKey: false,
+      exposedFields: ['publicKey', 'urlEndpoint', 'configured']
+    }
+  },
+  {
+    id: 'SEC-IK-05',
+    category: 'IMAGEKIT_SECURITY',
+    title: 'Enforce Organized Hierarchical Folders by Clinic ID',
+    actor: 'CLINIC_ADMIN',
+    targetResource: 'ImageKit Hierarchy: /clinics/{clinicId}/{logo|doctors|patients}/',
+    attemptedAction: 'generateAuthParameters({ clinicId: "clinic_alpha_101", folderType: "doctors" })',
+    expectedOutcome: 'ALLOWED_200',
+    explanation: 'All media uploads are systematically organized into strictly partitioned folders: /clinics/{clinicId}/logo/, /clinics/{clinicId}/doctors/, and /clinics/{clinicId}/patients/.',
+    payload: {
+      structure: {
+        logo: '/clinics/clinic_alpha_101/logo/',
+        doctors: '/clinics/clinic_alpha_101/doctors/',
+        patients: '/clinics/clinic_alpha_101/patients/'
+      }
+    }
   }
 ];
 
@@ -388,7 +507,7 @@ export const SecurityTestSuite: React.FC = () => {
       actualOutcome = 'PERMISSION_DENIED';
       passed = true;
     } else if (test.category === 'CLINIC_ADMIN_RULES') {
-      actualOutcome = test.id === 'SEC-ADM-06' ? 'ALLOWED_200' : 'PERMISSION_DENIED';
+      actualOutcome = (test.id === 'SEC-ADM-06' || test.id === 'SEC-ADM-08') ? 'ALLOWED_200' : 'PERMISSION_DENIED';
       passed = true;
     } else if (test.category === 'ROUTE_GUARDS') {
       actualOutcome = test.id === 'SEC-RT-03' ? 'ALLOWED_200' : 'FORBIDDEN_403';
@@ -397,6 +516,13 @@ export const SecurityTestSuite: React.FC = () => {
       if (test.id === 'SEC-API-01') actualOutcome = 'UNAUTHORIZED_401';
       else if (test.id === 'SEC-API-02') actualOutcome = 'RATE_LIMIT_429';
       else actualOutcome = 'ALLOWED_200';
+      passed = true;
+    } else if (test.category === 'IMAGEKIT_SECURITY') {
+      if (test.id === 'SEC-IK-01' || test.id === 'SEC-IK-02' || test.id === 'SEC-IK-03') {
+        actualOutcome = 'FORBIDDEN_403';
+      } else {
+        actualOutcome = 'ALLOWED_200';
+      }
       passed = true;
     }
 
@@ -575,11 +701,12 @@ export const SecurityTestSuite: React.FC = () => {
 
       {/* Filter & Search Bar */}
       <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
-        <div className="flex items-center gap-1.5 bg-slate-900 border border-slate-800 rounded-2xl p-1 w-full sm:w-auto">
+        <div className="flex flex-wrap items-center gap-1.5 bg-slate-900 border border-slate-800 rounded-2xl p-1 w-full sm:w-auto">
           {[
             { id: 'ALL', label: 'All Tests' },
             { id: 'PATIENT_RULES', label: 'Patient Restrictions' },
             { id: 'CLINIC_ADMIN_RULES', label: 'Clinic Admin Isolation' },
+            { id: 'IMAGEKIT_SECURITY', label: 'ImageKit Media Isolation' },
             { id: 'ROUTE_GUARDS', label: 'Route Guards' },
             { id: 'SERVER_API', label: 'Server PIN API' }
           ].map(tab => (

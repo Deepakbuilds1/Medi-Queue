@@ -7,7 +7,9 @@
       "properties": {
         "name": { "type": "string", "maxLength": 100 },
         "slug": { "type": "string", "maxLength": 50 },
-        "logo": { "type": "string", "maxLength": 500 },
+        "logo": { "type": "string", "maxLength": 100000 },
+        "logoUrl": { "type": "string", "maxLength": 100000 },
+        "logoStoragePath": { "type": "string", "maxLength": 500 },
         "address": { "type": "string", "maxLength": 250 },
         "phone": { "type": "string", "maxLength": 50 },
         "email": { "type": "string", "maxLength": 100 },
@@ -87,7 +89,9 @@
       "properties": {
         "clinicId": { "type": "string", "maxLength": 64 },
         "clinicName": { "type": "string", "maxLength": 100 },
-        "clinicLogo": { "type": "string", "maxLength": 500 },
+        "clinicLogo": { "type": "string", "maxLength": 100000 },
+        "logoUrl": { "type": "string", "maxLength": 100000 },
+        "logoStoragePath": { "type": "string", "maxLength": 500 },
         "clinicAddress": { "type": "string", "maxLength": 250 },
         "phone": { "type": "string", "maxLength": 50 },
         "email": { "type": "string", "maxLength": 100 },

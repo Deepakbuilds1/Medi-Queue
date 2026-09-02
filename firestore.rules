@@ -18,6 +18,18 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
+    // Super Admin check: Custom Claims first, then fallback to authoritative user doc
+    function isSuperAdmin() {
+      return isSignedIn() && (
+        request.auth.token.role in ['SUPER_ADMIN', 'super_admin'] ||
+        request.auth.token.isSuperAdmin == true ||
+        (
+          exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['SUPER_ADMIN', 'super_admin']
+        )
+      );
+    }
+
     function hasUserDoc() {
       return isSignedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid));
     }
@@ -26,22 +38,16 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
     }
 
-    // Super Admin: either matching primary admin email or user document role == 'SUPER_ADMIN'
-    function isSuperAdmin() {
-      return isSignedIn() && (
-        request.auth.token.email == 'gdeepak4689@gmail.com' ||
-        request.auth.token.email == 'superadmin@mediqueue.internal' ||
-        (hasUserDoc() && getUserData().role == 'SUPER_ADMIN')
-      );
-    }
-
     // Check if the signed-in user belongs to or has access to the clinicId
     function isUserInClinic(clinicId) {
       return isSuperAdmin() || (
-        hasUserDoc() && (
-          getUserData().clinicId == clinicId ||
-          ('clinicIds' in getUserData() && clinicId in getUserData().clinicIds) ||
-          ('accessibleClinicIds' in getUserData() && clinicId in getUserData().accessibleClinicIds)
+        request.auth.token.clinicId == clinicId ||
+        (
+          hasUserDoc() && (
+            getUserData().clinicId == clinicId ||
+            ('clinicIds' in getUserData() && clinicId in getUserData().clinicIds) ||
+            ('accessibleClinicIds' in getUserData() && clinicId in getUserData().accessibleClinicIds)
+          )
         )
       );
     }
@@ -49,18 +55,27 @@ service cloud.firestore {
     // Clinic Staff: Super Admin, Clinic Admin, Doctor, Receptionist assigned to the tenant
     function isClinicStaff(clinicId) {
       return isSuperAdmin() || (
-        isUserInClinic(clinicId) &&
-        hasUserDoc() &&
-        getUserData().role in ['SUPER_ADMIN', 'CLINIC_ADMIN', 'admin', 'DOCTOR', 'RECEPTIONIST']
+        isUserInClinic(clinicId) && (
+          request.auth.token.role in ['CLINIC_ADMIN', 'clinic_admin', 'admin', 'DOCTOR', 'RECEPTIONIST'] ||
+          (
+            hasUserDoc() &&
+            getUserData().role in ['SUPER_ADMIN', 'CLINIC_ADMIN', 'clinic_admin', 'admin', 'DOCTOR', 'RECEPTIONIST']
+          )
+        )
       );
     }
 
     // Clinic Admin: Super Admin or Tenant Admin
     function isClinicAdmin(clinicId) {
       return isSuperAdmin() || (
-        isUserInClinic(clinicId) &&
-        hasUserDoc() &&
-        getUserData().role in ['SUPER_ADMIN', 'CLINIC_ADMIN', 'admin']
+        isUserInClinic(clinicId) && (
+          request.auth.token.role in ['CLINIC_ADMIN', 'clinic_admin', 'admin'] ||
+          request.auth.token.admin == true ||
+          (
+            hasUserDoc() &&
+            getUserData().role in ['SUPER_ADMIN', 'CLINIC_ADMIN', 'clinic_admin', 'admin']
+          )
+        )
       );
     }
 
@@ -80,7 +95,7 @@ service cloud.firestore {
         // Publicly readable for Patient Queue boards & live status checks
         allow read: if true;
         
-        // Anyone (patient or receptionist) can generate a queue token
+        // Anyone (patient or receptionist or self-service kiosk) can generate a queue token
         allow create: if true;
         
         // Staff of this clinic or the patient owner who booked the token can update
@@ -104,7 +119,7 @@ service cloud.firestore {
 
       // --- Patients Subcollection: /clinics/{clinicId}/patients/{patientId} ---
       match /patients/{patientId} {
-        // Clinic staff can read all patients; Patients can read their own record
+        // Clinic staff can read all patients; Patients can only read their own record
         allow read: if isClinicStaff(clinicId) || (
           isSignedIn() && (
             (resource.data.userId == request.auth.uid) ||
@@ -149,28 +164,31 @@ service cloud.firestore {
     // 2. Global Users Collection: /users/{userId}
     // -------------------------------------------------------------
     match /users/{userId} {
-      // User can read their own profile; Super Admin can read all; Staff can read in-clinic users
+      // 1. Signed-in user can ALWAYS read their own profile (immediate, non-circular!)
+      // 2. Super Admin can read all user profiles
+      // 3. Clinic Staff can read profiles of patients or staff assigned to their clinic
       allow read: if isOwner(userId) || isSuperAdmin() || (
-        isSignedIn() && hasUserDoc() && isClinicStaff(resource.data.clinicId)
+        isSignedIn() && resource.data.clinicId != null && isClinicStaff(resource.data.clinicId)
       );
 
-      // User can create their own profile strictly as a PATIENT; Super Admin can create any profile
+      // Super Admin can create any profile;
+      // Authenticated user can create their own profile as PATIENT
       allow create: if isSuperAdmin() || (
         isOwner(userId) && 
         request.resource.data.role in ['PATIENT', 'patient']
       );
 
       // Super Admin can update any profile;
-      // User can update their own profile only as long as role remains PATIENT and clinic assignment is unchanged;
-      // Clinic Admin can update staff roles for their assigned clinic (cannot grant SUPER_ADMIN)
+      // User can update their own profile provided they do NOT elevate their role or clinicId;
+      // Clinic Admin can update staff/patient profiles assigned to their clinic (cannot grant SUPER_ADMIN)
       allow update: if isSuperAdmin() || (
         isOwner(userId) && 
-        resource.data.role in ['PATIENT', 'patient'] &&
-        request.resource.data.role in ['PATIENT', 'patient'] &&
+        request.resource.data.role == resource.data.role &&
+        (!('clinicId' in request.resource.data) || request.resource.data.clinicId == resource.data.clinicId) &&
         (!('clinicIds' in request.resource.data) || request.resource.data.clinicIds == resource.data.clinicIds) &&
         (!('accessibleClinicIds' in request.resource.data) || request.resource.data.accessibleClinicIds == resource.data.accessibleClinicIds)
       ) || (
-        isSignedIn() && hasUserDoc() && isClinicAdmin(resource.data.clinicId) &&
+        isSignedIn() && resource.data.clinicId != null && isClinicAdmin(resource.data.clinicId) &&
         request.resource.data.role in ['CLINIC_ADMIN', 'admin', 'DOCTOR', 'RECEPTIONIST', 'PATIENT', 'patient']
       );
 
@@ -184,7 +202,7 @@ service cloud.firestore {
     match /auditLogs/{logId} {
       // Super Admin has authorized global access; Clinic staff can only read logs scoped to their authorized clinic
       allow read: if isSuperAdmin() || (
-        isSignedIn() && hasUserDoc() && isClinicStaff(resource.data.clinicId)
+        isSignedIn() && resource.data.clinicId != null && isClinicStaff(resource.data.clinicId)
       );
       // Only authenticated users or Super Admin can create audit records
       allow create: if isSuperAdmin() || isSignedIn();

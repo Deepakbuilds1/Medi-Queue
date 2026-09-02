@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useClinic } from '../../context/ClinicContext';
+import { parseAuthError, logAuthError } from '../../services/authErrorHandler';
 import { Clinic } from '../../types';
 
 interface PatientAuthModalProps {
@@ -152,18 +153,9 @@ export const PatientAuthModal: React.FC<PatientAuthModalProps> = ({
       if (onSuccess) onSuccess();
       onClose();
     } catch (err: any) {
-      console.error('Patient Signup Error:', err);
-      if (err.code === 'auth/email-already-in-use') {
-        setError('This email is already registered. Please switch to Sign In.');
-      } else if (err.code === 'auth/weak-password') {
-        setError('Password should be at least 6 characters long.');
-      } else if (err.code === 'auth/invalid-email') {
-        setError('Please enter a valid email address.');
-      } else if (err.code === 'auth/network-request-failed') {
-        setError('Network connection error. Please check your internet connection.');
-      } else {
-        setError(err.message || 'Registration failed. Please try again.');
-      }
+      logAuthError('Patient Registration', err);
+      const parsed = parseAuthError(err, 'Registration failed. Please try again.');
+      setError(parsed.userMessage);
     } finally {
       setLoading(false);
     }
@@ -173,14 +165,15 @@ export const PatientAuthModal: React.FC<PatientAuthModalProps> = ({
     e.preventDefault();
     setError(null);
 
-    if (!signInEmail.trim() || !signInPassword) {
+    const cleanEmail = signInEmail.trim();
+    if (!cleanEmail || !signInPassword) {
       setError('Please enter your email and password.');
       return;
     }
 
     setLoading(true);
     try {
-      const profile = await signInPatient(signInEmail.trim(), signInPassword);
+      const profile = await signInPatient(cleanEmail, signInPassword);
       
       // Auto-switch clinic to patient's registered clinic
       if (profile?.clinicId) {
@@ -190,20 +183,9 @@ export const PatientAuthModal: React.FC<PatientAuthModalProps> = ({
       if (onSuccess) onSuccess();
       onClose();
     } catch (err: any) {
-      console.error('Patient Sign In Error:', err);
-      if (
-        err.code === 'auth/invalid-credential' || 
-        err.code === 'auth/wrong-password' || 
-        err.code === 'auth/user-not-found'
-      ) {
-        setError('Invalid email or password. Please verify your credentials.');
-      } else if (err.code === 'auth/too-many-requests') {
-        setError('Too many unsuccessful attempts. Please try again in a few minutes.');
-      } else if (err.code === 'auth/network-request-failed') {
-        setError('Network connection error. Please check your internet connection.');
-      } else {
-        setError(err.message || 'Sign in failed. Please verify your email and password.');
-      }
+      logAuthError('Patient Sign In', err);
+      const parsed = parseAuthError(err, 'Sign in failed. Please verify your email and password.');
+      setError(parsed.userMessage);
     } finally {
       setLoading(false);
     }

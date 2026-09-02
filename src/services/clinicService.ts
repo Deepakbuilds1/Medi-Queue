@@ -17,7 +17,13 @@ import {
   DocumentReference
 } from 'firebase/firestore';
 import { createUserWithEmailAndPassword, signOut as authSignOut, sendPasswordResetEmail } from 'firebase/auth';
-import { db, auth, getSecondaryAuth } from '../lib/firebase';
+import { 
+  ref, 
+  uploadBytesResumable, 
+  getDownloadURL, 
+  deleteObject 
+} from 'firebase/storage';
+import { db, auth, storage, getSecondaryAuth } from '../lib/firebase';
 import { 
   Clinic, 
   ClinicSettings, 
@@ -29,8 +35,15 @@ import {
   AuditLog,
   UserRole,
   AuthorizationCheckParams,
-  AuthorizationResult
+  AuthorizationResult,
+  ImageKitMediaMetadata
 } from '../types';
+import { 
+  uploadMediaToImageKit, 
+  deleteMediaFromImageKit, 
+  validateImageFile,
+  fileToBase64 
+} from './imagekitService';
 
 export enum OperationType {
   CREATE = 'create',
@@ -99,6 +112,34 @@ export const getTodayDateString = (): string => {
   return `${year}-${month}-${day}`;
 };
 
+export function getStoredSuperAdminToken(): string | null {
+  if (typeof window === 'undefined') return null;
+  return sessionStorage.getItem('mediqueue_super_admin_session') || 
+         localStorage.getItem('mediqueue_super_admin_session');
+}
+
+/**
+ * Recursively removes undefined fields from an object before saving to Firestore.
+ */
+export function sanitizeForFirestore<T>(obj: T): T {
+  if (obj === null || obj === undefined) {
+    return obj;
+  }
+  if (Array.isArray(obj)) {
+    return obj.map((item) => sanitizeForFirestore(item)) as unknown as T;
+  }
+  if (typeof obj === 'object' && !(obj instanceof Date)) {
+    const cleaned: Record<string, any> = {};
+    for (const [key, value] of Object.entries(obj)) {
+      if (value !== undefined) {
+        cleaned[key] = sanitizeForFirestore(value);
+      }
+    }
+    return cleaned as T;
+  }
+  return obj;
+}
+
 export type FirestoreErrorCallback = (errorMessage: string) => void;
 
 export interface ListenerGuardOptions {
@@ -126,6 +167,15 @@ function createManagedListener<T>(
   let unsub: (() => void) | null = null;
   let retryTimer: ReturnType<typeof setTimeout> | null = null;
   let isCancelled = false;
+
+  const onVisibilityChange = () => {
+    if (typeof document !== 'undefined' && document.visibilityState === 'visible' && !unsub && !isCancelled) {
+      startListening();
+    }
+  };
+  if (typeof document !== 'undefined') {
+    document.addEventListener('visibilitychange', onVisibilityChange);
+  }
 
   const superAdminSession = typeof window !== 'undefined'
     ? sessionStorage.getItem('mediqueue_super_admin_session')
@@ -269,6 +319,9 @@ function createManagedListener<T>(
 
   return () => {
     isCancelled = true;
+    if (typeof document !== 'undefined') {
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    }
     if (retryTimer) {
       clearTimeout(retryTimer);
       retryTimer = null;
@@ -448,18 +501,348 @@ export async function updateSettings(
     const updatePayload: Partial<Clinic> = {
       name: settings.clinicName,
       logo: settings.clinicLogo,
+      logoUrl: settings.logoUrl ?? settings.clinicLogo,
+      logoStoragePath: settings.logoStoragePath,
       address: settings.clinicAddress,
       phone: settings.phone,
       email: settings.email,
       tokenPrefix: settings.tokenPrefix,
       startingTokenNumber: settings.startingTokenNumber,
-      tokenDisplaySettings: settings.tokenDisplaySettings
+      tokenDisplaySettings: settings.tokenDisplaySettings,
+      updatedAt: new Date().toISOString()
     };
     await setDoc(doc(db, 'clinics', clinicId), updatePayload, { merge: true });
   } catch (err) {
     handleFirestoreError(err, OperationType.WRITE, `clinics/${clinicId}/settings`);
     throw err;
   }
+}
+
+// -------------------------------------------------------------
+// SECURE CLINIC LOGO & MEDIA MANAGEMENT (IMAGEKIT + FIRESTORE)
+// -------------------------------------------------------------
+
+export const ALLOWED_LOGO_TYPES = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp', 'image/svg+xml'];
+export const MAX_LOGO_FILE_SIZE_BYTES = 5 * 1024 * 1024; // 5MB
+
+export interface LogoValidationResult {
+  valid: boolean;
+  error?: string;
+}
+
+/**
+ * Validates file type and size for clinic logo uploads
+ */
+export function validateLogoFile(file: File): LogoValidationResult {
+  return validateImageFile(file);
+}
+
+/**
+ * Helper to convert a file to a Base64 data URL
+ */
+export function fileToDataUrl(file: File): Promise<string> {
+  return fileToBase64(file);
+}
+
+/**
+ * Uploads clinic logo to ImageKit under `/clinics/{clinicId}/logo/`
+ * and persists `logo`, `logoUrl`, `logoFileId`, `logoFileName`, `logoFolder`, `logoMetadata`,
+ * and `updatedAt` to `clinics/{clinicId}`.
+ * Strictly enforced by multi-tenant role authorization. Automatically removes previous logo from ImageKit.
+ */
+export async function uploadClinicLogo(
+  clinicId: string,
+  file: File,
+  onProgress?: (percent: number) => void
+): Promise<{ logoUrl: string; logoFileId: string; logoMetadata?: ImageKitMediaMetadata }> {
+  if (!clinicId || !clinicId.trim()) {
+    throw new Error('Clinic ID is required for logo upload.');
+  }
+
+  // 1. Verify caller authorization (Must be Super Admin or Clinic Admin for this specific clinic)
+  const authCheck = await verifyUserAuthorization({
+    clinicId,
+    requiredRole: ['CLINIC_ADMIN', 'admin', 'SUPER_ADMIN']
+  });
+
+  if (!authCheck.isAuthorized) {
+    throw new Error(authCheck.reason || 'Unauthorized: You can only manage branding for your authenticated clinic.');
+  }
+
+  // 2. Client-side format & size validation
+  const validation = validateLogoFile(file);
+  if (!validation.valid) {
+    throw new Error(validation.error || 'Invalid logo file.');
+  }
+
+  const cleanClinicId = clinicId.trim();
+
+  // 3. Check for existing logo to clean up prior media from ImageKit
+  let previousFileId: string | undefined;
+  try {
+    const existingDoc = await getDoc(doc(db, 'clinics', cleanClinicId));
+    if (existingDoc.exists()) {
+      const data = existingDoc.data() as Clinic;
+      previousFileId = data.logoFileId || data.logoMetadata?.fileId;
+    }
+  } catch (_) {}
+
+  // 4. Upload file to ImageKit via secure backend proxy
+  const uploadResult = await uploadMediaToImageKit({
+    file,
+    clinicId: cleanClinicId,
+    folderType: 'logo',
+    fileName: file.name,
+    userRole: authCheck.role,
+    onProgress
+  });
+
+  // 5. Delete previous logo from ImageKit if it was a different file
+  if (previousFileId && previousFileId !== uploadResult.fileId) {
+    deleteMediaFromImageKit({
+      fileId: previousFileId,
+      clinicId: cleanClinicId,
+      folderType: 'logo',
+      userRole: authCheck.role
+    }).catch((err) => console.warn('Previous logo deletion notice:', err));
+  }
+
+  // 6. Atomically persist logo metadata into Firestore clinics collection
+  const now = new Date().toISOString();
+  try {
+    const logoUpdateData = sanitizeForFirestore({
+      logo: uploadResult.url,
+      logoUrl: uploadResult.url,
+      logoFileId: uploadResult.fileId,
+      logoFileName: uploadResult.name,
+      logoFolder: uploadResult.folder,
+      logoMetadata: uploadResult,
+      updatedAt: now
+    });
+
+    await setDoc(doc(db, 'clinics', cleanClinicId), logoUpdateData, { merge: true });
+
+    // Also update settings subcollection if it exists
+    try {
+      await setDoc(doc(db, 'clinics', cleanClinicId, 'settings', 'main_clinic_settings'), logoUpdateData, { merge: true });
+    } catch (_) {}
+
+    // 7. Audit Log branding update
+    logAuditEvent({
+      action: 'CLINIC_LOGO_UPDATED',
+      clinicId: cleanClinicId,
+      actorRole: authCheck.role,
+      details: {
+        fileName: uploadResult.name,
+        fileSize: uploadResult.size || file.size,
+        fileId: uploadResult.fileId,
+        folder: uploadResult.folder,
+        url: uploadResult.url,
+        timestamp: now
+      }
+    });
+
+    return { 
+      logoUrl: uploadResult.url, 
+      logoFileId: uploadResult.fileId, 
+      logoMetadata: uploadResult 
+    };
+  } catch (err) {
+    handleFirestoreError(err, OperationType.UPDATE, `clinics/${cleanClinicId}`);
+    throw err;
+  }
+}
+
+/**
+ * Removes clinic logo from Firestore and cleans up ImageKit media.
+ */
+export async function removeClinicLogo(clinicId: string): Promise<void> {
+  if (!clinicId || !clinicId.trim()) {
+    throw new Error('Clinic ID is required to remove logo.');
+  }
+
+  const cleanClinicId = clinicId.trim();
+
+  // 1. Verify caller authorization
+  const authCheck = await verifyUserAuthorization({
+    clinicId: cleanClinicId,
+    requiredRole: ['CLINIC_ADMIN', 'admin', 'SUPER_ADMIN']
+  });
+
+  if (!authCheck.isAuthorized) {
+    throw new Error(authCheck.reason || 'Unauthorized: You can only modify branding for your authenticated clinic.');
+  }
+
+  // 2. Retrieve existing fileId from Firestore
+  try {
+    const clinicDoc = await getDoc(doc(db, 'clinics', cleanClinicId));
+    if (clinicDoc.exists()) {
+      const data = clinicDoc.data() as Clinic;
+      const fileId = data.logoFileId || data.logoMetadata?.fileId;
+      if (fileId) {
+        await deleteMediaFromImageKit({
+          fileId,
+          clinicId: cleanClinicId,
+          folderType: 'logo',
+          userRole: authCheck.role
+        });
+      }
+      if (data.logoStoragePath) {
+        try {
+          const storageRef = ref(storage, data.logoStoragePath);
+          await deleteObject(storageRef);
+        } catch (_) {}
+      }
+    }
+  } catch (_) {}
+
+  // 3. Reset logo fields in Firestore clinic document
+  const now = new Date().toISOString();
+  try {
+    const resetData = {
+      logo: '',
+      logoUrl: '',
+      logoFileId: '',
+      logoFileName: '',
+      logoFolder: '',
+      logoStoragePath: '',
+      logoMetadata: null,
+      updatedAt: now
+    };
+
+    await setDoc(doc(db, 'clinics', cleanClinicId), resetData, { merge: true });
+
+    try {
+      await setDoc(doc(db, 'clinics', cleanClinicId, 'settings', 'main_clinic_settings'), {
+        clinicLogo: '',
+        logoUrl: '',
+        logoFileId: '',
+        logoFileName: '',
+        logoFolder: '',
+        logoStoragePath: '',
+        logoMetadata: null,
+        updatedAt: now
+      }, { merge: true });
+    } catch (_) {}
+
+    // 4. Log Audit Event
+    logAuditEvent({
+      action: 'CLINIC_LOGO_REMOVED',
+      clinicId: cleanClinicId,
+      actorRole: authCheck.role,
+      details: { timestamp: now }
+    });
+  } catch (err) {
+    handleFirestoreError(err, OperationType.UPDATE, `clinics/${cleanClinicId}`);
+    throw err;
+  }
+}
+
+/**
+ * Uploads a doctor profile picture to ImageKit under `/clinics/{clinicId}/doctors/`
+ * and updates Firestore doctor document.
+ */
+export async function uploadDoctorAvatar(
+  clinicId: string,
+  doctorId: string,
+  file: File,
+  onProgress?: (percent: number) => void
+): Promise<{ avatarUrl: string; avatarFileId: string }> {
+  if (!clinicId || !doctorId) {
+    throw new Error('Clinic ID and Doctor ID are required.');
+  }
+
+  const authCheck = await verifyUserAuthorization({
+    clinicId,
+    requiredRole: ['CLINIC_ADMIN', 'admin', 'SUPER_ADMIN']
+  });
+
+  if (!authCheck.isAuthorized) {
+    throw new Error('Unauthorized to manage doctor avatars for this clinic.');
+  }
+
+  const cleanClinicId = clinicId.trim();
+  const cleanDoctorId = doctorId.trim();
+
+  // Retrieve previous avatar to clean up
+  let previousFileId: string | undefined;
+  try {
+    const docSnap = await getDoc(doc(db, 'clinics', cleanClinicId, 'doctors', cleanDoctorId));
+    if (docSnap.exists()) {
+      const data = docSnap.data() as Doctor;
+      previousFileId = data.avatarFileId;
+    }
+  } catch (_) {}
+
+  // Upload to ImageKit
+  const uploadResult = await uploadMediaToImageKit({
+    file,
+    clinicId: cleanClinicId,
+    folderType: 'doctors',
+    fileName: `${cleanDoctorId}_avatar.png`,
+    userRole: authCheck.role,
+    onProgress
+  });
+
+  // Delete previous
+  if (previousFileId && previousFileId !== uploadResult.fileId) {
+    deleteMediaFromImageKit({
+      fileId: previousFileId,
+      clinicId: cleanClinicId,
+      folderType: 'doctors',
+      userRole: authCheck.role
+    }).catch(() => {});
+  }
+
+  // Update in Firestore
+  const updatePayload = sanitizeForFirestore({
+    avatarUrl: uploadResult.url,
+    avatarFileId: uploadResult.fileId,
+    avatarFileName: uploadResult.name,
+    avatarFolder: uploadResult.folder,
+    avatarMetadata: uploadResult
+  });
+
+  await setDoc(doc(db, 'clinics', cleanClinicId, 'doctors', cleanDoctorId), updatePayload, { merge: true });
+  // Also top-level doctors collection for backwards compatibility
+  try {
+    await setDoc(doc(db, 'doctors', cleanDoctorId), updatePayload, { merge: true });
+  } catch (_) {}
+
+  return { avatarUrl: uploadResult.url, avatarFileId: uploadResult.fileId };
+}
+
+/**
+ * Uploads a patient profile avatar to ImageKit under `/clinics/{clinicId}/patients/`
+ */
+export async function uploadPatientAvatar(
+  clinicId: string,
+  patientId: string,
+  file: File,
+  onProgress?: (percent: number) => void
+): Promise<{ avatarUrl: string; avatarFileId: string }> {
+  const cleanClinicId = (clinicId || 'default').trim();
+  const cleanPatientId = patientId.trim();
+
+  const uploadResult = await uploadMediaToImageKit({
+    file,
+    clinicId: cleanClinicId,
+    folderType: 'patients',
+    fileName: `${cleanPatientId}_avatar.png`,
+    userRole: 'PATIENT',
+    onProgress
+  });
+
+  const updatePayload = sanitizeForFirestore({
+    avatarUrl: uploadResult.url,
+    avatarFileId: uploadResult.fileId,
+    avatarFileName: uploadResult.name,
+    avatarFolder: uploadResult.folder,
+    avatarMetadata: uploadResult
+  });
+
+  await setDoc(doc(db, 'patients', cleanPatientId), updatePayload, { merge: true });
+  return { avatarUrl: uploadResult.url, avatarFileId: uploadResult.fileId };
 }
 
 // -------------------------------------------------------------
@@ -695,8 +1078,24 @@ export async function getTokensByDateRange(
 }
 
 // -------------------------------------------------------------
-// USER PROFILE & RBAC REPOSITORY
+// USER PROFILE & RBAC REPOSITORY WITH IN-MEMORY CACHE
 // -------------------------------------------------------------
+
+interface CachedProfile {
+  profile: UserProfile;
+  timestamp: number;
+}
+
+const userProfileCache = new Map<string, CachedProfile>();
+const USER_PROFILE_CACHE_TTL_MS = 60000; // 60-second in-memory cache
+
+export function invalidateUserProfileCache(uid?: string) {
+  if (uid) {
+    userProfileCache.delete(uid);
+  } else {
+    userProfileCache.clear();
+  }
+}
 
 export async function saveUserProfile(profile: {
   uid: string;
@@ -745,11 +1144,11 @@ export async function saveUserProfile(profile: {
 
   try {
     const userRef = doc(db, 'users', profile.uid);
-    const existing = await getDoc(userRef);
-    if (!existing.exists()) {
-      dataToSave.createdAt = now;
-    }
     await setDoc(userRef, dataToSave, { merge: true });
+    userProfileCache.set(profile.uid, {
+      profile: dataToSave as unknown as UserProfile,
+      timestamp: Date.now()
+    });
   } catch (err) {
     handleFirestoreError(err, OperationType.WRITE, `users/${profile.uid}`);
     throw err;
@@ -758,9 +1157,44 @@ export async function saveUserProfile(profile: {
   return dataToSave as unknown as UserProfile;
 }
 
-export async function getUserProfile(uid: string) {
+export async function getUserProfile(uid: string, skipCache: boolean = false): Promise<UserProfile | null> {
+  if (!uid || !uid.trim()) return null;
+  const cleanUid = uid.trim();
+
+  // Check in-memory cache first to avoid repetitive Firestore requests
+  if (!skipCache) {
+    const cached = userProfileCache.get(cleanUid);
+    if (cached && (Date.now() - cached.timestamp < USER_PROFILE_CACHE_TTL_MS)) {
+      return cached.profile;
+    }
+  }
+
+  // Super Admin session fallback
+  const superAdminSession = typeof window !== 'undefined' 
+    ? sessionStorage.getItem('mediqueue_super_admin_session') 
+    : null;
+  if (superAdminSession && (cleanUid === 'super_admin_root' || cleanUid === 'super-admin-session')) {
+    const superProfile: UserProfile = {
+      uid: cleanUid,
+      email: 'superadmin@mediqueue.internal',
+      name: 'Super Administrator',
+      displayName: 'Super Administrator',
+      phone: '+1 (800) 555-0100',
+      age: 40,
+      gender: 'Other',
+      role: 'SUPER_ADMIN',
+      clinicId: '',
+      clinicIds: [],
+      accessibleClinicIds: [],
+      status: 'active',
+      createdAt: new Date().toISOString()
+    };
+    userProfileCache.set(cleanUid, { profile: superProfile, timestamp: Date.now() });
+    return superProfile;
+  }
+
   try {
-    const userDoc = await getDoc(doc(db, 'users', uid));
+    const userDoc = await getDoc(doc(db, 'users', cleanUid));
     if (userDoc.exists()) {
       const data = userDoc.data() as UserProfile;
       // Normalize clinicIds / accessibleClinicIds
@@ -770,10 +1204,14 @@ export async function getUserProfile(uid: string) {
       if (!data.accessibleClinicIds && data.clinicIds) {
         data.accessibleClinicIds = data.clinicIds;
       }
+      userProfileCache.set(cleanUid, { profile: data, timestamp: Date.now() });
       return data;
     }
-  } catch (err) {
-    handleFirestoreError(err, OperationType.GET, `users/${uid}`);
+  } catch (err: any) {
+    const errMsg = err instanceof Error ? err.message : String(err);
+    if (!errMsg.toLowerCase().includes('permission') && !errMsg.toLowerCase().includes('insufficient')) {
+      handleFirestoreError(err, OperationType.GET, `users/${cleanUid}`);
+    }
   }
   return null;
 }
@@ -813,24 +1251,47 @@ export async function verifyUserAuthorization(
 
   let claims: Record<string, any> = {};
   let userProfile: UserProfile | null = null;
-  const uid = currentUser?.uid || 'super-admin-session';
+  const uid = currentUser?.uid || 'super_admin_root';
   const email = currentUser?.email || (superAdminSession ? 'superadmin@mediqueue.internal' : null);
 
-  // 1. Verify Custom Claims from Firebase Auth token
+  // 1. Verify Custom Claims safely (avoid force refresh when backgrounded/closing)
   if (currentUser) {
+    const isDocVisible = typeof document === 'undefined' || document.visibilityState === 'visible';
+    const shouldForceRefresh = Boolean(params?.forceRefreshClaims && isDocVisible);
     try {
-      const tokenResult = await currentUser.getIdTokenResult(params?.forceRefreshClaims ?? false);
+      const tokenResult = await currentUser.getIdTokenResult(shouldForceRefresh);
       claims = tokenResult.claims || {};
-    } catch (claimErr) {
-      console.warn('Unable to refresh token claims, falling back to profile verification:', claimErr);
+    } catch {
+      try {
+        const fallbackResult = await currentUser.getIdTokenResult(false);
+        claims = fallbackResult.claims || {};
+      } catch (_) {
+        // Fall back to profile verification cleanly without console spam
+      }
     }
 
-    // 2. Fetch authoritative Firestore profile document
+    // 2. Fetch authoritative profile document (uses cached profile when available)
     try {
       userProfile = await getUserProfile(currentUser.uid);
-    } catch (profileErr) {
-      console.warn('Unable to fetch user profile doc:', profileErr);
+    } catch {
+      // Ignored
     }
+  } else if (superAdminSession) {
+    userProfile = {
+      uid: 'super_admin_root',
+      email: 'superadmin@mediqueue.internal',
+      name: 'Super Administrator',
+      displayName: 'Super Administrator',
+      phone: '+1 (800) 555-0100',
+      age: 40,
+      gender: 'Other',
+      role: 'SUPER_ADMIN',
+      clinicId: '',
+      clinicIds: [],
+      accessibleClinicIds: [],
+      status: 'active',
+      createdAt: new Date().toISOString()
+    };
   }
 
   // 3. Resolve role from Custom Claims first, then Firestore profile, with designated Super Admin check
@@ -1001,7 +1462,7 @@ export async function logAuditEvent(params: {
   clinicName?: string | null;
   actorUid?: string;
   actorEmail?: string;
-  actorRole?: 'SUPER_ADMIN' | 'CLINIC_ADMIN' | 'DOCTOR' | 'RECEPTIONIST' | 'patient';
+  actorRole?: UserRole;
   details?: Record<string, any>;
 }): Promise<void> {
   const currentUser = auth.currentUser;
@@ -1539,6 +2000,7 @@ export function subscribeUserTokens(
   if (typeof clinicIdOrCallback === 'function') {
     callback = clinicIdOrCallback;
     onError = maybeCallback as FirestoreErrorCallback | undefined;
+    clinicId = typeof window !== 'undefined' ? localStorage.getItem('mediqueue_active_clinic_id') || '' : '';
   } else if (typeof clinicIdOrCallback === 'string') {
     clinicId = clinicIdOrCallback;
     callback = (maybeCallback as (tokens: QueueToken[]) => void) || (() => {});

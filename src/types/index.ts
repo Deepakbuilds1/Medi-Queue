@@ -15,11 +15,32 @@ export type UserRole =
   | 'patient' 
   | 'admin';
 
+export type ImageKitFolderType = 'logo' | 'doctors' | 'patients' | 'media';
+
+export interface ImageKitMediaMetadata {
+  fileId: string;
+  url: string;
+  fileName?: string;
+  name?: string;
+  folder?: string;
+  uploadedAt: string;
+  updatedAt?: string;
+  size?: number;
+  thumbnailUrl?: string;
+  mimeType?: string;
+}
+
 export interface Clinic {
   id: string; // Firestore document ID
   name: string;
   slug: string;
-  logo: string;
+  logo: string; // URL / data URI
+  logoUrl?: string; // Explicit ImageKit logo URL
+  logoFileId?: string; // ImageKit fileId
+  logoFileName?: string;
+  logoFolder?: string;
+  logoStoragePath?: string; // Legacy/Fallback reference path
+  logoMetadata?: ImageKitMediaMetadata;
   address: string;
   phone: string;
   email: string;
@@ -44,6 +65,11 @@ export interface Doctor {
   roomNumber: string;
   tokenPrefix: string; // e.g. 'A', 'B'
   status: 'ACTIVE' | 'INACTIVE';
+  avatarUrl?: string;
+  avatarFileId?: string;
+  avatarFileName?: string;
+  avatarFolder?: string;
+  avatarMetadata?: ImageKitMediaMetadata;
   createdAt?: string;
 }
 
@@ -56,6 +82,11 @@ export interface UserProfile {
   age?: number;
   gender?: 'Male' | 'Female' | 'Other';
   role: UserRole;
+  avatarUrl?: string;
+  avatarFileId?: string;
+  avatarFileName?: string;
+  avatarFolder?: string;
+  avatarMetadata?: ImageKitMediaMetadata;
   clinicId?: string; // Assigned primary clinic for staff/admin/patient
   clinicName?: string; // Name of assigned clinic
   clinicIds?: string[]; // Multiple authorized clinics
@@ -85,7 +116,11 @@ export interface AuditLog {
     | 'ADMIN_CLINIC_ASSIGNMENT'
     | 'ADMIN_ACCESS_REMOVED'
     | 'ADMIN_STATUS_TOGGLE'
-    | 'PASSWORD_RESET_TRIGGERED';
+    | 'PASSWORD_RESET_TRIGGERED'
+    | 'CLINIC_LOGO_UPDATED'
+    | 'CLINIC_LOGO_REMOVED'
+    | 'IMAGEKIT_MEDIA_UPLOADED'
+    | 'IMAGEKIT_MEDIA_DELETED';
   clinicId?: string;
   clinicName?: string;
   details?: Record<string, any>;
@@ -103,6 +138,11 @@ export interface Patient {
   gender: 'Male' | 'Female' | 'Other';
   phone: string;
   reason?: string;
+  avatarUrl?: string;
+  avatarFileId?: string;
+  avatarFileName?: string;
+  avatarFolder?: string;
+  avatarMetadata?: ImageKitMediaMetadata;
   createdAt: string; // ISO string
   lastVisit?: string;
   totalVisits?: number;
@@ -135,6 +175,8 @@ export interface ClinicSettings {
   clinicId?: string;
   clinicName: string;
   clinicLogo: string;
+  logoUrl?: string;
+  logoStoragePath?: string;
   clinicAddress: string;
   phone: string;
   email: string;

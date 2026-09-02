@@ -69,12 +69,12 @@ export const PatientPortal: React.FC<PatientPortalProps> = ({
 
   // Subscribe to logged in patient's tokens in Firebase
   useEffect(() => {
-    if (!user) {
+    if (!user || !activeClinicId) {
       setUserTokens([]);
       return;
     }
 
-    const unsub = subscribeUserTokens(user.uid, (tokens) => {
+    const unsub = subscribeUserTokens(user.uid, activeClinicId, (tokens) => {
       tokens.forEach((t) => {
         if (t.status === 'CALLED') {
           playTokenCallSound();
@@ -84,7 +84,7 @@ export const PatientPortal: React.FC<PatientPortalProps> = ({
     });
 
     return () => unsub();
-  }, [user]);
+  }, [user, activeClinicId]);
 
   // Auto re-fetch token details if user searched for a token
   useEffect(() => {

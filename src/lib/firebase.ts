@@ -1,6 +1,7 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
+import { getStorage } from 'firebase/storage';
 import firebaseConfigJson from '../../firebase-applet-config.json';
 
 const firebaseConfig = {
@@ -20,7 +21,9 @@ export const db = firebaseConfigJson.firestoreDatabaseId && firebaseConfigJson.f
 
 export const auth = getAuth(app);
 
-export { firebaseConfig };
+export const storage = getStorage(app);
+
+export { firebaseConfig, app };
 
 // Helper to create a secondary auth instance for Super Admin to provision users
 export function getSecondaryAuth() {

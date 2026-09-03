@@ -1217,6 +1217,22 @@ export async function getUserProfile(uid: string, skipCache: boolean = false): P
 }
 
 /**
+ * Validates the structure and expiration of a Super Admin HMAC session token on the client.
+ */
+function isValidSuperAdminSessionToken(token: string | null): boolean {
+  if (!token || typeof token !== 'string') return false;
+  const parts = token.split('.');
+  if (parts.length !== 2 || !parts[0] || !parts[1] || parts[1].length !== 64) return false;
+  try {
+    const payloadStr = atob(parts[0].replace(/-/g, '+').replace(/_/g, '/'));
+    const payload = JSON.parse(payloadStr);
+    return payload.role === 'SUPER_ADMIN' && typeof payload.exp === 'number' && payload.exp > Date.now();
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Authoritative Server-Verified Authorization Function.
  * Validates the caller's role from Firebase Auth Custom Claims, ID token claims,
  * and authoritative server-side Firestore user documents.
@@ -1225,9 +1241,10 @@ export async function getUserProfile(uid: string, skipCache: boolean = false): P
 export async function verifyUserAuthorization(
   params?: AuthorizationCheckParams
 ): Promise<AuthorizationResult> {
-  const superAdminSession = typeof window !== 'undefined' 
+  const rawSession = typeof window !== 'undefined' 
     ? sessionStorage.getItem('mediqueue_super_admin_session') 
     : null;
+  const superAdminSession = isValidSuperAdminSessionToken(rawSession) ? rawSession : null;
   const currentUser = auth.currentUser;
 
   // Unauthenticated caller check

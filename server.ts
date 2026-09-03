@@ -12,6 +12,7 @@ import {
   clearFailedAttempts,
   signSuperAdminSessionToken,
   verifySuperAdminSessionToken,
+  validateSuperAdminConfig,
 } from './src/server/superAdminSecurity';
 import {
   getImageKit,
@@ -59,8 +60,19 @@ app.get('/api/health', (_req: Request, res: Response) => {
   });
 });
 
-// 2. Super Admin PIN Verification (Server-Side Only)
-app.post('/api/super-admin/verify-pin', (req: Request, res: Response) => {
+// 2. Super Admin Login & PIN Verification Handler (Server-Side Only)
+const handleSuperAdminLogin = (req: Request, res: Response) => {
+  // Verify server environment configuration (fail closed in production if secret is missing)
+  const configCheck = validateSuperAdminConfig();
+  if (!configCheck.isConfigured) {
+    console.error('[SECURITY AUDIT] Super Admin authentication failed closed due to configuration error:', configCheck.error);
+    return res.status(500).json({
+      success: false,
+      code: 'SERVER_CONFIGURATION_ERROR',
+      error: 'Server configuration error: Super Admin authentication credentials are not configured.',
+    });
+  }
+
   const clientIp = getClientIp(req);
 
   // 1. Rate Limiting / Lockout Status
@@ -68,6 +80,7 @@ app.post('/api/super-admin/verify-pin', (req: Request, res: Response) => {
   if (rateLimitStatus.isLocked) {
     return res.status(429).json({
       success: false,
+      code: 'RATE_LIMITED',
       error: `Too many failed attempts. Super Admin access is temporarily locked for security. Please try again in ${rateLimitStatus.remainingSeconds} seconds.`,
       locked: true,
       remainingSeconds: rateLimitStatus.remainingSeconds,
@@ -80,6 +93,7 @@ app.post('/api/super-admin/verify-pin', (req: Request, res: Response) => {
   if (!pin || typeof pin !== 'string' || !pin.trim()) {
     return res.status(400).json({
       success: false,
+      code: 'INVALID_INPUT',
       error: 'Super Admin PIN is required.',
     });
   }
@@ -96,6 +110,7 @@ app.post('/api/super-admin/verify-pin', (req: Request, res: Response) => {
       console.warn(`[SECURITY AUDIT] Super Admin PIN lockout triggered for IP: ${clientIp}`);
       return res.status(429).json({
         success: false,
+        code: 'RATE_LIMITED',
         error: 'Too many failed attempts. Super Admin access has been temporarily locked for 15 minutes.',
         locked: true,
         remainingSeconds: failedResult.remainingSeconds,
@@ -104,6 +119,7 @@ app.post('/api/super-admin/verify-pin', (req: Request, res: Response) => {
 
     return res.status(401).json({
       success: false,
+      code: 'INVALID_CREDENTIALS',
       error: 'Invalid Super Admin PIN.',
       remainingAttempts: failedResult.remainingAttempts,
     });
@@ -127,7 +143,10 @@ app.post('/api/super-admin/verify-pin', (req: Request, res: Response) => {
       email: payload.email,
     },
   });
-});
+};
+
+app.post('/api/super-admin/login', handleSuperAdminLogin);
+app.post('/api/super-admin/verify-pin', handleSuperAdminLogin);
 
 // 3. Super Admin Session Verification Endpoint
 app.post('/api/super-admin/verify-session', (req: Request, res: Response) => {

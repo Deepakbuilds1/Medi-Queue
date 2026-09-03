@@ -5,11 +5,9 @@ import {
   signOut as firebaseSignOut, 
   onAuthStateChanged,
   createUserWithEmailAndPassword,
-  sendPasswordResetEmail,
-  signInAnonymously
+  sendPasswordResetEmail
 } from 'firebase/auth';
-import { doc, setDoc } from 'firebase/firestore';
-import { auth, db } from '../lib/firebase';
+import { auth } from '../lib/firebase';
 import { 
   saveUserProfile, 
   getUserProfile, 
@@ -78,7 +76,7 @@ export function parseAuthError(error: unknown, defaultFallback = 'Authentication
     case 'auth/user-disabled':
       return {
         code,
-        userMessage: 'This account has been disabled. Please contact clinic support.',
+        userMessage: 'This account has been disabled. Please contact clinic support or the administrator.',
         isNetworkError: false,
         isCredentialError: true,
       };
@@ -86,7 +84,7 @@ export function parseAuthError(error: unknown, defaultFallback = 'Authentication
     case 'auth/too-many-requests':
       return {
         code,
-        userMessage: 'Too many unsuccessful attempts. Please try again in a few minutes or reset your password.',
+        userMessage: 'Too many unsuccessful attempts. Access is temporarily delayed. Please wait a moment or reset your password.',
         isNetworkError: false,
         isCredentialError: false,
       };
@@ -94,7 +92,7 @@ export function parseAuthError(error: unknown, defaultFallback = 'Authentication
     case 'auth/network-request-failed':
       return {
         code,
-        userMessage: 'Unable to connect. Please check your internet connection and try again.',
+        userMessage: 'Network connectivity error. Please check your internet connection and try again.',
         isNetworkError: true,
         isCredentialError: false,
       };
@@ -126,7 +124,16 @@ export function parseAuthError(error: unknown, defaultFallback = 'Authentication
     case 'auth/operation-not-allowed':
       return {
         code,
-        userMessage: 'Email/Password sign-in is not enabled in the Firebase Console.',
+        userMessage: 'Email/Password authentication is disabled in the Firebase project console.',
+        isNetworkError: false,
+        isCredentialError: false,
+      };
+
+    case 'auth/invalid-api-key':
+    case 'auth/api-key-not-valid':
+      return {
+        code,
+        userMessage: 'Firebase configuration error: The configured API key is invalid.',
         isNetworkError: false,
         isCredentialError: false,
       };
@@ -192,57 +199,45 @@ export function handleAuthError(
 
 const SUPER_ADMIN_SESSION_KEY = 'mediqueue_super_admin_session';
 
-const ensureSuperAdminFirebaseAuth = async (
-  email: string = 'superadmin@mediqueue.internal', 
+/**
+ * Creates a client-side session identity conforming to the User interface
+ * for Super Admins whose identity is verified via server-side HMAC session token.
+ * Does NOT invoke Firebase Anonymous Auth or use hardcoded Firebase credentials.
+ */
+export const createSuperAdminSessionUser = (
+  email: string = 'superadmin@mediqueue.internal',
   name: string = 'Super Administrator'
-): Promise<User | null> => {
-  const adminEmail = email || 'superadmin@mediqueue.internal';
-  const adminPass = 'SuperAdminSecure2026!';
-  let fbUser = auth.currentUser;
-
-  if (!fbUser) {
-    try {
-      const cred = await signInWithEmailAndPassword(auth, adminEmail, adminPass);
-      fbUser = cred.user;
-    } catch {
-      try {
-        const cred = await createUserWithEmailAndPassword(auth, adminEmail, adminPass);
-        fbUser = cred.user;
-      } catch {
-        try {
-          const cred = await signInAnonymously(auth);
-          fbUser = cred.user;
-        } catch (_) {}
-      }
-    }
-  }
-
-  if (fbUser) {
-    try {
-      const userDocRef = doc(db, 'users', fbUser.uid);
-      const superProfileData: UserProfile = {
-        uid: fbUser.uid,
-        email: adminEmail,
-        name: name || 'Super Administrator',
-        displayName: name || 'Super Administrator',
-        phone: '+1 (800) 555-0100',
-        age: 40,
-        gender: 'Other',
-        role: 'SUPER_ADMIN',
-        clinicId: '',
-        clinicIds: [],
-        accessibleClinicIds: [],
-        status: 'active',
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      };
-      await setDoc(userDocRef, superProfileData, { merge: true });
-    } catch (e) {
-      console.warn('Super admin profile sync notice:', e);
-    }
-  }
-
-  return fbUser;
+): User => {
+  return {
+    uid: 'super_admin_root',
+    email,
+    displayName: name,
+    emailVerified: true,
+    isAnonymous: false,
+    metadata: {
+      creationTime: new Date().toISOString(),
+      lastSignInTime: new Date().toISOString(),
+    },
+    providerData: [],
+    refreshToken: '',
+    tenantId: null,
+    delete: async () => {},
+    getIdToken: async () => '',
+    getIdTokenResult: async () => ({
+      token: '',
+      signInProvider: 'super_admin_pin',
+      signInSecondFactor: null,
+      claims: { role: 'SUPER_ADMIN', isSuperAdmin: true },
+      authTime: new Date().toISOString(),
+      issuedAtTime: new Date().toISOString(),
+      expirationTime: new Date(Date.now() + 8 * 3600 * 1000).toISOString(),
+    }),
+    reload: async () => {},
+    toJSON: () => ({ uid: 'super_admin_root', email, role: 'SUPER_ADMIN' }),
+    phoneNumber: null,
+    photoURL: null,
+    providerId: 'mediqueue.superadmin',
+  };
 };
 
 interface AuthContextType {
@@ -311,13 +306,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setSuperAdminSessionToken(storedToken);
             const email = data.user?.email || 'superadmin@mediqueue.internal';
             const name = data.user?.name || 'Super Administrator';
-            const fbUser = await ensureSuperAdminFirebaseAuth(email, name);
             if (!isCancelled) {
-              if (fbUser) {
-                setUser(fbUser);
-              }
+              setUser(createSuperAdminSessionUser(email, name));
               setUserProfile({
-                uid: fbUser?.uid || 'super_admin_root',
+                uid: 'super_admin_root',
                 email,
                 name,
                 displayName: name,
@@ -455,13 +447,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const email = userMeta?.email || 'superadmin@mediqueue.internal';
     const name = userMeta?.name || 'Super Administrator';
-    const fbUser = await ensureSuperAdminFirebaseAuth(email, name);
-    if (fbUser) {
-      setUser(fbUser);
-    }
+    
+    // Set server-verified Super Admin user session (decoupled from Firebase Auth)
+    setUser(createSuperAdminSessionUser(email, name));
 
     const superProfile: UserProfile = {
-      uid: fbUser?.uid || 'super_admin_root',
+      uid: 'super_admin_root',
       email,
       name,
       displayName: name,
@@ -495,30 +486,45 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Clinic Admin / Staff Email & Password Login with Strict Backend Role Authorization
   const login = async (email: string, pass: string, targetClinicId?: string): Promise<UserProfile> => {
     const trimmedEmail = email.trim();
+    if (!trimmedEmail) {
+      throw new Error('Please enter your email address.');
+    }
+    if (!pass) {
+      throw new Error('Please enter your password.');
+    }
+
     // Step 1: Firebase Authentication verifies credentials
     const cred = await signInWithEmailAndPassword(auth, trimmedEmail, pass);
     
     // Step 2: Retrieve trusted authorization profile from Firestore
     const profile = await getUserProfile(cred.user.uid);
 
-    // Step 3: Critical Security Guard - REJECT PATIENT ACCOUNTS
-    if (!profile || profile.role === 'PATIENT' || profile.role === 'patient') {
+    // Step 3: Critical Security Guard - Profile existence check
+    if (!profile) {
+      await firebaseSignOut(auth);
+      setUser(null);
+      setUserProfile(null);
+      throw new Error('Your account profile was not found in the clinic database. Please contact an administrator.');
+    }
+
+    // Step 4: Critical Security Guard - REJECT PATIENT ACCOUNTS
+    if (profile.role === 'PATIENT' || profile.role === 'patient') {
       // Immediately revoke Firebase Auth session so no authenticated session is held in client
       await firebaseSignOut(auth);
       setUser(null);
       setUserProfile(null);
-      throw new Error('This account is registered as a patient. Please use the Patient Portal.');
+      throw new Error('This account is registered as a patient. Please sign in via the Patient Portal.');
     }
 
-    // Step 4: Verify account is not deactivated
+    // Step 5: Verify account is not deactivated
     if (profile.status === 'inactive' || profile.status === 'INACTIVE') {
       await firebaseSignOut(auth);
       setUser(null);
       setUserProfile(null);
-      throw new Error('This account has been disabled. Please contact the Super Administrator.');
+      throw new Error('Account inactive. This account has been disabled. Please contact the administrator.');
     }
 
-    // Step 5: Verify trusted administrative/staff role
+    // Step 6: Verify trusted administrative/staff role
     const validStaffRoles = ['CLINIC_ADMIN', 'admin', 'SUPER_ADMIN', 'DOCTOR', 'RECEPTIONIST'];
     if (!validStaffRoles.includes(profile.role)) {
       await firebaseSignOut(auth);
@@ -527,7 +533,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       throw new Error('Access denied. This account is not authorized to access the Clinic Admin Portal.');
     }
 
-    // Step 6: Verify clinic assignment for non-Super Admins
+    // Step 7: Verify clinic assignment for non-Super Admins
     if (profile.role !== 'SUPER_ADMIN') {
       const authorizedClinics = profile.clinicIds || profile.accessibleClinicIds || (profile.clinicId ? [profile.clinicId] : []);
       if (authorizedClinics.length === 0) {
@@ -541,7 +547,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         await firebaseSignOut(auth);
         setUser(null);
         setUserProfile(null);
-        throw new Error('Access denied. You are not authorized to administer the selected clinic branch.');
+        throw new Error('Your account is not authorized for the selected clinic.');
       }
 
       const activeId = targetClinicId || authorizedClinics[0];
@@ -745,8 +751,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUserProfile(null);
   };
 
-  // Strict Authorization checks (Never trust mere existence of user object)
-  const isSuperAdmin = !!superAdminSessionToken || userProfile?.role === 'SUPER_ADMIN';
+  // Strict Authorization checks: Super Admin MUST have a verified server-issued session token
+  const isSuperAdmin = !!superAdminSessionToken && userProfile?.role === 'SUPER_ADMIN';
   const isClinicAdmin = isSuperAdmin || (!!user && !!userProfile && (userProfile.role === 'CLINIC_ADMIN' || userProfile.role === 'admin'));
   const isClinicStaff = isClinicAdmin || (!!user && !!userProfile && (userProfile.role === 'DOCTOR' || userProfile.role === 'RECEPTIONIST'));
   const isAdmin = isSuperAdmin || isClinicAdmin;

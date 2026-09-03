@@ -13,6 +13,52 @@ const firebaseConfig = {
   appId: import.meta.env.VITE_FIREBASE_APP_ID || firebaseConfigJson.appId || '',
 };
 
+/**
+ * Safe diagnostics for Firebase web client configuration.
+ * Validates presence of critical identifiers without exposing secret credentials.
+ */
+export function getFirebaseConfigDiagnostics(): {
+  isValid: boolean;
+  missingKeys: string[];
+  status: Record<string, 'present' | 'missing'>;
+} {
+  const keys = ['apiKey', 'authDomain', 'projectId', 'appId'] as const;
+  const status: Record<string, 'present' | 'missing'> = {};
+  const missingKeys: string[] = [];
+
+  for (const k of keys) {
+    const val = firebaseConfig[k];
+    if (val && typeof val === 'string' && val.trim().length > 0) {
+      status[k] = 'present';
+    } else {
+      status[k] = 'missing';
+      missingKeys.push(k);
+    }
+  }
+
+  return {
+    isValid: missingKeys.length === 0,
+    missingKeys,
+    status,
+  };
+}
+
+// Perform safe diagnostic log in non-production or on startup
+const diagnostics = getFirebaseConfigDiagnostics();
+if (!diagnostics.isValid) {
+  console.warn(
+    `[Firebase Config Warning] Missing configuration keys: ${diagnostics.missingKeys.join(', ')}. ` +
+    `Please configure VITE_FIREBASE_* environment variables.`
+  );
+} else if (import.meta.env.DEV) {
+  console.info('[Firebase Config] Configuration validated:', {
+    projectId: firebaseConfig.projectId,
+    authDomain: firebaseConfig.authDomain,
+    apiKey: diagnostics.status.apiKey,
+    appId: diagnostics.status.appId,
+  });
+}
+
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 
 export const db = firebaseConfigJson.firestoreDatabaseId && firebaseConfigJson.firestoreDatabaseId !== '(default)'

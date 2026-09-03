@@ -1,8 +1,53 @@
 import crypto from 'crypto';
 
+/**
+ * Validates that production environments supply explicit secrets.
+ * In production, missing secrets FAIL CLOSED with a Server Configuration Error.
+ */
+export function getSuperAdminSecret(): string {
+  const isProd = process.env.NODE_ENV === 'production';
+  const secret = process.env.SUPER_ADMIN_SECRET;
+
+  if (!secret || !secret.trim()) {
+    if (isProd) {
+      throw new Error('SERVER_CONFIGURATION_ERROR: SUPER_ADMIN_SECRET environment variable is mandatory in production.');
+    }
+    // Non-production fallback only for local developer test suites
+    return process.env.SUPER_ADMIN_PIN || 'mediqueue_dev_super_admin_secret_key_2026';
+  }
+
+  return secret.trim();
+}
+
+export function getSuperAdminPin(): string {
+  const isProd = process.env.NODE_ENV === 'production';
+  const pin = process.env.SUPER_ADMIN_PIN;
+
+  if (!pin || !pin.trim()) {
+    if (isProd) {
+      throw new Error('SERVER_CONFIGURATION_ERROR: SUPER_ADMIN_PIN environment variable is mandatory in production.');
+    }
+    return '8899';
+  }
+
+  return pin.trim();
+}
+
+/**
+ * Diagnostic check to ensure server environment is ready for Super Admin operations.
+ */
+export function validateSuperAdminConfig(): { isConfigured: boolean; error?: string } {
+  try {
+    getSuperAdminPin();
+    getSuperAdminSecret();
+    return { isConfigured: true };
+  } catch (err: any) {
+    return { isConfigured: false, error: err?.message || 'Server configuration error.' };
+  }
+}
+
 // Server-side Secret: PIN is NEVER sent or exposed to the client
 export const SERVER_SUPER_ADMIN_PIN = process.env.SUPER_ADMIN_PIN || '8899';
-const TOKEN_SECRET = process.env.SUPER_ADMIN_SECRET || process.env.SUPER_ADMIN_PIN || 'mediqueue_super_admin_secret_key_2026';
 
 // Maximum permitted consecutive failed attempts before temporary lockout
 export const MAX_FAILED_ATTEMPTS = 5;
@@ -28,7 +73,7 @@ export function verifySuperAdminPinValue(submittedPin: string): boolean {
     return false;
   }
   const cleanPin = submittedPin.trim();
-  const targetPin = SERVER_SUPER_ADMIN_PIN.trim();
+  const targetPin = getSuperAdminPin();
 
   const pinBuffer = Buffer.from(cleanPin);
   const targetBuffer = Buffer.from(targetPin);
@@ -135,9 +180,10 @@ export function signSuperAdminSessionToken(userMeta?: { email?: string; name?: s
     nonce: crypto.randomBytes(16).toString('hex'),
   };
 
+  const secret = getSuperAdminSecret();
   const serialized = Buffer.from(JSON.stringify(payload)).toString('base64url');
   const signature = crypto
-    .createHmac('sha256', TOKEN_SECRET)
+    .createHmac('sha256', secret)
     .update(serialized)
     .digest('hex');
 
@@ -169,8 +215,9 @@ export function verifySuperAdminSessionToken(token: string): {
   const [serialized, signature] = parts;
 
   try {
+    const secret = getSuperAdminSecret();
     const expectedSignature = crypto
-      .createHmac('sha256', TOKEN_SECRET)
+      .createHmac('sha256', secret)
       .update(serialized)
       .digest('hex');
 

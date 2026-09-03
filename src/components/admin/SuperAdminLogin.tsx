@@ -87,7 +87,7 @@ export const SuperAdminLogin: React.FC<SuperAdminLoginProps> = ({
     setLoading(true);
 
     try {
-      const response = await fetch('/api/super-admin/verify-pin', {
+      const response = await fetch('/api/super-admin/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -118,7 +118,9 @@ export const SuperAdminLogin: React.FC<SuperAdminLoginProps> = ({
       }
 
       if (!response.ok || !data.success) {
-        if (response.status === 429 || data.locked) {
+        if (data.code === 'SERVER_CONFIGURATION_ERROR' || response.status === 500) {
+          setError(data.error || 'Server configuration error: Super Admin credentials are not configured on the server.');
+        } else if (response.status === 429 || data.locked) {
           const remainingSec = data.remainingSeconds || 900;
           setLockedSeconds(remainingSec);
           setError(data.error || `Too many failed attempts. Temporary lockout active for ${remainingSec} seconds.`);

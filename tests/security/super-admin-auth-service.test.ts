@@ -16,9 +16,10 @@ import healthHandler from '../../api/health';
 
 describe('Super Admin Security & Token Verification Core', () => {
   it('correctly validates the Super Admin PIN using constant-time comparison', () => {
-    expect(verifySuperAdminPinValue('8899')).toBe(true);
-    expect(verifySuperAdminPinValue(' 8899 ')).toBe(true);
+    expect(verifySuperAdminPinValue('8303')).toBe(true);
+    expect(verifySuperAdminPinValue(' 8303 ')).toBe(true);
     expect(verifySuperAdminPinValue('1234')).toBe(false);
+    expect(verifySuperAdminPinValue('8899')).toBe(false);
     expect(verifySuperAdminPinValue('')).toBe(false);
   });
 
@@ -100,7 +101,7 @@ describe('Vercel Serverless Function Endpoints (/api)', () => {
   it('POST /api/super-admin/verify-pin returns session token for correct PIN', async () => {
     const res = await request(app)
       .post('/api/super-admin/verify-pin')
-      .send({ pin: '8899' });
+      .send({ pin: '8303' });
 
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);

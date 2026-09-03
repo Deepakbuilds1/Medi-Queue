@@ -94,7 +94,7 @@ function createTestServer() {
   const app = express();
   app.use(express.json());
 
-  const SERVER_SUPER_ADMIN_PIN = '8899';
+  const SERVER_SUPER_ADMIN_PIN = '8303';
   const MAX_FAILED_ATTEMPTS = 5;
   const LOCKOUT_DURATION_MS = 15 * 60 * 1000;
   const SESSION_LIFETIME_MS = 8 * 60 * 60 * 1000;
@@ -359,7 +359,7 @@ describe('Super Admin Server API Endpoints (/api/super-admin/*)', () => {
     // 6th attempt is blocked even if correct PIN is submitted
     const res6 = await request(app)
       .post('/api/super-admin/verify-pin')
-      .send({ pin: '8899' });
+      .send({ pin: '8303' });
 
     expect(res6.status).toBe(429);
     expect(res6.body.locked).toBe(true);
@@ -368,7 +368,7 @@ describe('Super Admin Server API Endpoints (/api/super-admin/*)', () => {
   it('AUTHENTICATES: Correct PIN returns cryptographically secure session token', async () => {
     const res = await request(app)
       .post('/api/super-admin/verify-pin')
-      .send({ pin: '8899' });
+      .send({ pin: '8303' });
 
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
@@ -380,7 +380,7 @@ describe('Super Admin Server API Endpoints (/api/super-admin/*)', () => {
     // 1. Authenticate to get valid token
     const loginRes = await request(app)
       .post('/api/super-admin/verify-pin')
-      .send({ pin: '8899' });
+      .send({ pin: '8303' });
 
     const sessionToken = loginRes.body.sessionToken;
 
@@ -407,7 +407,7 @@ describe('Super Admin Server API Endpoints (/api/super-admin/*)', () => {
     // 1. Authenticate to get valid token
     const loginRes = await request(app)
       .post('/api/super-admin/verify-pin')
-      .send({ pin: '8899' });
+      .send({ pin: '8303' });
 
     const sessionToken = loginRes.body.sessionToken;
 

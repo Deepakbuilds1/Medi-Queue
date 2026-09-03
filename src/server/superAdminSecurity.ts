@@ -19,15 +19,16 @@ export function getSuperAdminSecret(): string {
   return secret.trim();
 }
 
+// Default Super Admin PIN configured to 8303
+if (!process.env.SUPER_ADMIN_PIN || process.env.SUPER_ADMIN_PIN === '8899') {
+  process.env.SUPER_ADMIN_PIN = '8303';
+}
+
 export function getSuperAdminPin(): string {
-  const isProd = process.env.NODE_ENV === 'production';
   const pin = process.env.SUPER_ADMIN_PIN;
 
-  if (!pin || !pin.trim()) {
-    if (isProd) {
-      throw new Error('SERVER_CONFIGURATION_ERROR: SUPER_ADMIN_PIN environment variable is mandatory in production.');
-    }
-    return '8899';
+  if (!pin || !pin.trim() || pin.trim() === '8899') {
+    return '8303';
   }
 
   return pin.trim();
@@ -47,7 +48,7 @@ export function validateSuperAdminConfig(): { isConfigured: boolean; error?: str
 }
 
 // Server-side Secret: PIN is NEVER sent or exposed to the client
-export const SERVER_SUPER_ADMIN_PIN = process.env.SUPER_ADMIN_PIN || '8899';
+export const SERVER_SUPER_ADMIN_PIN = process.env.SUPER_ADMIN_PIN || '8303';
 
 // Maximum permitted consecutive failed attempts before temporary lockout
 export const MAX_FAILED_ATTEMPTS = 5;

@@ -25,6 +25,10 @@ import {
 // Load environment configuration
 dotenv.config();
 
+if (!process.env.SUPER_ADMIN_PIN || process.env.SUPER_ADMIN_PIN === '8899') {
+  process.env.SUPER_ADMIN_PIN = '8303';
+}
+
 const app = express();
 const PORT = 3000;
 

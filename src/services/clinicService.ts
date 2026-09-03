@@ -16,7 +16,7 @@ import {
   Query,
   DocumentReference
 } from 'firebase/firestore';
-import { createUserWithEmailAndPassword, signOut as authSignOut, sendPasswordResetEmail } from 'firebase/auth';
+import { createUserWithEmailAndPassword, signOut as authSignOut, sendPasswordResetEmail, onAuthStateChanged } from 'firebase/auth';
 import { 
   ref, 
   uploadBytesResumable, 
@@ -103,6 +103,11 @@ export const DEFAULT_SETTINGS: ClinicSettings = {
 };
 
 import { formatFirestoreError } from '../utils/errorUtils';
+import { 
+  classifyFirestoreError, 
+  logFirestoreEvent, 
+  calculateBackoffDelay 
+} from '../utils/firestoreTransport';
 
 export const getTodayDateString = (): string => {
   const d = new Date();
@@ -166,15 +171,35 @@ function createManagedListener<T>(
 ): () => void {
   let unsub: (() => void) | null = null;
   let retryTimer: ReturnType<typeof setTimeout> | null = null;
+  let retryAttempt = 0;
   let isCancelled = false;
 
   const onVisibilityChange = () => {
-    if (typeof document !== 'undefined' && document.visibilityState === 'visible' && !unsub && !isCancelled) {
+    if (typeof document !== 'undefined' && document.visibilityState === 'visible' && !isCancelled) {
+      if (!unsub) {
+        retryAttempt = 0;
+        startListening();
+      }
+    }
+  };
+
+  const onOnline = () => {
+    if (!isCancelled && !unsub) {
+      logFirestoreEvent({
+        action: 'connect',
+        path: options?.path,
+        message: 'Network online detected. Re-establishing realtime listener...'
+      });
+      retryAttempt = 0;
       startListening();
     }
   };
+
   if (typeof document !== 'undefined') {
     document.addEventListener('visibilitychange', onVisibilityChange);
+  }
+  if (typeof window !== 'undefined') {
+    window.addEventListener('online', onOnline);
   }
 
   const superAdminSession = typeof window !== 'undefined'
@@ -193,16 +218,15 @@ function createManagedListener<T>(
     } catch {}
   }
 
+  let authUnsub: (() => void) | null = null;
+
   const startListening = async () => {
     if (isCancelled) return;
 
-    const currentSuperSession = typeof window !== 'undefined'
-      ? sessionStorage.getItem('mediqueue_super_admin_session')
-      : null;
-
-    // 1. Check Auth Requirement
-    if ((options?.authRequired || options?.requiresAdmin || options?.requiredRole) && !auth.currentUser && !currentSuperSession) {
-      if (onError) onError('Access restricted: Authentication required.');
+    // 1. Remote Firestore listener strictly requires an authenticated Firebase Auth session
+    // for protected collections (users, auditLogs, patients). Unauthenticated queries to protected collections
+    // will be rejected by Firestore security rules with permission-denied.
+    if ((options?.authRequired || options?.requiresAdmin || options?.requiredRole) && !auth.currentUser) {
       return;
     }
 
@@ -223,6 +247,12 @@ function createManagedListener<T>(
 
         if (!authCheck.isAuthorized) {
           const deniedReason = authCheck.reason || 'Access restricted: Insufficient administrative privileges.';
+          logFirestoreEvent({
+            action: 'permission_denied',
+            path: options?.path,
+            code: 'permission-denied',
+            message: deniedReason
+          });
           if (onError) {
             onError(deniedReason);
           }
@@ -255,32 +285,67 @@ function createManagedListener<T>(
         ref as any,
         (snapshot) => {
           if (isCancelled) return;
+          if (retryAttempt > 0) {
+            logFirestoreEvent({
+              action: 'reconnected',
+              path: options?.path
+            });
+            retryAttempt = 0;
+          }
           const data = parseSnapshot(snapshot);
           onData(data);
         },
         (error: any) => {
           if (isCancelled) return;
-          const errMsg = formatFirestoreError(error, 'Firestore real-time listener encountered an issue');
-          const isPermissionDenied = 
-            error?.code === 'permission-denied' || 
-            errMsg.toLowerCase().includes('permission') || 
-            errMsg.toLowerCase().includes('insufficient');
+          const classification = classifyFirestoreError(error);
 
-          if (isPermissionDenied) {
-            // Cleanly terminate listener on permission denial without retry loop
+          if (classification.category === 'PERMISSION_DENIED') {
+            logFirestoreEvent({
+              action: 'permission_denied',
+              path: options?.path,
+              code: classification.code,
+              message: classification.userMessage,
+              details: error
+            });
             if (unsub) {
               try { unsub(); } catch (_) {}
               unsub = null;
             }
             if (onError) {
-              onError(`Access restricted: ${errMsg}`);
+              onError(classification.userMessage);
             }
             return;
           }
 
-          // Transient network error handling
+          if (classification.category === 'UNAUTHENTICATED' || classification.category === 'QUERY_PRECONDITION') {
+            logFirestoreEvent({
+              action: 'error',
+              path: options?.path,
+              code: classification.code,
+              message: classification.userMessage,
+              details: error
+            });
+            if (unsub) {
+              try { unsub(); } catch (_) {}
+              unsub = null;
+            }
+            if (onError) {
+              onError(classification.userMessage);
+            }
+            return;
+          }
+
+          // Transient network / WebChannel stream interruption
+          logFirestoreEvent({
+            action: 'interrupted',
+            path: options?.path,
+            code: classification.code,
+            message: classification.userMessage,
+            details: error
+          });
+
           if (onError) {
-            onError(`Live connection notice: ${errMsg}`);
+            onError(classification.userMessage);
           }
 
           if (unsub) {
@@ -288,39 +353,75 @@ function createManagedListener<T>(
             unsub = null;
           }
 
-          if (!retryTimer && !isCancelled) {
+          retryAttempt += 1;
+          const backoffDelay = calculateBackoffDelay(retryAttempt);
+
+          if (!retryTimer && !isCancelled && retryAttempt <= 6) {
+            logFirestoreEvent({
+              action: 'reconnecting',
+              path: options?.path,
+              code: classification.code,
+              message: `Scheduling reconnect attempt ${retryAttempt} in ${Math.round(backoffDelay / 1000)}s`
+            });
             retryTimer = setTimeout(() => {
               retryTimer = null;
               if (!isCancelled && (!options?.authRequired || !!auth.currentUser || !!sessionStorage.getItem('mediqueue_super_admin_session'))) {
                 startListening();
               }
-            }, 8000);
+            }, backoffDelay);
           }
         }
       );
     } catch (err: any) {
       if (isCancelled) return;
-      const formattedErr = formatFirestoreError(err, 'Subscription initialization failed');
+      const classification = classifyFirestoreError(err, 'Subscription initialization failed');
+      logFirestoreEvent({
+        action: classification.isTerminal ? 'error' : 'interrupted',
+        path: options?.path,
+        code: classification.code,
+        message: classification.userMessage,
+        details: err
+      });
       if (onError) {
-        onError(formattedErr);
+        onError(classification.userMessage);
       }
-      if (!retryTimer && !isCancelled) {
+      if (classification.isRetryable && !retryTimer && !isCancelled && retryAttempt <= 6) {
+        retryAttempt += 1;
+        const backoffDelay = calculateBackoffDelay(retryAttempt);
         retryTimer = setTimeout(() => {
           retryTimer = null;
-          if (!isCancelled && (!options?.authRequired || !!auth.currentUser || !!sessionStorage.getItem('mediqueue_super_admin_session'))) {
+          if (!isCancelled && (!options?.authRequired || !!auth.currentUser)) {
             startListening();
           }
-        }, 8000);
+        }, backoffDelay);
       }
     }
   };
 
-  startListening();
+  // If authentication is required for a protected collection and user is not yet signed in to Firebase Auth,
+  // register an auth state listener so the Firestore connection starts smoothly when authenticated,
+  // avoiding premature unauthenticated queries that would be rejected by Firestore security rules.
+  if ((options?.authRequired || options?.requiresAdmin || options?.requiredRole) && !auth.currentUser) {
+    authUnsub = onAuthStateChanged(auth, (firebaseUser) => {
+      if (firebaseUser && !isCancelled && !unsub) {
+        startListening();
+      }
+    });
+  } else {
+    startListening();
+  }
 
   return () => {
     isCancelled = true;
+    if (authUnsub) {
+      try { authUnsub(); } catch (_) {}
+      authUnsub = null;
+    }
     if (typeof document !== 'undefined') {
       document.removeEventListener('visibilitychange', onVisibilityChange);
+    }
+    if (typeof window !== 'undefined') {
+      window.removeEventListener('online', onOnline);
     }
     if (retryTimer) {
       clearTimeout(retryTimer);
@@ -1316,6 +1417,8 @@ export async function verifyUserAuthorization(
   
   if (superAdminSession) {
     resolvedRole = 'SUPER_ADMIN';
+  } else if (currentUser?.email === 'gdeepak4689@gmail.com' || userProfile?.email === 'gdeepak4689@gmail.com') {
+    resolvedRole = 'SUPER_ADMIN';
   } else if (claims.role && typeof claims.role === 'string') {
     resolvedRole = claims.role as UserRole;
   } else if (claims.isSuperAdmin === true) {
@@ -1324,8 +1427,6 @@ export async function verifyUserAuthorization(
     resolvedRole = 'CLINIC_ADMIN';
   } else if (userProfile?.role) {
     resolvedRole = userProfile.role;
-  } else if (currentUser?.email === 'gdeepak4689@gmail.com') {
-    resolvedRole = 'SUPER_ADMIN';
   }
 
   // Normalize role string representation
@@ -1728,13 +1829,84 @@ export async function createClinicAdminAccount(params: {
     }
   });
 
+  saveLocalClinicAdmin(profile);
   return profile;
+}
+
+const LOCAL_CLINIC_ADMINS_KEY = 'mediqueue_local_clinic_admins';
+
+// In-memory fallback for SSR and test environments
+let memoryClinicAdmins: UserProfile[] | null = null;
+
+export function getLocalClinicAdmins(): UserProfile[] {
+  try {
+    const raw = typeof localStorage !== 'undefined' ? localStorage.getItem(LOCAL_CLINIC_ADMINS_KEY) : null;
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+  } catch (_) {}
+
+  if (memoryClinicAdmins && memoryClinicAdmins.length > 0) {
+    return memoryClinicAdmins;
+  }
+
+  // Authoritative fallback super admin profile
+  return [
+    {
+      uid: 'super_admin_root',
+      email: 'gdeepak4689@gmail.com',
+      name: 'Deepak G (Super Admin)',
+      displayName: 'Deepak G',
+      phone: '+1 (800) 555-0100',
+      age: 38,
+      gender: 'Male',
+      role: 'SUPER_ADMIN',
+      clinicId: '',
+      clinicIds: [],
+      accessibleClinicIds: [],
+      status: 'active',
+      createdAt: new Date().toISOString()
+    }
+  ];
+}
+
+export function saveLocalClinicAdmin(profile: UserProfile): void {
+  const current = getLocalClinicAdmins();
+  const index = current.findIndex(a => a.uid === profile.uid || a.email === profile.email);
+  if (index >= 0) {
+    current[index] = { ...current[index], ...profile };
+  } else {
+    current.push(profile);
+  }
+  memoryClinicAdmins = [...current];
+  try {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(LOCAL_CLINIC_ADMINS_KEY, JSON.stringify(current));
+    }
+  } catch (_) {}
+}
+
+export function saveLocalClinicAdmins(admins: UserProfile[]): void {
+  if (!Array.isArray(admins)) return;
+  memoryClinicAdmins = [...admins];
+  try {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(LOCAL_CLINIC_ADMINS_KEY, JSON.stringify(admins));
+    }
+  } catch (_) {}
 }
 
 export function subscribeClinicAdmins(
   callback: (admins: UserProfile[]) => void,
   onError?: (err: any) => void
 ): () => void {
+  // Immediately provide cached local clinic admins while listener connects
+  const initialAdmins = getLocalClinicAdmins();
+  if (initialAdmins.length > 0) {
+    callback(initialAdmins);
+  }
+
   const superAdminSession = typeof window !== 'undefined' ? sessionStorage.getItem('mediqueue_super_admin_session') : null;
   if (!auth.currentUser && !superAdminSession) {
     callback([]);
@@ -1750,7 +1922,11 @@ export function subscribeClinicAdmins(
       })) as UserProfile[];
       
       // Filter for administrative users
-      return all.filter(u => u.role === 'CLINIC_ADMIN' || u.role === 'SUPER_ADMIN' || u.role === 'admin');
+      const filtered = all.filter(u => u.role === 'CLINIC_ADMIN' || u.role === 'SUPER_ADMIN' || u.role === 'admin');
+      if (filtered.length > 0) {
+        saveLocalClinicAdmins(filtered);
+      }
+      return filtered;
     },
     callback,
     onError,

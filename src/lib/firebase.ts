@@ -1,6 +1,11 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
+import { 
+  initializeFirestore, 
+  getFirestore, 
+  type Firestore, 
+  type FirestoreSettings 
+} from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 import firebaseConfigJson from '../../firebase-applet-config.json';
 
@@ -61,9 +66,43 @@ if (!diagnostics.isValid) {
 
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 
-export const db = firebaseConfigJson.firestoreDatabaseId && firebaseConfigJson.firestoreDatabaseId !== '(default)'
-  ? getFirestore(app, firebaseConfigJson.firestoreDatabaseId)
-  : getFirestore(app);
+/**
+ * Root-Cause Transport Configuration:
+ * 
+ * In production web deployments (such as Vercel, Cloud Run, and restrictive proxy/firewall networks),
+ * WebChannel HTTP streaming connections can be dropped or buffered by intermediate proxies,
+ * emitting:
+ *   "Firestore (12.17.0): WebChannelConnection RPC 'Listen' stream transport errored."
+ * 
+ * Configuring `experimentalAutoDetectLongPolling: true` enables the Firestore WebChannel transport
+ * to dynamically detect stream disruptions and fall back smoothly to long-polling mode,
+ * maintaining seamless real-time snapshot synchronization without tearing down the client.
+ */
+function initializeCentralizedFirestore(): Firestore {
+  const settings: FirestoreSettings = {
+    experimentalAutoDetectLongPolling: true,
+  };
+
+  const targetDbId = firebaseConfigJson.firestoreDatabaseId && firebaseConfigJson.firestoreDatabaseId !== '(default)'
+    ? firebaseConfigJson.firestoreDatabaseId
+    : undefined;
+
+  try {
+    if (targetDbId) {
+      return initializeFirestore(app, settings, targetDbId);
+    }
+    return initializeFirestore(app, settings);
+  } catch (err: any) {
+    // If Firestore has already been initialized (e.g., in unit test runners or Vite HMR reloads),
+    // getFirestore returns the active singleton instance.
+    if (targetDbId) {
+      return getFirestore(app, targetDbId);
+    }
+    return getFirestore(app);
+  }
+}
+
+export const db: Firestore = initializeCentralizedFirestore();
 
 export const auth = getAuth(app);
 

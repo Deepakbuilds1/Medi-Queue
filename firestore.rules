@@ -18,14 +18,15 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
-    // Super Admin check: Custom Claims first, then fallback to authoritative user doc
+    // Super Admin check: Bootstrapped Admin, Custom Claims, or authoritative user doc
     function isSuperAdmin() {
       return isSignedIn() && (
+        request.auth.token.email == 'gdeepak4689@gmail.com' ||
         request.auth.token.role in ['SUPER_ADMIN', 'super_admin'] ||
         request.auth.token.isSuperAdmin == true ||
         (
-          exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['SUPER_ADMIN', 'super_admin']
+          hasUserDoc() &&
+          getUserData().role in ['SUPER_ADMIN', 'super_admin']
         )
       );
     }

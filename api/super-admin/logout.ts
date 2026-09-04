@@ -1,17 +1,29 @@
 import type { Request, Response } from 'express';
 import { handleCors } from '../../src/server/corsHelper';
-import { clearSessionCookie } from '../../src/server/superAdminSecurity';
+import { clearSessionCookie, sendJsonResponse } from '../../src/server/superAdminSecurity';
 
 export async function handleSuperAdminLogout(req: Request | any, res: Response | any) {
-  if (handleCors(req, res)) return;
+  try {
+    if (handleCors(req, res)) return;
 
-  // Clear the HttpOnly session cookie
-  clearSessionCookie(res);
+    // Clear the HttpOnly session cookie
+    clearSessionCookie(res);
 
-  return res.status(200).json({
-    success: true,
-    message: 'Super admin session terminated successfully.',
-  });
+    return sendJsonResponse(res, 200, {
+      success: true,
+      message: 'Super admin session terminated successfully.',
+    });
+  } catch (err: any) {
+    console.error('[VERCEL RUNTIME ERROR /api/super-admin/logout]', {
+      name: err?.name,
+      message: err?.message,
+      timestamp: new Date().toISOString(),
+    });
+    return sendJsonResponse(res, 500, {
+      success: false,
+      error: 'An unexpected server error occurred during logout.',
+    });
+  }
 }
 
 export default async function handler(req: Request | any, res: Response | any) {

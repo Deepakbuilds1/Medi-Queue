@@ -107,6 +107,22 @@ describe('Vercel Serverless Function Endpoints (/api)', () => {
     expect(res.body.timestamp).toBeDefined();
   });
 
+  it('handles /health directly via healthHandler', async () => {
+    let statusCode = 0;
+    let jsonBody: any = null;
+    const mockReq = { headers: {}, method: 'GET', url: '/health' };
+    const mockRes = {
+      statusCode: 0,
+      headers: {} as Record<string, string>,
+      setHeader(k: string, v: string) { this.headers[k] = v; },
+      status(code: number) { statusCode = code; return this; },
+      json(body: any) { jsonBody = body; return this; },
+    };
+    healthHandler(mockReq as any, mockRes as any);
+    expect(statusCode).toBe(200);
+    expect(jsonBody.status).toBe('ok');
+  });
+
   it('POST /api/super-admin/auth authenticates valid PIN and sets Set-Cookie', async () => {
     const res = await request(app)
       .post('/api/super-admin/auth')
@@ -198,5 +214,42 @@ describe('Vercel Serverless Function Endpoints (/api)', () => {
 
     expect(res.status).toBe(400);
     expect(res.body.success).toBe(false);
+  });
+
+  it('POST /api/super-admin/login returns 401 for invalid credentials', async () => {
+    const res = await request(app)
+      .post('/api/super-admin/login')
+      .send({ pin: 'wrongpin' });
+
+    expect(res.status).toBe(401);
+    expect(res.body.success).toBe(false);
+    expect(res.body.code).toBe('INVALID_CREDENTIALS');
+  });
+
+  it('POST /api/super-admin/login works with raw Node http.ServerResponse (no .status or .json methods)', async () => {
+    let statusCode = 0;
+    let endedData = '';
+    const headers: Record<string, string> = {};
+
+    const rawReq = {
+      headers: { 'content-type': 'application/json' },
+      method: 'POST',
+      body: { pin: '8303' },
+    };
+
+    const rawRes = {
+      set statusCode(val: number) { statusCode = val; },
+      get statusCode() { return statusCode; },
+      setHeader(k: string, v: string) { headers[k.toLowerCase()] = v; },
+      end(chunk?: any) { if (chunk) endedData = chunk; },
+    };
+
+    await loginHandler(rawReq as any, rawRes as any);
+
+    expect(statusCode).toBe(200);
+    expect(headers['content-type']).toContain('application/json');
+    const parsed = JSON.parse(endedData);
+    expect(parsed.success).toBe(true);
+    expect(parsed.sessionToken).toBeDefined();
   });
 });

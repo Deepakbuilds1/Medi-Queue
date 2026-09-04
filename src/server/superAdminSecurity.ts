@@ -246,6 +246,40 @@ export function verifySuperAdminSessionToken(token: string): {
 }
 
 /**
+ * Universal JSON response sender compatible with Express, Vercel Serverless (VercelResponse),
+ * and native Node.js http.ServerResponse.
+ */
+export function sendJsonResponse(res: any, statusCode: number, data: any): void {
+  try {
+    if (typeof res.status === 'function') {
+      if (typeof res.json === 'function') {
+        res.status(statusCode).json(data);
+        return;
+      }
+      res.status(statusCode);
+    } else if (typeof res.statusCode !== 'undefined') {
+      res.statusCode = statusCode;
+    }
+  } catch (_) {}
+
+  try {
+    if (typeof res.setHeader === 'function') {
+      res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    }
+    if (typeof res.end === 'function') {
+      res.end(JSON.stringify(data));
+      return;
+    }
+    if (typeof res.send === 'function') {
+      res.send(JSON.stringify(data));
+      return;
+    }
+  } catch (err) {
+    console.error('[RESPONSE_WRITE_ERROR]', err);
+  }
+}
+
+/**
  * Sets the secure HttpOnly session cookie on the HTTP response.
  */
 export function setSessionCookie(
@@ -253,37 +287,49 @@ export function setSessionCookie(
   token: string,
   maxAgeSeconds: number = Math.floor(SESSION_LIFETIME_MS / 1000)
 ): void {
-  const isProd = process.env.NODE_ENV === 'production';
-  const cookieParts = [
-    `mediqueue_super_admin_session=${encodeURIComponent(token)}`,
-    'Path=/',
-    'HttpOnly',
-    'SameSite=Lax',
-    `Max-Age=${maxAgeSeconds}`,
-  ];
-  if (isProd) {
-    cookieParts.push('Secure');
+  try {
+    const isProd = process.env.NODE_ENV === 'production';
+    const cookieParts = [
+      `mediqueue_super_admin_session=${encodeURIComponent(token)}`,
+      'Path=/',
+      'HttpOnly',
+      'SameSite=Lax',
+      `Max-Age=${maxAgeSeconds}`,
+    ];
+    if (isProd) {
+      cookieParts.push('Secure');
+    }
+    if (typeof res.setHeader === 'function') {
+      res.setHeader('Set-Cookie', cookieParts.join('; '));
+    }
+  } catch (err) {
+    console.warn('[COOKIE_SET_WARN]', err);
   }
-  res.setHeader('Set-Cookie', cookieParts.join('; '));
 }
 
 /**
  * Clears the secure HttpOnly session cookie on the HTTP response.
  */
 export function clearSessionCookie(res: any): void {
-  const isProd = process.env.NODE_ENV === 'production';
-  const cookieParts = [
-    'mediqueue_super_admin_session=',
-    'Path=/',
-    'HttpOnly',
-    'SameSite=Lax',
-    'Max-Age=0',
-    'Expires=Thu, 01 Jan 1970 00:00:00 GMT',
-  ];
-  if (isProd) {
-    cookieParts.push('Secure');
+  try {
+    const isProd = process.env.NODE_ENV === 'production';
+    const cookieParts = [
+      'mediqueue_super_admin_session=',
+      'Path=/',
+      'HttpOnly',
+      'SameSite=Lax',
+      'Max-Age=0',
+      'Expires=Thu, 01 Jan 1970 00:00:00 GMT',
+    ];
+    if (isProd) {
+      cookieParts.push('Secure');
+    }
+    if (typeof res.setHeader === 'function') {
+      res.setHeader('Set-Cookie', cookieParts.join('; '));
+    }
+  } catch (err) {
+    console.warn('[COOKIE_CLEAR_WARN]', err);
   }
-  res.setHeader('Set-Cookie', cookieParts.join('; '));
 }
 
 /**

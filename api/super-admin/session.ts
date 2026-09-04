@@ -5,32 +5,33 @@ import {
   verifySuperAdminSessionToken,
 } from '../../src/server/superAdminSecurity';
 
-export async function handleVerifySession(req: Request | any, res: Response | any) {
+export async function handleSuperAdminSession(req: Request | any, res: Response | any) {
   if (handleCors(req, res)) return;
+
+  if (req.method !== 'GET' && req.method !== 'POST') {
+    return res.status(405).json({
+      authenticated: false,
+      valid: false,
+      error: 'Method Not Allowed. GET or POST required.',
+    });
+  }
 
   const token = extractSessionToken(req);
 
   if (!token) {
-    if (req.method === 'GET') {
-      return res.status(200).json({
-        valid: false,
-        authenticated: false,
-        message: 'No active session found.',
-      });
-    }
-    return res.status(401).json({
-      valid: false,
+    return res.status(200).json({
       authenticated: false,
-      error: 'Missing authorization header or session cookie.',
+      valid: false,
+      message: 'No active session found.',
     });
   }
 
   const verification = verifySuperAdminSessionToken(token);
 
   if (!verification.valid || !verification.payload) {
-    return res.status(401).json({
-      valid: false,
+    return res.status(200).json({
       authenticated: false,
+      valid: false,
       error: verification.error || 'Session expired or invalid.',
     });
   }
@@ -38,8 +39,8 @@ export async function handleVerifySession(req: Request | any, res: Response | an
   const remainingSeconds = Math.max(0, Math.ceil((verification.payload.exp - Date.now()) / 1000));
 
   return res.status(200).json({
-    valid: true,
     authenticated: true,
+    valid: true,
     role: 'superAdmin',
     expiresIn: remainingSeconds,
     user: {
@@ -51,5 +52,5 @@ export async function handleVerifySession(req: Request | any, res: Response | an
 }
 
 export default async function handler(req: Request | any, res: Response | any) {
-  return handleVerifySession(req, res);
+  return handleSuperAdminSession(req, res);
 }

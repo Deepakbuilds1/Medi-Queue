@@ -10,8 +10,12 @@ import {
 } from '../../src/server/superAdminSecurity';
 import request from 'supertest';
 import express from 'express';
+import authHandler from '../../api/super-admin/auth';
+import loginHandler from '../../api/super-admin/login';
 import verifyPinHandler from '../../api/super-admin/verify-pin';
 import verifySessionHandler from '../../api/super-admin/verify-session';
+import sessionHandler from '../../api/super-admin/session';
+import logoutHandler from '../../api/super-admin/logout';
 import healthHandler from '../../api/health';
 
 describe('Super Admin Security & Token Verification Core', () => {
@@ -89,38 +93,97 @@ describe('Vercel Serverless Function Endpoints (/api)', () => {
   const app = express();
   app.use(express.json());
   app.get('/api/health', (req, res) => healthHandler(req as any, res as any));
+  app.post('/api/super-admin/auth', (req, res) => authHandler(req as any, res as any));
+  app.post('/api/super-admin/login', (req, res) => loginHandler(req as any, res as any));
   app.post('/api/super-admin/verify-pin', (req, res) => verifyPinHandler(req as any, res as any));
   app.post('/api/super-admin/verify-session', (req, res) => verifySessionHandler(req as any, res as any));
+  app.get('/api/super-admin/session', (req, res) => sessionHandler(req as any, res as any));
+  app.post('/api/super-admin/logout', (req, res) => logoutHandler(req as any, res as any));
 
   it('GET /api/health returns 200 with ok status', async () => {
     const res = await request(app).get('/api/health');
     expect(res.status).toBe(200);
     expect(res.body.status).toBe('ok');
+    expect(res.body.timestamp).toBeDefined();
   });
 
-  it('POST /api/super-admin/verify-pin returns session token for correct PIN', async () => {
+  it('POST /api/super-admin/auth authenticates valid PIN and sets Set-Cookie', async () => {
     const res = await request(app)
-      .post('/api/super-admin/verify-pin')
+      .post('/api/super-admin/auth')
       .send({ pin: '8303' });
 
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
     expect(res.body.sessionToken).toBeDefined();
+    expect(res.body.role).toBe('superAdmin');
     expect(res.body.user.role).toBe('SUPER_ADMIN');
 
-    // Test verifying that session token
+    // Check Set-Cookie header
+    const setCookie = res.headers['set-cookie'];
+    expect(setCookie).toBeDefined();
+    expect(setCookie[0]).toContain('mediqueue_super_admin_session=');
+    expect(setCookie[0]).toContain('HttpOnly');
+  });
+
+  it('POST /api/super-admin/login also works identically for backward compatibility', async () => {
+    const res = await request(app)
+      .post('/api/super-admin/login')
+      .send({ pin: '8303' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.sessionToken).toBeDefined();
+  });
+
+  it('GET /api/super-admin/session validates session via cookie or token', async () => {
+    const loginRes = await request(app)
+      .post('/api/super-admin/auth')
+      .send({ pin: '8303' });
+
+    const cookie = loginRes.headers['set-cookie'];
+
+    // Test session inspection via cookie
+    const sessionRes = await request(app)
+      .get('/api/super-admin/session')
+      .set('Cookie', cookie);
+
+    expect(sessionRes.status).toBe(200);
+    expect(sessionRes.body.authenticated).toBe(true);
+    expect(sessionRes.body.user.role).toBe('SUPER_ADMIN');
+
+    // Test session inspection without cookie/token returns 200 with authenticated: false
+    const emptyRes = await request(app).get('/api/super-admin/session');
+    expect(emptyRes.status).toBe(200);
+    expect(emptyRes.body.authenticated).toBe(false);
+  });
+
+  it('POST /api/super-admin/verify-session validates token via Authorization header', async () => {
+    const loginRes = await request(app)
+      .post('/api/super-admin/auth')
+      .send({ pin: '8303' });
+
     const verifyRes = await request(app)
       .post('/api/super-admin/verify-session')
-      .set('Authorization', `Bearer ${res.body.sessionToken}`);
+      .set('Authorization', `Bearer ${loginRes.body.sessionToken}`);
 
     expect(verifyRes.status).toBe(200);
     expect(verifyRes.body.valid).toBe(true);
     expect(verifyRes.body.user.role).toBe('SUPER_ADMIN');
   });
 
-  it('POST /api/super-admin/verify-pin rejects invalid PIN with 401', async () => {
+  it('POST /api/super-admin/logout clears session cookie', async () => {
+    const res = await request(app).post('/api/super-admin/logout');
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+
+    const setCookie = res.headers['set-cookie'];
+    expect(setCookie).toBeDefined();
+    expect(setCookie[0]).toContain('Max-Age=0');
+  });
+
+  it('POST /api/super-admin/auth rejects invalid PIN with 401', async () => {
     const res = await request(app)
-      .post('/api/super-admin/verify-pin')
+      .post('/api/super-admin/auth')
       .send({ pin: '0000' });
 
     expect(res.status).toBe(401);
@@ -128,9 +191,9 @@ describe('Vercel Serverless Function Endpoints (/api)', () => {
     expect(res.body.error).toContain('Invalid');
   });
 
-  it('POST /api/super-admin/verify-pin rejects empty PIN with 400', async () => {
+  it('POST /api/super-admin/auth rejects empty PIN with 400', async () => {
     const res = await request(app)
-      .post('/api/super-admin/verify-pin')
+      .post('/api/super-admin/auth')
       .send({ pin: '' });
 
     expect(res.status).toBe(400);

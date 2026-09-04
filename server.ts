@@ -13,6 +13,9 @@ import {
   signSuperAdminSessionToken,
   verifySuperAdminSessionToken,
   validateSuperAdminConfig,
+  setSessionCookie,
+  clearSessionCookie,
+  extractSessionToken,
 } from './src/server/superAdminSecurity';
 import {
   getImageKit,
@@ -55,25 +58,30 @@ function getClientIp(req: Request): string {
 // API ENDPOINTS
 // ----------------------------------------------------------------------------
 
-// 1. Health check
-app.get('/api/health', (_req: Request, res: Response) => {
+// 1. Health check (accessible on both /api/health and /health)
+const handleHealthCheck = (_req: Request, res: Response) => {
   res.json({
     status: 'ok',
     environment: process.env.NODE_ENV || 'production',
     timestamp: new Date().toISOString(),
+    uptime: Math.floor(process.uptime()),
   });
-});
+};
+
+app.get('/api/health', handleHealthCheck);
+app.get('/health', handleHealthCheck);
 
 // 2. Super Admin Login & PIN Verification Handler (Server-Side Only)
 const handleSuperAdminLogin = (req: Request, res: Response) => {
-  // Verify server environment configuration (fail closed in production if secret is missing)
+  // Verify server environment configuration (fail safe: return 503 instead of 500)
   const configCheck = validateSuperAdminConfig();
   if (!configCheck.isConfigured) {
-    console.error('[SECURITY AUDIT] Super Admin authentication failed closed due to configuration error:', configCheck.error);
-    return res.status(500).json({
+    console.error('[SECURITY AUDIT] Super Admin authentication service not configured:', configCheck.error);
+    return res.status(503).json({
       success: false,
-      code: 'SERVER_CONFIGURATION_ERROR',
-      error: 'Server configuration error: Super Admin authentication credentials are not configured.',
+      code: 'AUTH_SERVICE_NOT_CONFIGURED',
+      message: 'Super Admin authentication service is temporarily unavailable.',
+      error: 'Super Admin authentication service is temporarily unavailable.',
     });
   }
 
@@ -85,6 +93,7 @@ const handleSuperAdminLogin = (req: Request, res: Response) => {
     return res.status(429).json({
       success: false,
       code: 'RATE_LIMITED',
+      message: `Too many failed attempts. Super Admin access is temporarily locked for security. Please try again in ${rateLimitStatus.remainingSeconds} seconds.`,
       error: `Too many failed attempts. Super Admin access is temporarily locked for security. Please try again in ${rateLimitStatus.remainingSeconds} seconds.`,
       locked: true,
       remainingSeconds: rateLimitStatus.remainingSeconds,
@@ -98,6 +107,7 @@ const handleSuperAdminLogin = (req: Request, res: Response) => {
     return res.status(400).json({
       success: false,
       code: 'INVALID_INPUT',
+      message: 'Super Admin PIN is required.',
       error: 'Super Admin PIN is required.',
     });
   }
@@ -115,6 +125,7 @@ const handleSuperAdminLogin = (req: Request, res: Response) => {
       return res.status(429).json({
         success: false,
         code: 'RATE_LIMITED',
+        message: 'Too many failed attempts. Super Admin access has been temporarily locked for 15 minutes.',
         error: 'Too many failed attempts. Super Admin access has been temporarily locked for 15 minutes.',
         locked: true,
         remainingSeconds: failedResult.remainingSeconds,
@@ -124,6 +135,7 @@ const handleSuperAdminLogin = (req: Request, res: Response) => {
     return res.status(401).json({
       success: false,
       code: 'INVALID_CREDENTIALS',
+      message: 'Invalid Super Admin credentials.',
       error: 'Invalid Super Admin PIN.',
       remainingAttempts: failedResult.remainingAttempts,
     });
@@ -137,8 +149,12 @@ const handleSuperAdminLogin = (req: Request, res: Response) => {
     name: 'Super Administrator',
   });
 
+  // Set secure HttpOnly cookie
+  setSessionCookie(res, token, expiresIn);
+
   return res.json({
     success: true,
+    role: 'superAdmin',
     sessionToken: token,
     expiresIn,
     user: {
@@ -149,21 +165,34 @@ const handleSuperAdminLogin = (req: Request, res: Response) => {
   });
 };
 
+app.post('/api/super-admin/auth', handleSuperAdminLogin);
 app.post('/api/super-admin/login', handleSuperAdminLogin);
 app.post('/api/super-admin/verify-pin', handleSuperAdminLogin);
 
-// 3. Super Admin Session Verification Endpoint
-app.post('/api/super-admin/verify-session', (req: Request, res: Response) => {
-  const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.status(401).json({ valid: false, error: 'Missing authorization header.' });
+// 3. Super Admin Session Inspection Endpoint (GET /api/super-admin/session)
+const handleSuperAdminSessionCheck = (req: Request, res: Response) => {
+  const token = extractSessionToken(req);
+
+  if (!token) {
+    if (req.method === 'GET') {
+      return res.status(200).json({
+        authenticated: false,
+        valid: false,
+        message: 'No active session found.',
+      });
+    }
+    return res.status(401).json({
+      valid: false,
+      authenticated: false,
+      error: 'Missing authorization header or session cookie.',
+    });
   }
 
-  const token = authHeader.split(' ')[1];
   const verification = verifySuperAdminSessionToken(token);
 
   if (!verification.valid || !verification.payload) {
-    return res.status(401).json({
+    return res.status(req.method === 'GET' ? 200 : 401).json({
+      authenticated: false,
       valid: false,
       error: verification.error || 'Session expired or invalid.',
     });
@@ -172,7 +201,9 @@ app.post('/api/super-admin/verify-session', (req: Request, res: Response) => {
   const remainingSeconds = Math.max(0, Math.ceil((verification.payload.exp - Date.now()) / 1000));
 
   return res.json({
+    authenticated: true,
     valid: true,
+    role: 'superAdmin',
     expiresIn: remainingSeconds,
     user: {
       role: verification.payload.role,
@@ -180,10 +211,15 @@ app.post('/api/super-admin/verify-session', (req: Request, res: Response) => {
       email: verification.payload.email,
     },
   });
-});
+};
+
+app.get('/api/super-admin/session', handleSuperAdminSessionCheck);
+app.post('/api/super-admin/verify-session', handleSuperAdminSessionCheck);
+app.get('/api/super-admin/verify-session', handleSuperAdminSessionCheck);
 
 // 4. Super Admin Logout Endpoint
 app.post('/api/super-admin/logout', (_req: Request, res: Response) => {
+  clearSessionCookie(res);
   return res.json({ success: true, message: 'Super admin session terminated.' });
 });
 

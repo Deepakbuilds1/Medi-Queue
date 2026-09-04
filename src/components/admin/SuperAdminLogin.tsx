@@ -87,19 +87,34 @@ export const SuperAdminLogin: React.FC<SuperAdminLoginProps> = ({
     setLoading(true);
 
     try {
-      const response = await fetch('/api/super-admin/login', {
+      let response = await fetch('/api/super-admin/auth', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Accept: 'application/json',
         },
+        credentials: 'include',
         body: JSON.stringify({ pin: submittedPin }),
         signal: controller.signal,
       });
 
+      // Fallback to /api/super-admin/login if /auth returned 404
+      if (response.status === 404) {
+        response = await fetch('/api/super-admin/login', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Accept: 'application/json',
+          },
+          credentials: 'include',
+          body: JSON.stringify({ pin: submittedPin }),
+          signal: controller.signal,
+        });
+      }
+
       clearTimeout(timeoutId);
 
-      // Handle non-JSON or HTML responses (e.g., if misconfigured or 404)
+      // Handle non-JSON or HTML responses (e.g., if misconfigured or proxy error)
       const contentType = response.headers.get('content-type') || '';
       let data: any = {};
 
@@ -108,6 +123,12 @@ export const SuperAdminLogin: React.FC<SuperAdminLoginProps> = ({
       } else {
         const textResp = await response.text();
         if (textResp.startsWith('<!DOCTYPE html') || textResp.startsWith('<html')) {
+          if (response.status === 503) {
+            throw new Error('AUTH_SERVICE_UNAVAILABLE');
+          }
+          if (response.status === 500) {
+            throw new Error('AUTH_SERVER_ERROR');
+          }
           throw new Error('AUTH_ENDPOINT_UNAVAILABLE');
         }
         try {
@@ -118,25 +139,31 @@ export const SuperAdminLogin: React.FC<SuperAdminLoginProps> = ({
       }
 
       if (!response.ok || !data.success) {
-        if (data.code === 'SERVER_CONFIGURATION_ERROR' || response.status === 500) {
-          setError(data.error || 'Server configuration error: Super Admin credentials are not configured on the server.');
-        } else if (response.status === 429 || data.locked) {
-          const remainingSec = data.remainingSeconds || 900;
-          setLockedSeconds(remainingSec);
-          setError(data.error || `Too many failed attempts. Temporary lockout active for ${remainingSec} seconds.`);
-        } else if (response.status === 401) {
+        if (response.status === 401) {
           if (typeof data.remainingAttempts === 'number') {
             setRemainingAttempts(data.remainingAttempts);
             setError(`Invalid Super Admin PIN. ${data.remainingAttempts} attempt(s) remaining before lockout.`);
           } else {
-            setError(data.error || 'Invalid Super Admin PIN.');
+            setError(data.message || data.error || 'Invalid Super Admin credentials.');
           }
-        } else if (response.status === 400) {
-          setError(data.error || 'Super Admin PIN format is invalid.');
+        } else if (response.status === 403) {
+          setError(data.message || data.error || 'You are not authorized to access the Super Admin portal.');
         } else if (response.status === 404) {
-          setError('Authentication service endpoint not found (404). Please verify deployment configuration.');
+          setError('Super Admin authentication endpoint is unavailable. Please verify deployment configuration.');
+        } else if (response.status === 429 || data.locked) {
+          const remainingSec = data.remainingSeconds || 900;
+          setLockedSeconds(remainingSec);
+          setError(data.message || data.error || `Too many failed attempts. Temporary lockout active for ${remainingSec} seconds.`);
+        } else if (response.status === 503 || data.code === 'AUTH_SERVICE_NOT_CONFIGURED') {
+          setError(data.message || data.error || 'Super Admin authentication service is temporarily unavailable.');
+        } else if (response.status === 502) {
+          setError('Authentication gateway error (502 Bad Gateway). Please retry in a few moments.');
+        } else if (response.status === 500 || data.code === 'SERVER_CONFIGURATION_ERROR') {
+          setError(data.message || data.error || 'Super Admin authentication service encountered a server error.');
+        } else if (response.status === 400) {
+          setError(data.message || data.error || 'Super Admin PIN format is invalid.');
         } else {
-          setError(data.error || 'Authentication failed. Please verify your PIN and try again.');
+          setError(data.message || data.error || 'Authentication failed. Please verify your PIN and try again.');
         }
         setPin('');
         return;
@@ -148,12 +175,16 @@ export const SuperAdminLogin: React.FC<SuperAdminLoginProps> = ({
     } catch (err: any) {
       if (err?.name === 'AbortError') {
         setError('Authentication request timed out after 15 seconds. Please try again.');
+      } else if (err?.message === 'AUTH_SERVICE_UNAVAILABLE') {
+        setError('Super Admin authentication service is temporarily unavailable.');
+      } else if (err?.message === 'AUTH_SERVER_ERROR') {
+        setError('Super Admin authentication service encountered a server error.');
       } else if (err?.message === 'AUTH_ENDPOINT_UNAVAILABLE') {
         setError('Authentication server endpoint is currently unavailable. Please refresh or verify server status.');
       } else if (err?.message === 'AUTH_INVALID_RESPONSE') {
         setError('Authentication server returned an unexpected response format.');
       } else {
-        setError('Unable to reach authentication server. Please check server availability and connection.');
+        setError('Unable to connect to the authentication service. Please check your connection.');
       }
     } finally {
       setLoading(false);

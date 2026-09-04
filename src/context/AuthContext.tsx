@@ -292,17 +292,66 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const initSuperAdminSession = async () => {
       const storedToken = sessionStorage.getItem(SUPER_ADMIN_SESSION_KEY);
+      
+      // 1. First check HttpOnly cookie session via /api/super-admin/session
+      try {
+        const cookieRes = await fetch('/api/super-admin/session', {
+          method: 'GET',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(storedToken ? { 'Authorization': `Bearer ${storedToken}` } : {})
+          }
+        });
+        const cookieData = await cookieRes.json().catch(() => null);
+        if (cookieRes.ok && cookieData && cookieData.authenticated && cookieData.valid && !isCancelled) {
+          if (cookieData.sessionToken) {
+            setSuperAdminSessionToken(cookieData.sessionToken);
+            sessionStorage.setItem(SUPER_ADMIN_SESSION_KEY, cookieData.sessionToken);
+          } else if (storedToken) {
+            setSuperAdminSessionToken(storedToken);
+          } else {
+            setSuperAdminSessionToken('cookie_authenticated_session');
+          }
+          const email = cookieData.user?.email || 'superadmin@mediqueue.internal';
+          const name = cookieData.user?.name || 'Super Administrator';
+          if (!isCancelled) {
+            setUser(createSuperAdminSessionUser(email, name));
+            setUserProfile({
+              uid: 'super_admin_root',
+              email,
+              name,
+              displayName: name,
+              phone: '+1 (800) 555-0100',
+              age: 40,
+              gender: 'Other',
+              role: 'SUPER_ADMIN',
+              clinicId: '',
+              clinicIds: [],
+              accessibleClinicIds: [],
+              status: 'active',
+              createdAt: new Date().toISOString()
+            });
+            setLoading(false);
+            setAuthReady(true);
+          }
+          return;
+        }
+      } catch (_) {}
+
+      // 2. Fallback check verify-session if stored token exists
       if (storedToken) {
         try {
           const res = await fetch('/api/super-admin/verify-session', {
             method: 'POST',
+            credentials: 'include',
             headers: {
               'Content-Type': 'application/json',
               'Authorization': `Bearer ${storedToken}`
             }
           });
-          const data = await res.json();
-          if (res.ok && data.valid && !isCancelled) {
+          const data = await res.json().catch(() => null);
+          if (res.ok && data && data.valid && !isCancelled) {
             setSuperAdminSessionToken(storedToken);
             const email = data.user?.email || 'superadmin@mediqueue.internal';
             const name = data.user?.name || 'Super Administrator';
@@ -739,6 +788,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       try {
         await fetch('/api/super-admin/logout', {
           method: 'POST',
+          credentials: 'include',
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${superAdminSessionToken}`
@@ -777,9 +827,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUserProfile(null);
   };
 
-  // Strict Authorization checks: Super Admin can be verified via server session or authenticated runtime admin email
+  // Strict Authorization checks: Super Admin is verified via secure server-side session
   const isSuperAdmin = (!!superAdminSessionToken && userProfile?.role === 'SUPER_ADMIN') || 
-                       (!!user && (user.email === 'gdeepak4689@gmail.com' || userProfile?.role === 'SUPER_ADMIN'));
+                       (!!user && userProfile?.role === 'SUPER_ADMIN');
   const isClinicAdmin = isSuperAdmin || (!!user && !!userProfile && (userProfile.role === 'CLINIC_ADMIN' || userProfile.role === 'admin'));
   const isClinicStaff = isClinicAdmin || (!!user && !!userProfile && (userProfile.role === 'DOCTOR' || userProfile.role === 'RECEPTIONIST'));
   const isAdmin = isSuperAdmin || isClinicAdmin;

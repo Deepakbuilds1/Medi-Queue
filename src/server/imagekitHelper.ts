@@ -1,7 +1,7 @@
 import ImageKit from 'imagekit';
 import crypto from 'crypto';
 import type { Request } from 'express';
-import { verifySuperAdminSessionToken } from './superAdminSecurity';
+import { verifySuperAdminSessionToken } from './superAdminSecurity.ts';
 
 export const ALLOWED_IMAGEKIT_MIME_TYPES = [
   'image/jpeg',

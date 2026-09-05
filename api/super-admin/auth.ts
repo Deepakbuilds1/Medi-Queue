@@ -1,5 +1,5 @@
 import type { Request, Response } from 'express';
-import { handleCors } from '../../src/server/corsHelper';
+import { handleCors } from '../_lib/cors.ts';
 import {
   verifySuperAdminPinValue,
   checkRateLimit,
@@ -11,12 +11,16 @@ import {
   getClientIp,
   getJsonBody,
   sendJsonResponse,
-} from '../../src/server/superAdminSecurity';
+} from '../_lib/security.ts';
+import { initFirebaseAdmin } from '../_lib/firebaseAdmin.ts';
 
 export async function handleSuperAdminAuth(req: Request | any, res: Response | any) {
   try {
     // 1. Handle CORS and preflight
     if (handleCors(req, res)) return;
+
+    // Diagnostic logging per Step 18
+    console.log('[SuperAdminAuth] request received');
 
     if (req.method !== 'POST') {
       console.warn('[AUTH_METHOD_NOT_ALLOWED]', { method: req.method, path: req.url });
@@ -28,7 +32,19 @@ export async function handleSuperAdminAuth(req: Request | any, res: Response | a
       });
     }
 
-    // 2. Verify server environment configuration (Fail safe: return 503 instead of 500)
+    // 2. Safe Firebase Admin check
+    try {
+      const fbStatus = initFirebaseAdmin();
+      if (fbStatus.isInitialized) {
+        console.log('[SuperAdminAuth] Firebase Admin initialized');
+      } else {
+        console.log('[SuperAdminAuth] Firebase Admin not configured (using HMAC session provider)');
+      }
+    } catch (_) {
+      console.log('[SuperAdminAuth] Firebase Admin fallback mode');
+    }
+
+    // 3. Verify server environment configuration
     const configCheck = validateSuperAdminConfig();
     if (!configCheck.isConfigured) {
       console.error('[AUTH_CONFIG_MISSING]', {
@@ -38,14 +54,16 @@ export async function handleSuperAdminAuth(req: Request | any, res: Response | a
       return sendJsonResponse(res, 503, {
         success: false,
         code: 'AUTH_SERVICE_NOT_CONFIGURED',
-        message: 'Super Admin authentication service is temporarily unavailable.',
-        error: 'Super Admin authentication service is temporarily unavailable.',
+        message: 'Authentication service is temporarily unavailable.',
+        error: 'Authentication service is temporarily unavailable.',
       });
     }
 
+    console.log('[SuperAdminAuth] PIN configuration available');
+
     const clientIp = getClientIp(req);
 
-    // 3. Check Rate Limiting / Lockout status
+    // 4. Check Rate Limiting / Lockout status
     const rateLimitStatus = checkRateLimit(clientIp);
     if (rateLimitStatus.isLocked) {
       console.warn('[AUTH_RATE_LIMITED]', { clientIp, remainingSeconds: rateLimitStatus.remainingSeconds });
@@ -59,11 +77,10 @@ export async function handleSuperAdminAuth(req: Request | any, res: Response | a
       });
     }
 
-    // 4. Safely parse JSON body
+    // 5. Safely parse JSON body
     const body = await getJsonBody(req);
     const { pin } = body || {};
 
-    // 5. Validate PIN input format
     if (!pin || typeof pin !== 'string' || !pin.trim()) {
       console.warn('[AUTH_INVALID_INPUT]', { clientIp, reason: 'PIN is empty or not a string' });
       return sendJsonResponse(res, 400, {
@@ -76,18 +93,16 @@ export async function handleSuperAdminAuth(req: Request | any, res: Response | a
 
     const cleanPin = pin.trim();
 
+    console.log('[SuperAdminAuth] authentication verification started');
+
     // 6. Timing-Safe Constant-Time Verification against server secret
     const isMatch = verifySuperAdminPinValue(cleanPin);
 
     if (!isMatch) {
+      console.warn('[SuperAdminAuth] authentication failed');
       const failedResult = recordFailedAttempt(clientIp, rateLimitStatus.record);
 
       if (failedResult.isLocked) {
-        console.warn('[AUTH_LOCKOUT_TRIGGERED]', {
-          clientIp,
-          lockoutSeconds: failedResult.remainingSeconds,
-          timestamp: new Date().toISOString(),
-        });
         return sendJsonResponse(res, 429, {
           success: false,
           code: 'RATE_LIMITED',
@@ -98,12 +113,6 @@ export async function handleSuperAdminAuth(req: Request | any, res: Response | a
         });
       }
 
-      console.warn('[AUTH_INVALID_PIN]', {
-        clientIp,
-        remainingAttempts: failedResult.remainingAttempts,
-        timestamp: new Date().toISOString(),
-      });
-
       return sendJsonResponse(res, 401, {
         success: false,
         code: 'INVALID_CREDENTIALS',
@@ -113,7 +122,8 @@ export async function handleSuperAdminAuth(req: Request | any, res: Response | a
       });
     }
 
-    // 7. Successful Authentication: Reset failed attempts & issue signed session token
+    // 7. Successful Authentication
+    console.log('[SuperAdminAuth] authentication successful');
     clearFailedAttempts(clientIp);
 
     const { token, expiresIn, payload } = signSuperAdminSessionToken({
@@ -121,15 +131,8 @@ export async function handleSuperAdminAuth(req: Request | any, res: Response | a
       name: 'Super Administrator',
     });
 
-    // 8. Set HttpOnly Session Cookie for cross-tab and refresh persistence
+    // 8. Set HttpOnly Session Cookie for browser persistence
     setSessionCookie(res, token, expiresIn);
-
-    console.log('[AUTH_SUCCESS]', {
-      role: payload.role,
-      clientIp,
-      expiresIn,
-      timestamp: new Date().toISOString(),
-    });
 
     return sendJsonResponse(res, 200, {
       success: true,
@@ -152,8 +155,8 @@ export async function handleSuperAdminAuth(req: Request | any, res: Response | a
     return sendJsonResponse(res, 500, {
       success: false,
       code: 'INTERNAL_SERVER_ERROR',
-      message: 'An unexpected server error occurred while processing authentication.',
-      error: 'An unexpected server error occurred.',
+      message: 'Authentication service encountered an unexpected error.',
+      error: 'Authentication service encountered an unexpected error.',
     });
   }
 }

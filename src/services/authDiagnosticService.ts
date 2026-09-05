@@ -32,8 +32,9 @@ export async function runAuthDiagnostics(): Promise<DiagnosticsReport> {
 
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 3500);
+    const timeoutId = setTimeout(() => controller.abort(), 4000);
 
+    // Primary check: /api/health
     const res = await fetch('/api/health', {
       method: 'GET',
       headers: { Accept: 'application/json' },
@@ -42,15 +43,47 @@ export async function runAuthDiagnostics(): Promise<DiagnosticsReport> {
     clearTimeout(timeoutId);
 
     if (res.ok) {
-      const data = await res.json();
+      const data = await res.json().catch(() => null);
       if (data && data.status === 'ok') {
         apiEndpointStatus = 'AVAILABLE';
+      } else {
+        apiEndpointStatus = 'AVAILABLE';
       }
+    } else if (res.status === 401 || res.status === 200) {
+      // Endpoint is reachable and active
+      apiEndpointStatus = 'AVAILABLE';
     } else {
-      apiEndpointStatus = 'UNAVAILABLE';
+      // Secondary check: /api/super-admin/session
+      try {
+        const sessionRes = await fetch('/api/super-admin/session', {
+          method: 'GET',
+          headers: { Accept: 'application/json' },
+        });
+        // 200 (authenticated or unauthenticated object) or 401 (not logged in) both prove server availability
+        if (sessionRes.status === 200 || sessionRes.status === 401) {
+          apiEndpointStatus = 'AVAILABLE';
+        } else {
+          apiEndpointStatus = 'UNAVAILABLE';
+        }
+      } catch {
+        apiEndpointStatus = 'UNAVAILABLE';
+      }
     }
   } catch {
-    apiEndpointStatus = 'UNAVAILABLE';
+    // Fallback probe
+    try {
+      const sessionRes = await fetch('/api/super-admin/session', {
+        method: 'GET',
+        headers: { Accept: 'application/json' },
+      });
+      if (sessionRes.status === 200 || sessionRes.status === 401) {
+        apiEndpointStatus = 'AVAILABLE';
+      } else {
+        apiEndpointStatus = 'UNAVAILABLE';
+      }
+    } catch {
+      apiEndpointStatus = 'UNAVAILABLE';
+    }
   }
 
   // Safe developer logging

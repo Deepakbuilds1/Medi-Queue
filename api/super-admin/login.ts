@@ -1,6 +1,6 @@
 import type { Request, Response } from 'express';
-import { handleSuperAdminAuth } from './auth';
-import { sendJsonResponse } from '../../src/server/superAdminSecurity';
+import { handleSuperAdminAuth } from './auth.ts';
+import { sendJsonResponse } from '../_lib/security.ts';
 
 export default async function handler(req: Request | any, res: Response | any) {
   try {
@@ -19,4 +19,3 @@ export default async function handler(req: Request | any, res: Response | any) {
     });
   }
 }
-

@@ -1,10 +1,10 @@
 import type { Request, Response } from 'express';
-import { handleCors } from '../../src/server/corsHelper';
+import { handleCors } from '../_lib/cors.ts';
 import {
   extractSessionToken,
   verifySuperAdminSessionToken,
   sendJsonResponse,
-} from '../../src/server/superAdminSecurity';
+} from '../_lib/security.ts';
 
 export async function handleSuperAdminSession(req: Request | any, res: Response | any) {
   try {
@@ -60,7 +60,7 @@ export async function handleSuperAdminSession(req: Request | any, res: Response 
     return sendJsonResponse(res, 500, {
       authenticated: false,
       valid: false,
-      error: 'An unexpected server error occurred.',
+      error: 'An unexpected server error occurred while verifying session.',
     });
   }
 }

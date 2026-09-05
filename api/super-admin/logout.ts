@@ -1,6 +1,6 @@
 import type { Request, Response } from 'express';
-import { handleCors } from '../../src/server/corsHelper';
-import { clearSessionCookie, sendJsonResponse } from '../../src/server/superAdminSecurity';
+import { handleCors } from '../_lib/cors.ts';
+import { clearSessionCookie, sendJsonResponse } from '../_lib/security.ts';
 
 export async function handleSuperAdminLogout(req: Request | any, res: Response | any) {
   try {

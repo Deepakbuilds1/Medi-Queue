@@ -1,7 +1,7 @@
 import type { Request, Response } from 'express';
 import crypto from 'crypto';
-import { handleCors } from '../../src/server/corsHelper';
-import { getImageKit, verifyImageKitAuthorization } from '../../src/server/imagekitHelper';
+import { handleCors } from '../_lib/cors.ts';
+import { getImageKit, verifyImageKitAuthorization } from '../../src/server/imagekitHelper.ts';
 
 export default function handler(req: Request, res: Response) {
   if (handleCors(req, res)) return;

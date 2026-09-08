@@ -1,7 +1,3 @@
-You are an expert GitHub README designer, UI/UX designer, technical writer, and software architect.
-
-Create an EXTREMELY PROFESSIONAL, MODERN, DYNAMIC, 3D-STYLE GitHub README.md for my project:
-
 # 🏥 MEDI-QUEUE
 ## Smart Multi-Clinic Patient Queue & Token Management System
 

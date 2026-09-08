@@ -7,10 +7,8 @@ import {
 import {
   signSuperAdminSessionToken,
   verifySuperAdminSessionToken,
-  verifySuperAdminPinValue,
   validateSuperAdminConfig,
   getSuperAdminSecret,
-  getSuperAdminPin,
 } from '../../src/server/superAdminSecurity';
 
 describe('Authentication & Authorization Error Normalization', () => {
@@ -67,11 +65,10 @@ describe('Authentication & Authorization Error Normalization', () => {
 });
 
 describe('Super Admin Session Security & Timing-Safe Verification', () => {
-  it('correctly validates the valid PIN using timing-safe comparison', () => {
-    const validPin = getSuperAdminPin();
-    expect(verifySuperAdminPinValue(validPin)).toBe(true);
-    expect(verifySuperAdminPinValue('wrong-pin')).toBe(false);
-    expect(verifySuperAdminPinValue('')).toBe(false);
+  it('validates super admin configuration correctly', () => {
+    const config = validateSuperAdminConfig();
+    expect(config.isConfigured).toBe(true);
+    expect(getSuperAdminSecret()).toBeDefined();
   });
 
   it('signs and verifies a valid HMAC-SHA256 session token', () => {

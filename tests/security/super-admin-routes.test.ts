@@ -56,7 +56,7 @@ function evaluateRouteAuthorization(user: {
   // 3. Super Admin dedicated routes: /super-admin/*, /admin/super-admin
   if (targetRoute.startsWith('/super-admin') || targetRoute === '/admin/super-admin') {
     // Only authorized if the user has an active super admin session OR primary super admin verified role
-    if (user.isSuperAdminSessionActive || user.role === 'SUPER_ADMIN' || user.email === 'gdeepak4689@gmail.com') {
+    if (user.isSuperAdminSessionActive || user.role === 'SUPER_ADMIN' || user.email === 'medi@gmail.com' || user.email === 'gdeepak4689@gmail.com') {
       return {
         isAuthorized: true,
         status: 200

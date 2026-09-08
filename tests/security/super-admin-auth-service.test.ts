@@ -1,6 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import {
-  verifySuperAdminPinValue,
   signSuperAdminSessionToken,
   verifySuperAdminSessionToken,
   checkRateLimit,
@@ -12,21 +11,12 @@ import request from 'supertest';
 import express from 'express';
 import authHandler from '../../api/super-admin/auth';
 import loginHandler from '../../api/super-admin/login';
-import verifyPinHandler from '../../api/super-admin/verify-pin';
 import verifySessionHandler from '../../api/super-admin/verify-session';
 import sessionHandler from '../../api/super-admin/session';
 import logoutHandler from '../../api/super-admin/logout';
 import healthHandler from '../../api/health';
 
 describe('Super Admin Security & Token Verification Core', () => {
-  it('correctly validates the Super Admin PIN using constant-time comparison', () => {
-    expect(verifySuperAdminPinValue('8303')).toBe(true);
-    expect(verifySuperAdminPinValue(' 8303 ')).toBe(true);
-    expect(verifySuperAdminPinValue('1234')).toBe(false);
-    expect(verifySuperAdminPinValue('8899')).toBe(false);
-    expect(verifySuperAdminPinValue('')).toBe(false);
-  });
-
   it('generates a valid cryptographically signed HMAC-SHA256 session token', () => {
     const { token, expiresIn, payload } = signSuperAdminSessionToken({
       email: 'superadmin@mediqueue.internal',
@@ -95,7 +85,6 @@ describe('Vercel Serverless Function Endpoints (/api)', () => {
   app.get('/api/health', (req, res) => healthHandler(req as any, res as any));
   app.post('/api/super-admin/auth', (req, res) => authHandler(req as any, res as any));
   app.post('/api/super-admin/login', (req, res) => loginHandler(req as any, res as any));
-  app.post('/api/super-admin/verify-pin', (req, res) => verifyPinHandler(req as any, res as any));
   app.post('/api/super-admin/verify-session', (req, res) => verifySessionHandler(req as any, res as any));
   app.get('/api/super-admin/session', (req, res) => sessionHandler(req as any, res as any));
   app.post('/api/super-admin/logout', (req, res) => logoutHandler(req as any, res as any));
@@ -123,10 +112,10 @@ describe('Vercel Serverless Function Endpoints (/api)', () => {
     expect(jsonBody.status).toBe('ok');
   });
 
-  it('POST /api/super-admin/auth authenticates valid PIN and sets Set-Cookie', async () => {
+  it('POST /api/super-admin/auth authenticates valid credentials and sets Set-Cookie', async () => {
     const res = await request(app)
       .post('/api/super-admin/auth')
-      .send({ pin: '8303' });
+      .send({ email: 'medi@gmail.com' });
 
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
@@ -144,7 +133,7 @@ describe('Vercel Serverless Function Endpoints (/api)', () => {
   it('POST /api/super-admin/login also works identically for backward compatibility', async () => {
     const res = await request(app)
       .post('/api/super-admin/login')
-      .send({ pin: '8303' });
+      .send({ email: 'medi@gmail.com' });
 
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
@@ -154,7 +143,7 @@ describe('Vercel Serverless Function Endpoints (/api)', () => {
   it('GET /api/super-admin/session validates session via cookie or token', async () => {
     const loginRes = await request(app)
       .post('/api/super-admin/auth')
-      .send({ pin: '8303' });
+      .send({ email: 'medi@gmail.com' });
 
     const cookie = loginRes.headers['set-cookie'];
 
@@ -176,7 +165,7 @@ describe('Vercel Serverless Function Endpoints (/api)', () => {
   it('POST /api/super-admin/verify-session validates token via Authorization header', async () => {
     const loginRes = await request(app)
       .post('/api/super-admin/auth')
-      .send({ pin: '8303' });
+      .send({ email: 'medi@gmail.com' });
 
     const verifyRes = await request(app)
       .post('/api/super-admin/verify-session')
@@ -197,20 +186,20 @@ describe('Vercel Serverless Function Endpoints (/api)', () => {
     expect(setCookie[0]).toContain('Max-Age=0');
   });
 
-  it('POST /api/super-admin/auth rejects invalid PIN with 401', async () => {
+  it('POST /api/super-admin/auth rejects unauthorized email with 401', async () => {
     const res = await request(app)
       .post('/api/super-admin/auth')
-      .send({ pin: '0000' });
+      .send({ email: 'unauthorized@example.com' });
 
     expect(res.status).toBe(401);
     expect(res.body.success).toBe(false);
     expect(res.body.error).toContain('Invalid');
   });
 
-  it('POST /api/super-admin/auth rejects empty PIN with 400', async () => {
+  it('POST /api/super-admin/auth rejects empty email with 400', async () => {
     const res = await request(app)
       .post('/api/super-admin/auth')
-      .send({ pin: '' });
+      .send({ email: '' });
 
     expect(res.status).toBe(400);
     expect(res.body.success).toBe(false);
@@ -219,7 +208,7 @@ describe('Vercel Serverless Function Endpoints (/api)', () => {
   it('POST /api/super-admin/login returns 401 for invalid credentials', async () => {
     const res = await request(app)
       .post('/api/super-admin/login')
-      .send({ pin: 'wrongpin' });
+      .send({ email: 'wrongemail@example.com' });
 
     expect(res.status).toBe(401);
     expect(res.body.success).toBe(false);
@@ -234,7 +223,7 @@ describe('Vercel Serverless Function Endpoints (/api)', () => {
     const rawReq = {
       headers: { 'content-type': 'application/json' },
       method: 'POST',
-      body: { pin: '8303' },
+      body: { email: 'medi@gmail.com' },
     };
 
     const rawRes = {

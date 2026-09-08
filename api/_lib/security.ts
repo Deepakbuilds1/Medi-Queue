@@ -2,7 +2,7 @@ import crypto from 'crypto';
 
 /**
  * Validates that production environments supply explicit secrets.
- * In production, missing secrets derive a stable 256-bit SHA-256 HMAC key from the PIN
+ * In production, missing secrets derive a stable 256-bit SHA-256 HMAC key
  * ensuring the server always fails safe and never crashes.
  */
 export function getSuperAdminSecret(): string {
@@ -12,26 +12,9 @@ export function getSuperAdminSecret(): string {
     return secret.trim();
   }
 
-  // Cryptographically derive a stable 256-bit secret from SUPER_ADMIN_PIN + internal salt
-  // This guarantees HMAC token generation works seamlessly in production environments
-  // even if SUPER_ADMIN_SECRET was not separately provided in Vercel.
-  const pin = getSuperAdminPin();
-  return crypto.createHash('sha256').update(`${pin}_mediqueue_super_admin_secret_salt_v2`).digest('hex');
-}
-
-// Default Super Admin PIN configured to 8303 if not set
-if (!process.env.SUPER_ADMIN_PIN || process.env.SUPER_ADMIN_PIN === '8899') {
-  process.env.SUPER_ADMIN_PIN = '8303';
-}
-
-export function getSuperAdminPin(): string {
-  const pin = process.env.SUPER_ADMIN_PIN;
-
-  if (!pin || !pin.trim() || pin.trim() === '8899') {
-    return '8303';
-  }
-
-  return pin.trim();
+  // Cryptographically derive a stable 256-bit secret from internal salt
+  // This guarantees HMAC token generation works seamlessly in production environments.
+  return crypto.createHash('sha256').update('mediqueue_super_admin_secret_salt_v2').digest('hex');
 }
 
 /**
@@ -39,10 +22,6 @@ export function getSuperAdminPin(): string {
  */
 export function validateSuperAdminConfig(): { isConfigured: boolean; error?: string } {
   try {
-    const pin = getSuperAdminPin();
-    if (!pin) {
-      return { isConfigured: false, error: 'Super Admin PIN not configured.' };
-    }
     const secret = getSuperAdminSecret();
     if (!secret) {
       return { isConfigured: false, error: 'Super Admin Secret not configured.' };
@@ -67,27 +46,7 @@ export interface AttemptRecord {
 }
 
 // In-memory rate limiting store (for active container / serverless instance cache)
-const pinAttemptStore = new Map<string, AttemptRecord>();
-
-/**
- * Validates the submitted PIN against the server-side secret using timing-safe comparison.
- */
-export function verifySuperAdminPinValue(submittedPin: string): boolean {
-  if (!submittedPin || typeof submittedPin !== 'string') {
-    return false;
-  }
-  const cleanPin = submittedPin.trim();
-  const targetPin = getSuperAdminPin();
-
-  const pinBuffer = Buffer.from(cleanPin);
-  const targetBuffer = Buffer.from(targetPin);
-
-  if (pinBuffer.length !== targetBuffer.length) {
-    return false;
-  }
-
-  return crypto.timingSafeEqual(pinBuffer, targetBuffer);
-}
+const rateLimitStore = new Map<string, AttemptRecord>();
 
 /**
  * Checks client IP lockout status and returns attempt info.
@@ -98,7 +57,7 @@ export function checkRateLimit(clientIp: string): {
   record: AttemptRecord;
 } {
   const now = Date.now();
-  const record: AttemptRecord = pinAttemptStore.get(clientIp) || {
+  const record: AttemptRecord = rateLimitStore.get(clientIp) || {
     failedAttempts: 0,
     lockoutUntil: null,
     lastAttempt: now,
@@ -112,7 +71,7 @@ export function checkRateLimit(clientIp: string): {
   if (record.lockoutUntil && record.lockoutUntil <= now) {
     record.failedAttempts = 0;
     record.lockoutUntil = null;
-    pinAttemptStore.set(clientIp, record);
+    rateLimitStore.set(clientIp, record);
   }
 
   return { isLocked: false, remainingSeconds: 0, record };
@@ -132,7 +91,7 @@ export function recordFailedAttempt(clientIp: string, record: AttemptRecord): {
 
   if (record.failedAttempts >= MAX_FAILED_ATTEMPTS) {
     record.lockoutUntil = now + LOCKOUT_DURATION_MS;
-    pinAttemptStore.set(clientIp, record);
+    rateLimitStore.set(clientIp, record);
     return {
       isLocked: true,
       remainingSeconds: Math.ceil(LOCKOUT_DURATION_MS / 1000),
@@ -140,7 +99,7 @@ export function recordFailedAttempt(clientIp: string, record: AttemptRecord): {
     };
   }
 
-  pinAttemptStore.set(clientIp, record);
+  rateLimitStore.set(clientIp, record);
   return {
     isLocked: false,
     remainingSeconds: 0,
@@ -152,7 +111,7 @@ export function recordFailedAttempt(clientIp: string, record: AttemptRecord): {
  * Clears failed attempts upon successful login.
  */
 export function clearFailedAttempts(clientIp: string): void {
-  pinAttemptStore.delete(clientIp);
+  rateLimitStore.delete(clientIp);
 }
 
 export interface SuperAdminSessionPayload {

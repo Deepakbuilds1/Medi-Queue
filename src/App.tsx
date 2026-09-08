@@ -255,7 +255,7 @@ const MainAppContent: React.FC = () => {
     );
   }
 
-  // 3. SUPER ADMIN PIN-ONLY LOGIN ROUTE (/super-admin/login)
+  // 3. SUPER ADMIN LOGIN ROUTE (/super-admin/login)
   if (currentPath === '/super-admin/login' || (currentPath.startsWith('/super-admin') && !isSuperAdminUser)) {
     return (
       <>

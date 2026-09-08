@@ -352,20 +352,20 @@ const INITIAL_TEST_CASES: TestCaseResult[] = [
   },
 
   // --------------------------------------------------------------------------
-  // SUITE 4: SERVER-SIDE PIN API & RATE LIMITING ENDPOINTS
+  // SUITE 4: SERVER-SIDE API & RATE LIMITING ENDPOINTS
   // --------------------------------------------------------------------------
   {
     id: 'SEC-API-01',
     category: 'SERVER_API',
-    title: 'PIN Verification API Rejects Invalid or Non-Matching PIN',
+    title: 'Session Verification API Rejects Unauthorized Requests',
     actor: 'UNAUTHENTICATED',
-    targetResource: 'POST /api/super-admin/verify-pin',
-    attemptedAction: 'fetch("/api/super-admin/verify-pin", { body: { pin: "0000" } })',
+    targetResource: 'GET /api/super-admin/session',
+    attemptedAction: 'fetch("/api/super-admin/session", { headers: { Authorization: "Bearer invalid" } })',
     expectedOutcome: 'UNAUTHORIZED_401',
-    explanation: 'Constant-time comparison detects incorrect PIN and returns 401 Unauthorized with attempt counter.',
+    explanation: 'Cryptographic HMAC verification rejects invalid or forged session tokens.',
     payload: {
-      endpoint: '/api/super-admin/verify-pin',
-      body: { pin: '0000' }
+      endpoint: '/api/super-admin/session',
+      body: { token: 'invalid_token' }
     }
   },
   {
@@ -373,8 +373,8 @@ const INITIAL_TEST_CASES: TestCaseResult[] = [
     category: 'SERVER_API',
     title: 'Brute-Force Protection: 5 Consecutive Failed Attempts Trigger 15-Min Lockout',
     actor: 'UNAUTHENTICATED',
-    targetResource: 'POST /api/super-admin/verify-pin',
-    attemptedAction: '5x Failed PIN requests from same IP',
+    targetResource: 'POST /api/super-admin/session',
+    attemptedAction: '5x Failed requests from same IP',
     expectedOutcome: 'RATE_LIMIT_429',
     explanation: 'Server-side rate limiter enforces 15-minute IP lockout on 5 consecutive invalid submissions.',
     payload: {
@@ -708,7 +708,7 @@ export const SecurityTestSuite: React.FC = () => {
             { id: 'CLINIC_ADMIN_RULES', label: 'Clinic Admin Isolation' },
             { id: 'IMAGEKIT_SECURITY', label: 'ImageKit Media Isolation' },
             { id: 'ROUTE_GUARDS', label: 'Route Guards' },
-            { id: 'SERVER_API', label: 'Server PIN API' }
+            { id: 'SERVER_API', label: 'Server API' }
           ].map(tab => (
             <button
               key={tab.id}

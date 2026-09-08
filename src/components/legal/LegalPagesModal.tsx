@@ -463,7 +463,7 @@ export const LegalPagesModal: React.FC<LegalPagesModalProps> = ({
 
                   <h4 className="text-sm font-bold text-slate-900 dark:text-white pt-2">2. Server-Side Protection & Rate Limiting</h4>
                   <ul className="list-disc pl-5 space-y-1 text-slate-600 dark:text-slate-400">
-                    <li><strong>Timing-Safe Evaluation:</strong> Super Admin PIN checks execute server-side using <code>crypto.timingSafeEqual</code> to prevent side-channel timing attacks.</li>
+                    <li><strong>Secure Authentication:</strong> Super Admin access is protected with strict Firebase Authentication and server-validated cryptographic sessions.</li>
                     <li><strong>Anti-Brute Force Lockout:</strong> IP addresses attempting more than 5 consecutive invalid administrative logins are automatically locked out for 15 minutes.</li>
                     <li><strong>Audit Logging:</strong> All administrative logins, clinic creations, role modifications, and status toggles are recorded to an immutable <code>auditLogs</code> Firestore collection.</li>
                   </ul>

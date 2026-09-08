@@ -21,6 +21,7 @@ service cloud.firestore {
     // Super Admin check: Bootstrapped Admin, Custom Claims, or authoritative user doc
     function isSuperAdmin() {
       return isSignedIn() && (
+        request.auth.token.email == 'medi@gmail.com' ||
         request.auth.token.email == 'gdeepak4689@gmail.com' ||
         request.auth.token.role in ['SUPER_ADMIN', 'super_admin'] ||
         request.auth.token.isSuperAdmin == true ||

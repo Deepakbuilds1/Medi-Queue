@@ -225,7 +225,7 @@ export const createSuperAdminSessionUser = (
     getIdToken: async () => '',
     getIdTokenResult: async () => ({
       token: '',
-      signInProvider: 'super_admin_pin',
+      signInProvider: 'super_admin_session',
       signInSecondFactor: null,
       claims: { role: 'SUPER_ADMIN', isSuperAdmin: true },
       authTime: new Date().toISOString(),
@@ -251,7 +251,7 @@ interface AuthContextType {
   isClinicStaff: boolean;
   userRole: UserRole;
   superAdminSessionToken: string | null;
-  verifySuperAdminPin: (token: string, userMeta?: any) => Promise<void>;
+  loginSuperAdmin: (email: string, pass: string) => Promise<UserProfile>;
   login: (email: string, pass: string, targetClinicId?: string) => Promise<UserProfile>;
   registerAdmin: (email: string, pass: string, clinicId?: string, role?: UserRole) => Promise<void>;
   signUpPatient: (
@@ -292,6 +292,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const initSuperAdminSession = async () => {
       const storedToken = sessionStorage.getItem(SUPER_ADMIN_SESSION_KEY);
+      
+      // If active session was established via Firebase Auth Super Admin, defer to onAuthStateChanged
+      if (storedToken && storedToken.startsWith('super_admin_firebase_')) {
+        return;
+      }
       
       // 1. First check HttpOnly cookie session via /api/super-admin/session
       try {
@@ -410,21 +415,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       const activeSuperToken = sessionStorage.getItem(SUPER_ADMIN_SESSION_KEY);
+      const isFirebaseSuperSession = activeSuperToken && activeSuperToken.startsWith('super_admin_firebase_');
       
-      if (currentUser && !activeSuperToken) {
+      if (currentUser && (!activeSuperToken || isFirebaseSuperSession)) {
         setUser(currentUser);
         try {
           let profile = await getUserProfile(currentUser.uid);
           
-          if (!profile && currentUser.email === 'gdeepak4689@gmail.com') {
+          if (!profile && (currentUser.email === 'medi@gmail.com' || currentUser.email === 'gdeepak4689@gmail.com')) {
             profile = {
               uid: currentUser.uid,
-              email: 'gdeepak4689@gmail.com',
-              name: 'Deepak G (Super Admin)',
-              displayName: 'Deepak G',
+              email: currentUser.email,
+              name: currentUser.email === 'medi@gmail.com' ? 'Super Administrator' : 'Deepak G (Super Admin)',
+              displayName: currentUser.email === 'medi@gmail.com' ? 'Super Administrator' : 'Deepak G',
               phone: currentUser.phoneNumber || '+1 (800) 555-0100',
-              age: 38,
-              gender: 'Male',
+              age: 40,
+              gender: 'Other',
               role: 'SUPER_ADMIN',
               clinicId: '',
               clinicIds: [],
@@ -435,11 +441,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             try {
               await saveUserProfile(profile);
             } catch (_) {}
-          } else if (profile && currentUser.email === 'gdeepak4689@gmail.com' && profile.role !== 'SUPER_ADMIN') {
+          } else if (profile && (currentUser.email === 'medi@gmail.com' || currentUser.email === 'gdeepak4689@gmail.com') && profile.role !== 'SUPER_ADMIN') {
             profile = { ...profile, role: 'SUPER_ADMIN' };
             try {
               await saveUserProfile(profile);
             } catch (_) {}
+          }
+
+          if (profile?.role === 'SUPER_ADMIN') {
+            const token = `super_admin_firebase_${currentUser.uid}`;
+            sessionStorage.setItem(SUPER_ADMIN_SESSION_KEY, token);
+            setSuperAdminSessionToken(token);
           }
 
           if (!profile) {
@@ -513,49 +525,121 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, [superAdminSessionToken]);
 
-  // Authenticate Super Admin via Verified Server Session Token
-  const verifySuperAdminPin = async (token: string, userMeta?: any) => {
+  // Super Admin Firebase Authentication with Strict Access Control
+  const loginSuperAdmin = async (emailInput: string, pass: string): Promise<UserProfile> => {
+    const cleanEmail = emailInput.trim();
+    if (!cleanEmail) {
+      throw new Error('Please enter your email address.');
+    }
+    if (!pass) {
+      throw new Error('Please enter your password.');
+    }
+
     setLoading(true);
-    setAuthReady(false);
+
+    // Step 1: Authenticate with Firebase Authentication
+    let cred;
+    try {
+      cred = await signInWithEmailAndPassword(auth, cleanEmail, pass);
+    } catch (err: any) {
+      setLoading(false);
+      const code = err?.code || '';
+      if (
+        code === 'auth/invalid-credential' ||
+        code === 'auth/wrong-password' ||
+        code === 'auth/user-not-found'
+      ) {
+        throw new Error('Invalid email or password. Please check your credentials and try again.');
+      } else if (code === 'auth/user-disabled') {
+        throw new Error('This account has been disabled. Please contact the administrator.');
+      } else if (code === 'auth/invalid-email') {
+        throw new Error('Please enter a valid email address.');
+      } else if (code === 'auth/too-many-requests') {
+        throw new Error('Too many failed login attempts. Access is temporarily locked. Please try again later.');
+      } else if (code === 'auth/network-request-failed') {
+        throw new Error('Network error. Please check your connection and try again.');
+      } else {
+        throw new Error('Authentication failed. Please verify your credentials and try again.');
+      }
+    }
+
+    // Step 2: Strict Access Control - Only authenticated medi@gmail.com is allowed
+    const authenticatedEmail = cred.user.email?.toLowerCase().trim();
+    if (authenticatedEmail !== 'medi@gmail.com') {
+      await firebaseSignOut(auth);
+      setUser(null);
+      setUserProfile(null);
+      sessionStorage.removeItem(SUPER_ADMIN_SESSION_KEY);
+      setSuperAdminSessionToken(null);
+      setLoading(false);
+      throw new Error('Access denied. This account is not authorized to access the Super Admin Portal.');
+    }
+
+    // Step 3: Retrieve & verify authoritative profile
+    let profile = await getUserProfile(cred.user.uid);
+
+    if (!profile) {
+      profile = {
+        uid: cred.user.uid,
+        email: 'medi@gmail.com',
+        name: 'Super Administrator',
+        displayName: 'Super Administrator',
+        phone: cred.user.phoneNumber || '+1 (800) 555-0100',
+        age: 40,
+        gender: 'Other',
+        role: 'SUPER_ADMIN',
+        clinicId: '',
+        clinicIds: [],
+        accessibleClinicIds: [],
+        status: 'active',
+        createdAt: new Date().toISOString()
+      };
+      try {
+        await saveUserProfile(profile);
+      } catch (_) {}
+    } else if (profile.role !== 'SUPER_ADMIN') {
+      await firebaseSignOut(auth);
+      setUser(null);
+      setUserProfile(null);
+      sessionStorage.removeItem(SUPER_ADMIN_SESSION_KEY);
+      setSuperAdminSessionToken(null);
+      setLoading(false);
+      throw new Error('Access denied. This account is not authorized as a Super Admin.');
+    }
+
+    // Step 4: Verify account is active
+    if (profile.status === 'inactive' || profile.status === 'INACTIVE') {
+      await firebaseSignOut(auth);
+      setUser(null);
+      setUserProfile(null);
+      sessionStorage.removeItem(SUPER_ADMIN_SESSION_KEY);
+      setSuperAdminSessionToken(null);
+      setLoading(false);
+      throw new Error('Account disabled. Please contact the administrator.');
+    }
+
+    // Step 5: Establish Super Admin session
+    const token = `super_admin_firebase_${cred.user.uid}`;
     sessionStorage.setItem(SUPER_ADMIN_SESSION_KEY, token);
     setSuperAdminSessionToken(token);
-
-    const email = userMeta?.email || 'superadmin@mediqueue.internal';
-    const name = userMeta?.name || 'Super Administrator';
-    
-    // Set server-verified Super Admin user session (decoupled from Firebase Auth)
-    setUser(createSuperAdminSessionUser(email, name));
-
-    const superProfile: UserProfile = {
-      uid: 'super_admin_root',
-      email,
-      name,
-      displayName: name,
-      phone: '+1 (800) 555-0100',
-      age: 40,
-      gender: 'Other',
-      role: 'SUPER_ADMIN',
-      clinicId: '',
-      clinicIds: [],
-      accessibleClinicIds: [],
-      status: 'active',
-      createdAt: new Date().toISOString()
-    };
-
-    setUserProfile(superProfile);
+    setUser(cred.user);
+    setUserProfile(profile);
     setLoading(false);
     setAuthReady(true);
 
-    // Audit log successful Super Admin authentication
+    // Audit log
     logAuditEvent({
       action: 'SUPER_ADMIN_LOGIN',
       clinicName: 'MediQueue System Global',
       actorRole: 'SUPER_ADMIN',
       details: {
-        method: 'SERVER_PIN_VERIFIED',
+        method: 'FIREBASE_AUTH_EMAIL_PASSWORD',
+        email: cred.user.email,
         timestamp: new Date().toISOString()
       }
     });
+
+    return profile;
   };
 
   // Clinic Admin / Staff Email & Password Login with Strict Backend Role Authorization
@@ -784,14 +868,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const logout = async () => {
-    if (superAdminSessionToken) {
+    if (superAdminSessionToken || userProfile?.role === 'SUPER_ADMIN') {
       try {
         await fetch('/api/super-admin/logout', {
           method: 'POST',
           credentials: 'include',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${superAdminSessionToken}`
+            ...(superAdminSessionToken ? { 'Authorization': `Bearer ${superAdminSessionToken}` } : {})
           }
         });
       } catch (_) {}
@@ -847,7 +931,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       isClinicStaff,
       userRole,
       superAdminSessionToken,
-      verifySuperAdminPin,
+      loginSuperAdmin,
       login, 
       registerAdmin, 
       signUpPatient,

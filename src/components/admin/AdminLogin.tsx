@@ -283,7 +283,7 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({
                 className="text-indigo-400 hover:text-indigo-300 font-semibold transition-colors flex items-center gap-1.5 cursor-pointer py-1"
               >
                 <ShieldCheck className="w-3.5 h-3.5 text-indigo-400" />
-                <span>Super Admin (PIN Only)</span>
+                <span>Super Admin Login</span>
               </button>
             )}
 

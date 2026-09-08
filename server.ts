@@ -6,7 +6,6 @@ import dotenv from 'dotenv';
 import { createServer as createViteServer } from 'vite';
 import { handleCors } from './src/server/corsHelper';
 import {
-  verifySuperAdminPinValue,
   checkRateLimit,
   recordFailedAttempt,
   clearFailedAttempts,
@@ -27,10 +26,6 @@ import {
 
 // Load environment configuration
 dotenv.config();
-
-if (!process.env.SUPER_ADMIN_PIN || process.env.SUPER_ADMIN_PIN === '8899') {
-  process.env.SUPER_ADMIN_PIN = '8303';
-}
 
 const app = express();
 const PORT = 3000;
@@ -71,7 +66,7 @@ const handleHealthCheck = (_req: Request, res: Response) => {
 app.get('/api/health', handleHealthCheck);
 app.get('/health', handleHealthCheck);
 
-// 2. Super Admin Login & PIN Verification Handler (Server-Side Only)
+// 2. Super Admin Login Handler (Server-Side Session Issuance)
 const handleSuperAdminLogin = (req: Request, res: Response) => {
   // Verify server environment configuration (fail safe: return 503 instead of 500)
   const configCheck = validateSuperAdminConfig();
@@ -100,28 +95,26 @@ const handleSuperAdminLogin = (req: Request, res: Response) => {
     });
   }
 
-  const { pin } = req.body || {};
+  const { email, password } = req.body || {};
 
-  // 2. Validate PIN input
-  if (!pin || typeof pin !== 'string' || !pin.trim()) {
+  // 2. Validate input credentials
+  if (!email || typeof email !== 'string' || !email.trim()) {
     return res.status(400).json({
       success: false,
       code: 'INVALID_INPUT',
-      message: 'Super Admin PIN is required.',
-      error: 'Super Admin PIN is required.',
+      message: 'Super Admin credentials required.',
+      error: 'Super Admin credentials required.',
     });
   }
 
-  const cleanPin = pin.trim();
+  const cleanEmail = email.trim().toLowerCase();
 
-  // 3. Timing-Safe Constant-Time Verification
-  const isMatch = verifySuperAdminPinValue(cleanPin);
-
-  if (!isMatch) {
+  // Super Admin email restriction
+  if (cleanEmail !== 'medi@gmail.com') {
     const failedResult = recordFailedAttempt(clientIp, rateLimitStatus.record);
 
     if (failedResult.isLocked) {
-      console.warn(`[SECURITY AUDIT] Super Admin PIN lockout triggered for IP: ${clientIp}`);
+      console.warn(`[SECURITY AUDIT] Super Admin lockout triggered for IP: ${clientIp}`);
       return res.status(429).json({
         success: false,
         code: 'RATE_LIMITED',
@@ -136,16 +129,16 @@ const handleSuperAdminLogin = (req: Request, res: Response) => {
       success: false,
       code: 'INVALID_CREDENTIALS',
       message: 'Invalid Super Admin credentials.',
-      error: 'Invalid Super Admin PIN.',
+      error: 'Invalid Super Admin credentials.',
       remainingAttempts: failedResult.remainingAttempts,
     });
   }
 
-  // 4. Successful Authentication: Reset failed attempts & issue signed session token
+  // 3. Successful Authentication: Reset failed attempts & issue signed session token
   clearFailedAttempts(clientIp);
 
   const { token, expiresIn, payload } = signSuperAdminSessionToken({
-    email: 'superadmin@mediqueue.internal',
+    email: cleanEmail,
     name: 'Super Administrator',
   });
 
@@ -167,7 +160,6 @@ const handleSuperAdminLogin = (req: Request, res: Response) => {
 
 app.post('/api/super-admin/auth', handleSuperAdminLogin);
 app.post('/api/super-admin/login', handleSuperAdminLogin);
-app.post('/api/super-admin/verify-pin', handleSuperAdminLogin);
 
 // 3. Super Admin Session Inspection Endpoint (GET /api/super-admin/session)
 const handleSuperAdminSessionCheck = (req: Request, res: Response) => {

@@ -155,6 +155,7 @@ export interface ListenerGuardOptions {
   requiresAdmin?: boolean;
   requiredRole?: UserRole | UserRole[];
   guard?: () => boolean | Promise<boolean>;
+  silentPermissionDenied?: boolean;
 }
 
 /**
@@ -247,12 +248,14 @@ function createManagedListener<T>(
 
         if (!authCheck.isAuthorized) {
           const deniedReason = authCheck.reason || 'Access restricted: Insufficient administrative privileges.';
-          logFirestoreEvent({
-            action: 'permission_denied',
-            path: options?.path,
-            code: 'permission-denied',
-            message: deniedReason
-          });
+          if (!options?.silentPermissionDenied) {
+            logFirestoreEvent({
+              action: 'permission_denied',
+              path: options?.path,
+              code: 'permission-denied',
+              message: deniedReason
+            });
+          }
           if (onError) {
             onError(deniedReason);
           }
@@ -300,13 +303,15 @@ function createManagedListener<T>(
           const classification = classifyFirestoreError(error);
 
           if (classification.category === 'PERMISSION_DENIED') {
-            logFirestoreEvent({
-              action: 'permission_denied',
-              path: options?.path,
-              code: classification.code,
-              message: classification.userMessage,
-              details: error
-            });
+            if (!options?.silentPermissionDenied) {
+              logFirestoreEvent({
+                action: 'permission_denied',
+                path: options?.path,
+                code: classification.code,
+                message: classification.userMessage,
+                details: error
+              });
+            }
             if (unsub) {
               try { unsub(); } catch (_) {}
               unsub = null;
@@ -1218,7 +1223,7 @@ export async function saveUserProfile(profile: {
   
   // Designate default super admin
   let role = profile.role || 'PATIENT';
-  if (profile.email === 'gdeepak4689@gmail.com') {
+  if (profile.email === 'medi@gmail.com' || profile.email === 'gdeepak4689@gmail.com') {
     role = 'SUPER_ADMIN';
   }
 
@@ -1417,7 +1422,7 @@ export async function verifyUserAuthorization(
   
   if (superAdminSession) {
     resolvedRole = 'SUPER_ADMIN';
-  } else if (currentUser?.email === 'gdeepak4689@gmail.com' || userProfile?.email === 'gdeepak4689@gmail.com') {
+  } else if (currentUser?.email === 'medi@gmail.com' || currentUser?.email === 'gdeepak4689@gmail.com' || userProfile?.email === 'medi@gmail.com' || userProfile?.email === 'gdeepak4689@gmail.com') {
     resolvedRole = 'SUPER_ADMIN';
   } else if (claims.role && typeof claims.role === 'string') {
     resolvedRole = claims.role as UserRole;
@@ -1590,7 +1595,7 @@ export async function logAuditEvent(params: {
   // Determine actor details accurately
   const actorUid = params.actorUid || currentUser?.uid || 'session_user';
   const actorEmail = params.actorEmail || currentUser?.email || (params.actorRole === 'SUPER_ADMIN' ? 'superadmin@mediqueue.internal' : undefined);
-  const isSuper = actorEmail === 'gdeepak4689@gmail.com' || actorEmail === 'superadmin@mediqueue.internal' || params.actorRole === 'SUPER_ADMIN';
+  const isSuper = actorEmail === 'medi@gmail.com' || actorEmail === 'gdeepak4689@gmail.com' || actorEmail === 'superadmin@mediqueue.internal' || params.actorRole === 'SUPER_ADMIN';
   const actorRole = params.actorRole || (isSuper ? 'SUPER_ADMIN' : 'CLINIC_ADMIN');
 
   // Safely resolve clinicId & clinicName
@@ -1735,6 +1740,7 @@ export function subscribeAuditLogs(
       clinicId,
       authRequired: true,
       requiresAdmin: true,
+      silentPermissionDenied: true,
       requiredRole: ['SUPER_ADMIN', 'CLINIC_ADMIN', 'admin'],
       guard: async () => {
         const check = await verifyUserAuthorization({

@@ -169,7 +169,12 @@ export function logFirestoreEvent(event: {
   code?: string;
   message?: string;
   details?: unknown;
+  silent?: boolean;
 }): void {
+  if (event.silent) {
+    return;
+  }
+
   const key = `${event.action}:${event.path || 'global'}:${event.code || 'default'}`;
   const now = Date.now();
   const existing = logHistory.get(key);
@@ -201,8 +206,8 @@ export function logFirestoreEvent(event: {
       break;
 
     case 'permission_denied':
-      console.error(
-        `[Firestore Listener]${pathLabel} Security rule permission denied. (Code: ${event.code}). ` +
+      console.warn(
+        `[Firestore Listener]${pathLabel} Security rule permission notice. (Code: ${event.code}). ` +
         `Verify request.auth and activeClinicId.${suppressedCount}`
       );
       break;

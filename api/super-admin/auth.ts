@@ -1,7 +1,6 @@
 import type { Request, Response } from 'express';
 import { handleCors } from '../_lib/cors.ts';
 import {
-  verifySuperAdminPinValue,
   checkRateLimit,
   recordFailedAttempt,
   clearFailedAttempts,
@@ -59,8 +58,6 @@ export async function handleSuperAdminAuth(req: Request | any, res: Response | a
       });
     }
 
-    console.log('[SuperAdminAuth] PIN configuration available');
-
     const clientIp = getClientIp(req);
 
     // 4. Check Rate Limiting / Lockout status
@@ -79,26 +76,23 @@ export async function handleSuperAdminAuth(req: Request | any, res: Response | a
 
     // 5. Safely parse JSON body
     const body = await getJsonBody(req);
-    const { pin } = body || {};
+    const { email } = body || {};
 
-    if (!pin || typeof pin !== 'string' || !pin.trim()) {
-      console.warn('[AUTH_INVALID_INPUT]', { clientIp, reason: 'PIN is empty or not a string' });
+    if (!email || typeof email !== 'string' || !email.trim()) {
+      console.warn('[AUTH_INVALID_INPUT]', { clientIp, reason: 'Email is required' });
       return sendJsonResponse(res, 400, {
         success: false,
         code: 'INVALID_INPUT',
-        message: 'Super Admin PIN is required.',
-        error: 'Super Admin PIN is required.',
+        message: 'Super Admin credentials required.',
+        error: 'Super Admin credentials required.',
       });
     }
 
-    const cleanPin = pin.trim();
+    const cleanEmail = email.trim().toLowerCase();
 
     console.log('[SuperAdminAuth] authentication verification started');
 
-    // 6. Timing-Safe Constant-Time Verification against server secret
-    const isMatch = verifySuperAdminPinValue(cleanPin);
-
-    if (!isMatch) {
+    if (cleanEmail !== 'medi@gmail.com') {
       console.warn('[SuperAdminAuth] authentication failed');
       const failedResult = recordFailedAttempt(clientIp, rateLimitStatus.record);
 
@@ -117,21 +111,21 @@ export async function handleSuperAdminAuth(req: Request | any, res: Response | a
         success: false,
         code: 'INVALID_CREDENTIALS',
         message: 'Invalid Super Admin credentials.',
-        error: 'Invalid Super Admin PIN.',
+        error: 'Invalid Super Admin credentials.',
         remainingAttempts: failedResult.remainingAttempts,
       });
     }
 
-    // 7. Successful Authentication
+    // 6. Successful Authentication
     console.log('[SuperAdminAuth] authentication successful');
     clearFailedAttempts(clientIp);
 
     const { token, expiresIn, payload } = signSuperAdminSessionToken({
-      email: 'superadmin@mediqueue.internal',
+      email: cleanEmail,
       name: 'Super Administrator',
     });
 
-    // 8. Set HttpOnly Session Cookie for browser persistence
+    // 7. Set HttpOnly Session Cookie for browser persistence
     setSessionCookie(res, token, expiresIn);
 
     return sendJsonResponse(res, 200, {

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Bell, Monitor, Ticket, PlusCircle, User, LogOut, Settings as SettingsIcon, HelpCircle, ShieldCheck, FileText, AlertTriangle, Cookie, Accessibility } from 'lucide-react';
+import { Search, Bell, Monitor, Ticket, PlusCircle, User, LogOut, Settings as SettingsIcon, HelpCircle, ShieldCheck, FileText, AlertTriangle, Cookie, Accessibility, Activity } from 'lucide-react';
 import { ClinicSettings, QueueToken } from '../../types';
 import { lookupTokenByNumber, subscribePublicQueue, subscribeUserTokens } from '../../services/clinicService';
 import { playTokenCallSound } from '../../lib/sound';
@@ -164,15 +164,15 @@ export const PatientPortal: React.FC<PatientPortalProps> = ({
         <div className="max-w-4xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
             {clinicLogo ? (
-              <img src={clinicLogo} alt={clinicName} className="w-9 h-9 rounded-xl object-cover border border-slate-200" />
+              <img src={clinicLogo} alt={clinicName} className="w-8 h-8 rounded-lg object-cover border border-[#E2E8F0]" />
             ) : (
-              <div className="w-9 h-9 bg-teal-600 rounded-xl flex items-center justify-center text-white font-bold">
-                🏥
+              <div className="w-8 h-8 bg-teal-700 rounded-lg flex items-center justify-center text-white font-bold">
+                <Activity className="w-4 h-4 text-white" />
               </div>
             )}
             <div>
-              <h1 className="font-extrabold text-sm text-slate-900 tracking-tight">{clinicName}</h1>
-              <p className="text-[10px] font-bold text-teal-900 uppercase tracking-widest">Patient Portal & Queue</p>
+              <h1 className="font-bold text-xs text-slate-900 tracking-tight">{clinicName}</h1>
+              <p className="text-[10px] font-semibold text-teal-700 uppercase tracking-wider">Patient Portal & Live Queue</p>
             </div>
           </div>
 

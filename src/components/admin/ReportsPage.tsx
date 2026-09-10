@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { BarChart3, Download, FileSpreadsheet, Calendar, CheckCircle2, Clock } from 'lucide-react';
+import { BarChart3, Download, FileSpreadsheet, Calendar, CheckCircle2, Clock, Activity, Users } from 'lucide-react';
 import { Doctor, QueueToken } from '../../types';
 import { getTokensByDateRange, getTodayDateString } from '../../services/clinicService';
 import { useClinic } from '../../context/ClinicContext';
@@ -86,14 +86,12 @@ export const ReportsPage: React.FC<ReportsPageProps> = ({ doctors, todayTokens }
 
   /**
    * Download Current Day's Token Statistics CSV
-   * Compiles executive KPI summary, doctor breakdown, and today's full token log.
    */
   const downloadTodayTokenStatisticsCSV = () => {
     const clinicName = activeClinic?.name || activeClinicId || 'Clinic';
     const todayDateStr = getTodayDateString();
     const generatedTimestamp = new Date().toLocaleString();
 
-    // Calculations specifically for today's tokens
     const todayTotal = todayTokens.length;
     const todayCompleted = todayTokens.filter(t => t.status === 'COMPLETED').length;
     const todayWaiting = todayTokens.filter(t => t.status === 'WAITING').length;
@@ -104,7 +102,6 @@ export const ReportsPage: React.FC<ReportsPageProps> = ({ doctors, todayTokens }
 
     const calcPct = (count: number) => (todayTotal > 0 ? ((count / todayTotal) * 100).toFixed(1) : '0.0');
 
-    // Doctor breakdown specifically for today
     const todayDoctorStats = doctors.map(doc => {
       const dTokens = todayTokens.filter(t => t.doctorId === doc.id);
       const dTotal = dTokens.length;
@@ -129,7 +126,6 @@ export const ReportsPage: React.FC<ReportsPageProps> = ({ doctors, todayTokens }
       ].join(',');
     });
 
-    // Detailed token rows for today
     const tokenRows = todayTokens.map(t => {
       const createdTime = t.createdAt ? new Date(t.createdAt).toLocaleTimeString() : '-';
       const calledTime = t.calledAt ? new Date(t.calledAt).toLocaleTimeString() : '-';
@@ -158,121 +154,103 @@ export const ReportsPage: React.FC<ReportsPageProps> = ({ doctors, todayTokens }
       `Report Date,${escapeCsv(todayDateStr)}`,
       `Clinic Name,${escapeCsv(clinicName)}`,
       `Clinic ID,${escapeCsv(activeClinicId)}`,
-      `Export Timestamp,${escapeCsv(generatedTimestamp)}`,
+      `Generated At,${escapeCsv(generatedTimestamp)}`,
+      `Export Type,"Daily Operational Audit & KPI Statistics"`,
       '',
-      '# =========================================================================',
-      '# CURRENT DAY TOKEN SUMMARY METRICS',
-      '# =========================================================================',
+      '# -------------------------------------------------------------------------',
+      '# 1. CLINICAL KPI SUMMARY',
+      '# -------------------------------------------------------------------------',
       'Metric,Count,Percentage',
-      `Total Tokens Generated,${todayTotal},100%`,
+      `Total Tokens Registered,${todayTotal},100.0%`,
       `Completed Consultations,${todayCompleted},${calcPct(todayCompleted)}%`,
-      `Currently Waiting in Queue,${todayWaiting},${calcPct(todayWaiting)}%`,
+      `Currently Waiting,${todayWaiting},${calcPct(todayWaiting)}%`,
       `In Consultation / Called,${todayInConsultation},${calcPct(todayInConsultation)}%`,
       `Skipped Tokens,${todaySkipped},${calcPct(todaySkipped)}%`,
       `Cancelled Tokens,${todayCancelled},${calcPct(todayCancelled)}%`,
-      `Overall Completion Rate,${completionRate}%,-`,
+      `Overall Completion Rate,"${completionRate}%","-"`,
       '',
-      '# =========================================================================',
-      '# DOCTOR-WISE TOKEN STATISTICS (TODAY)',
-      '# =========================================================================',
-      'Doctor Name,Specialization,Room,Total Tokens,Completed,Waiting,In Consultation,Skipped,Cancelled,Completion Rate',
-      ...(todayDoctorStats.length > 0 ? todayDoctorStats : ['"No doctors assigned",-,-,0,0,0,0,0,0,0%']),
+      '# -------------------------------------------------------------------------',
+      '# 2. DOCTOR-WISE THROUGHPUT & QUEUE BREAKDOWN',
+      '# -------------------------------------------------------------------------',
+      'Doctor Name,Specialization,Room,Total Tokens,Completed,Waiting,In Consult,Skipped,Cancelled,Completion Rate',
+      ...(todayDoctorStats.length > 0 ? todayDoctorStats : ['"No registered doctors for this clinic","-","-",0,0,0,0,0,0,"0.0%"']),
       '',
-      '# =========================================================================',
-      "TODAY'S INDIVIDUAL TOKEN RECORDS",
-      '# =========================================================================',
-      'Token Number,Patient Name,Age,Gender,Phone,Doctor Name,Room,Status,Created Time,Called Time,Completed Time,Queue Date',
-      ...(tokenRows.length > 0 ? tokenRows : ['"No tokens issued today",-,-,-,-,-,-,-,-,-,-,-'])
+      '# -------------------------------------------------------------------------',
+      '# 3. DETAILED TOKEN LEDGER (ALL OF TODAY)',
+      '# -------------------------------------------------------------------------',
+      'Token Number,Patient Name,Age,Gender,Phone,Assigned Doctor,Room,Status,Created At,Called At,Completed At,Queue Date',
+      ...(tokenRows.length > 0 ? tokenRows : ['"No tokens registered today","-","-","-","-","-","-","-","-","-","-","-"'])
     ];
 
-    const csvContent = '\uFEFF' + csvSections.join('\r\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
+    const csvContent = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csvSections.join('\n'));
     const link = document.createElement('a');
-    link.href = url;
-    link.setAttribute('download', `MediQueue_Daily_Token_Statistics_${activeClinicId}_${todayDateStr}.csv`);
+    link.setAttribute('href', csvContent);
+    const sanitizedClinic = clinicName.toLowerCase().replace(/[^a-z0-9]/g, '-');
+    link.setAttribute('download', `mediqueue-token-statistics-${sanitizedClinic}-${todayDateStr}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    URL.revokeObjectURL(url);
   };
 
-  /**
-   * Export Filtered Date Range CSV
-   */
   const exportFilteredCSV = () => {
-    if (reportTokens.length === 0) return;
-    const headers = ['Token Number', 'Clinic', 'Patient Name', 'Age', 'Gender', 'Phone', 'Doctor', 'Room', 'Status', 'Date', 'Time'];
+    const headers = ['Token Number', 'Patient Name', 'Doctor', 'Room', 'Status', 'Date', 'Created Time'];
     const rows = reportTokens.map(t => [
       escapeCsv(t.tokenNumber),
-      escapeCsv(activeClinic?.name || activeClinicId || 'Clinic'),
       escapeCsv(t.patientName),
-      escapeCsv(t.patientAge || ''),
-      escapeCsv(t.patientGender || ''),
-      escapeCsv(t.patientPhone || ''),
       escapeCsv(t.doctorName),
-      escapeCsv(t.roomNumber || ''),
+      escapeCsv(t.roomNumber),
       escapeCsv(t.status),
       escapeCsv(t.queueDate),
       escapeCsv(new Date(t.createdAt).toLocaleTimeString())
     ]);
 
-    const csvContent = '\uFEFF' + [headers.join(','), ...rows.map(r => r.join(','))].join('\r\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
+    const csvContent = 'data:text/csv;charset=utf-8,' + 
+      encodeURIComponent([headers.join(','), ...rows.map(e => e.join(','))].join('\n'));
+    
     const link = document.createElement('a');
-    link.href = url;
-    link.setAttribute('download', `MediQueue_Tokens_${activeClinicId}_${filter}_${getTodayDateString()}.csv`);
+    link.setAttribute('href', csvContent);
+    link.setAttribute('download', `mediqueue-report-${filter.toLowerCase()}-${getTodayDateString()}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    URL.revokeObjectURL(url);
   };
 
   return (
-    <div className="space-y-4 max-w-7xl mx-auto animate-in fade-in duration-200">
+    <div className="space-y-4 max-w-7xl mx-auto">
       
       {/* Header Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-3 bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xs">
+      <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-4 rounded-xl border border-[#E2E8F0] shadow-xs">
         <div className="flex items-center gap-3">
-          <div className="p-2.5 bg-blue-100 dark:bg-blue-900/60 text-blue-600 dark:text-blue-400 rounded-xl">
+          <div className="w-9 h-9 bg-teal-50 text-teal-700 rounded-lg flex items-center justify-center">
             <BarChart3 className="w-5 h-5" />
           </div>
           <div>
-            <h2 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-              <span>Clinic Operational Reports</span>
-              {activeClinic?.name && (
-                <span className="text-xs font-semibold px-2 py-0.5 bg-blue-50 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 rounded-lg border border-blue-200 dark:border-blue-800">
-                  {activeClinic.name}
-                </span>
-              )}
-            </h2>
-            <p className="text-xs text-slate-500">Patient Volume & Doctor Throughput Analytics • Scoped to /clinics/{activeClinicId}</p>
+            <h1 className="text-base font-bold text-[#0F172A]">
+              Operational Analytics {activeClinic?.name ? `• ${activeClinic.name}` : ''}
+            </h1>
+            <p className="text-xs text-slate-500">Patient volume throughput, physician workload, and exportable ledger</p>
           </div>
         </div>
 
         {/* Action Buttons */}
         <div className="flex flex-wrap items-center gap-2">
-          {/* Primary Button: Download Current Day's Token Statistics CSV */}
           <button
             id="download-today-stats-csv-btn"
             onClick={downloadTodayTokenStatisticsCSV}
-            title="Download full daily token statistics report including KPI summary, doctor breakdown, and token records"
-            className="bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white px-3.5 py-2 rounded-xl text-xs font-extrabold flex items-center gap-2 shadow-sm transition-all cursor-pointer hover:shadow-md"
+            className="bg-teal-700 hover:bg-teal-800 text-white px-3.5 py-1.5 rounded-lg text-xs font-medium flex items-center gap-2 shadow-xs transition-colors cursor-pointer"
           >
-            <FileSpreadsheet className="w-4 h-4 text-emerald-200" />
-            <span>Download Today's Statistics (CSV)</span>
-            <span className="bg-emerald-800/60 text-emerald-100 text-[10px] px-1.5 py-0.5 rounded-full font-mono">
+            <FileSpreadsheet className="w-4 h-4 text-teal-200" />
+            <span>Export Daily CSV</span>
+            <span className="bg-teal-900/60 text-teal-100 text-[10px] px-1.5 py-0.5 rounded font-mono">
               {todayTokens.length} Today
             </span>
           </button>
 
-          {/* Secondary Export for Filtered Range */}
           {filter !== 'TODAY' && (
             <button
               onClick={exportFilteredCSV}
               disabled={reportTokens.length === 0}
-              className="bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-800 dark:text-slate-200 px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 border border-slate-200 dark:border-slate-600 transition-colors cursor-pointer disabled:opacity-50"
+              className="bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
             >
               <Download className="w-3.5 h-3.5" />
               <span>Export {filter.replace(/_/g, ' ')} ({reportTokens.length})</span>
@@ -281,121 +259,120 @@ export const ReportsPage: React.FC<ReportsPageProps> = ({ doctors, todayTokens }
         </div>
       </div>
 
-      {/* Date Filter & View Controller */}
-      <div className="flex flex-wrap items-center justify-between gap-3 bg-white dark:bg-slate-800 p-3 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xs">
-        <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400 font-semibold">
+      {/* Date Filter Bar */}
+      <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-3 rounded-xl border border-[#E2E8F0] shadow-xs">
+        <div className="flex items-center gap-2 text-xs text-slate-600 font-semibold">
           <Calendar className="w-4 h-4 text-slate-400" />
-          <span>Select Time Range:</span>
+          <span>Reporting Window:</span>
         </div>
 
-        {/* Date Filter Pills */}
-        <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-900 p-1 rounded-xl text-xs font-semibold">
+        <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-lg text-xs font-medium">
           <button
             onClick={() => setFilter('TODAY')}
-            className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer ${filter === 'TODAY' ? 'bg-blue-600 text-white shadow-xs' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'}`}
+            className={`px-3 py-1 rounded-md transition-colors cursor-pointer ${filter === 'TODAY' ? 'bg-teal-700 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'}`}
           >
             Today
           </button>
           <button
             onClick={() => setFilter('YESTERDAY')}
-            className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer ${filter === 'YESTERDAY' ? 'bg-blue-600 text-white shadow-xs' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'}`}
+            className={`px-3 py-1 rounded-md transition-colors cursor-pointer ${filter === 'YESTERDAY' ? 'bg-teal-700 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'}`}
           >
             Yesterday
           </button>
           <button
             onClick={() => setFilter('LAST_7_DAYS')}
-            className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer ${filter === 'LAST_7_DAYS' ? 'bg-blue-600 text-white shadow-xs' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'}`}
+            className={`px-3 py-1 rounded-md transition-colors cursor-pointer ${filter === 'LAST_7_DAYS' ? 'bg-teal-700 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'}`}
           >
             Last 7 Days
           </button>
           <button
             onClick={() => setFilter('LAST_30_DAYS')}
-            className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer ${filter === 'LAST_30_DAYS' ? 'bg-blue-600 text-white shadow-xs' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'}`}
+            className={`px-3 py-1 rounded-md transition-colors cursor-pointer ${filter === 'LAST_30_DAYS' ? 'bg-teal-700 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'}`}
           >
             Last 30 Days
           </button>
         </div>
       </div>
 
-      {/* Metrics Cards */}
+      {/* Metrics Cards Grid */}
       <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
-        <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xs">
-          <span className="text-[10px] uppercase font-bold text-slate-500">Total Patients</span>
-          <p className="text-2xl font-black text-slate-900 dark:text-white font-mono mt-1">{totalCount}</p>
+        <div className="bg-white p-3.5 rounded-xl border border-[#E2E8F0] shadow-xs">
+          <span className="text-[10px] uppercase font-bold text-slate-500">Total Volume</span>
+          <p className="text-2xl font-bold text-slate-900 font-mono mt-1">{totalCount}</p>
         </div>
 
-        <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xs">
-          <span className="text-[10px] uppercase font-bold text-emerald-600">Completed</span>
-          <p className="text-2xl font-black text-emerald-600 font-mono mt-1">{completedCount}</p>
+        <div className="bg-white p-3.5 rounded-xl border border-[#E2E8F0] shadow-xs">
+          <span className="text-[10px] uppercase font-bold text-emerald-700">Completed</span>
+          <p className="text-2xl font-bold text-emerald-700 font-mono mt-1">{completedCount}</p>
         </div>
 
-        <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xs">
-          <span className="text-[10px] uppercase font-bold text-blue-600">In Consult / Called</span>
-          <p className="text-2xl font-black text-blue-600 font-mono mt-1">{inConsultationCount}</p>
+        <div className="bg-white p-3.5 rounded-xl border border-[#E2E8F0] shadow-xs">
+          <span className="text-[10px] uppercase font-bold text-teal-700">Active Consult</span>
+          <p className="text-2xl font-bold text-teal-700 font-mono mt-1">{inConsultationCount}</p>
         </div>
 
-        <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xs">
-          <span className="text-[10px] uppercase font-bold text-amber-500">Waiting</span>
-          <p className="text-2xl font-black text-amber-500 font-mono mt-1">{waitingCount}</p>
+        <div className="bg-white p-3.5 rounded-xl border border-[#E2E8F0] shadow-xs">
+          <span className="text-[10px] uppercase font-bold text-amber-700">Waiting</span>
+          <p className="text-2xl font-bold text-amber-700 font-mono mt-1">{waitingCount}</p>
         </div>
 
-        <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xs">
+        <div className="bg-white p-3.5 rounded-xl border border-[#E2E8F0] shadow-xs">
           <span className="text-[10px] uppercase font-bold text-slate-500">Skipped</span>
-          <p className="text-2xl font-black text-slate-600 dark:text-slate-300 font-mono mt-1">{skippedCount}</p>
+          <p className="text-2xl font-bold text-slate-700 font-mono mt-1">{skippedCount}</p>
         </div>
 
-        <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xs col-span-2 md:col-span-1">
-          <span className="text-[10px] uppercase font-bold text-red-500">Cancelled</span>
-          <p className="text-2xl font-black text-red-500 font-mono mt-1">{cancelledCount}</p>
+        <div className="bg-white p-3.5 rounded-xl border border-[#E2E8F0] shadow-xs col-span-2 md:col-span-1">
+          <span className="text-[10px] uppercase font-bold text-red-600">Cancelled</span>
+          <p className="text-2xl font-bold text-red-600 font-mono mt-1">{cancelledCount}</p>
         </div>
       </div>
 
       {/* Doctor-wise Breakdown Table & Chart */}
-      <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xs p-5 space-y-4">
-        <div className="flex items-center justify-between">
-          <h3 className="text-xs font-bold text-slate-800 dark:text-white uppercase tracking-wider">
-            Doctor-Wise Patient Count Breakdown ({filter.replace(/_/g, ' ')})
+      <div className="bg-white rounded-xl border border-[#E2E8F0] shadow-xs p-4 space-y-3">
+        <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
+          <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+            Physician Patient Volume ({filter.replace(/_/g, ' ')})
           </h3>
           <span className="text-xs text-slate-500 font-medium">
-            {doctors.length} Doctors Registered
+            {doctors.length} Registered Staff
           </span>
         </div>
 
-        <div className="space-y-3">
+        <div className="space-y-2.5">
           {doctorStats.length === 0 ? (
-            <div className="p-4 text-center text-xs text-slate-400">
-              No doctors found for this clinic.
+            <div className="p-6 text-center text-xs text-slate-400">
+              No doctors found for this facility.
             </div>
           ) : (
             doctorStats.map((stat, idx) => {
               const percentage = totalCount > 0 ? Math.round((stat.total / totalCount) * 100) : 0;
               return (
-                <div key={idx} className="space-y-1.5 p-3 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-100 dark:border-slate-800">
+                <div key={idx} className="p-3 bg-slate-50 rounded-lg border border-slate-100 space-y-1.5">
                   <div className="flex justify-between items-center text-xs">
-                    <div className="font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                    <div className="font-semibold text-slate-900 flex items-center gap-2">
                       <span>{stat.name}</span>
                       <span className="text-slate-400 text-[11px] font-normal">({stat.specialization})</span>
-                      <span className="text-[10px] bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400 px-1.5 py-0.5 rounded">
+                      <span className="text-[10px] bg-slate-200 text-slate-600 px-1.5 py-0.5 rounded">
                         Room {stat.roomNumber}
                       </span>
                     </div>
-                    <div className="font-mono text-slate-700 dark:text-slate-300">
-                      <span className="font-bold text-blue-600 dark:text-blue-400">{stat.total} Patients</span> ({percentage}%)
+                    <div className="font-mono text-slate-700 text-xs">
+                      <span className="font-bold text-teal-800">{stat.total} Patients</span> ({percentage}%)
                     </div>
                   </div>
 
                   {/* Progress Bar */}
-                  <div className="w-full h-2.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden flex">
+                  <div className="w-full h-2 bg-slate-200 rounded-full overflow-hidden flex">
                     <div 
                       style={{ width: `${percentage}%` }} 
-                      className="bg-blue-600 h-full rounded-full transition-all duration-300"
+                      className="bg-teal-700 h-full rounded-full transition-all duration-300"
                     />
                   </div>
 
                   <div className="flex flex-wrap gap-4 text-[10px] text-slate-500 pt-0.5">
-                    <span>Completed: <strong className="text-emerald-600">{stat.completed}</strong></span>
-                    <span>Waiting: <strong className="text-amber-500">{stat.waiting}</strong></span>
-                    <span>In Consult: <strong className="text-blue-600">{stat.inConsultation}</strong></span>
+                    <span>Completed: <strong className="text-emerald-700">{stat.completed}</strong></span>
+                    <span>Waiting: <strong className="text-amber-700">{stat.waiting}</strong></span>
+                    <span>In Consult: <strong className="text-teal-700">{stat.inConsultation}</strong></span>
                     <span>Skipped/Cancelled: <strong className="text-slate-600">{stat.skipped + stat.cancelled}</strong></span>
                   </div>
                 </div>
@@ -408,4 +385,3 @@ export const ReportsPage: React.FC<ReportsPageProps> = ({ doctors, todayTokens }
     </div>
   );
 };
-

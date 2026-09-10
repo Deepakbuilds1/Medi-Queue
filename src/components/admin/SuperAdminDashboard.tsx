@@ -352,43 +352,43 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
     <div className="space-y-6 max-w-7xl mx-auto animate-in fade-in duration-200">
       
       {/* Header Banner */}
-      <div className="bg-gradient-to-r from-slate-950 via-indigo-950 to-slate-950 text-white p-6 rounded-2xl border border-slate-800 shadow-xl flex flex-wrap items-center justify-between gap-4">
+      <div className="bg-[#0F172A] text-white p-5 rounded-xl border border-slate-800 shadow-xs flex flex-wrap items-center justify-between gap-4">
         <div className="space-y-1">
           <div className="flex items-center gap-2">
-            <span className="px-2.5 py-0.5 bg-indigo-900 text-indigo-100 border border-indigo-700 rounded-md text-[10px] font-extrabold uppercase tracking-widest flex items-center gap-1.5">
-              <ShieldCheck className="w-3.5 h-3.5 text-indigo-200" />
+            <span className="px-2 py-0.5 bg-teal-950 text-teal-300 border border-teal-800 rounded text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5">
+              <ShieldCheck className="w-3.5 h-3.5 text-teal-400" />
               Super Admin Console
             </span>
-            <span className="text-xs text-slate-300 font-mono">Multi-Tenant Management Engine</span>
+            <span className="text-xs text-slate-400 font-mono">Multi-Facility Infrastructure</span>
           </div>
-          <h1 className="text-2xl font-black tracking-tight text-white">Super Admin Control Center</h1>
-          <p className="text-xs text-slate-200">
-            Manage all clinics, provision Clinic Admin accounts, assign multi-clinic permissions, and audit security events.
+          <h1 className="text-xl font-bold tracking-tight text-white">Central Operations & Tenant Management</h1>
+          <p className="text-xs text-slate-300">
+            Orchestrate facilities, provision administrator accounts, manage tenant routing, and audit clinical security logs.
           </p>
         </div>
 
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2">
           <button
             onClick={() => setIsCreateAdminModalOpen(true)}
-            className="bg-slate-800 hover:bg-slate-750 border border-slate-700 text-indigo-300 hover:text-white px-3.5 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer shadow-sm"
+            className="bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 hover:text-white px-3 py-2 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
           >
-            <Users className="w-4 h-4 text-indigo-400" />
-            + New Clinic Admin
+            <Users className="w-3.5 h-3.5 text-teal-400" />
+            <span>New Clinic Admin</span>
           </button>
           <button
             onClick={() => setIsCreateModalOpen(true)}
-            className="bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 shadow-lg shadow-indigo-600/30 transition-all cursor-pointer"
+            className="bg-teal-700 hover:bg-teal-800 active:bg-teal-900 text-white px-3.5 py-2 rounded-lg text-xs font-medium flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
           >
-            <PlusCircle className="w-4 h-4" />
-            + Provision Clinic
+            <PlusCircle className="w-3.5 h-3.5" />
+            <span>Provision Facility</span>
           </button>
         </div>
       </div>
 
       {notification && (
-        <div className="bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 p-3.5 rounded-xl text-emerald-800 dark:text-emerald-200 text-xs font-semibold flex items-center justify-between animate-in fade-in">
+        <div className="bg-emerald-50 border border-emerald-200 p-3 rounded-xl text-emerald-800 text-xs font-medium flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
             <span>{notification}</span>
           </div>
           <button onClick={() => setNotification(null)} className="text-emerald-600 hover:text-emerald-800 font-bold ml-2 cursor-pointer">✕</button>
@@ -396,53 +396,53 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
       )}
 
       {/* Navigation Tab Bar */}
-      <div className="flex border-b border-slate-200 dark:border-slate-700 gap-2">
+      <div className="flex border-b border-[#E2E8F0] gap-1 overflow-x-auto">
         <button
           onClick={() => setActiveTab('clinics')}
-          className={`pb-3 px-4 text-xs font-bold flex items-center gap-2 border-b-2 transition-all cursor-pointer ${
+          className={`pb-2.5 px-3.5 text-xs font-medium flex items-center gap-2 border-b-2 transition-colors cursor-pointer shrink-0 ${
             activeTab === 'clinics'
-              ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400'
-              : 'border-transparent text-slate-600 dark:text-slate-300 hover:text-slate-800 dark:hover:text-white'
+              ? 'border-teal-700 text-teal-900 font-semibold'
+              : 'border-transparent text-slate-600 hover:text-slate-900'
           }`}
         >
           <Building2 className="w-4 h-4" />
-          <span>Clinics Management ({totalClinicsCount})</span>
+          <span>Facilities ({totalClinicsCount})</span>
         </button>
 
         <button
           onClick={() => setActiveTab('admins')}
-          className={`pb-3 px-4 text-xs font-bold flex items-center gap-2 border-b-2 transition-all cursor-pointer ${
+          className={`pb-2.5 px-3.5 text-xs font-medium flex items-center gap-2 border-b-2 transition-colors cursor-pointer shrink-0 ${
             activeTab === 'admins'
-              ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400'
-              : 'border-transparent text-slate-600 dark:text-slate-300 hover:text-slate-800 dark:hover:text-white'
+              ? 'border-teal-700 text-teal-900 font-semibold'
+              : 'border-transparent text-slate-600 hover:text-slate-900'
           }`}
         >
           <Users className="w-4 h-4" />
-          <span>Clinic Admins & Access ({clinicAdmins.length})</span>
+          <span>Clinic Administrators ({clinicAdmins.length})</span>
         </button>
 
         <button
           onClick={() => setActiveTab('audit')}
-          className={`pb-3 px-4 text-xs font-bold flex items-center gap-2 border-b-2 transition-all cursor-pointer ${
+          className={`pb-2.5 px-3.5 text-xs font-medium flex items-center gap-2 border-b-2 transition-colors cursor-pointer shrink-0 ${
             activeTab === 'audit'
-              ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400'
-              : 'border-transparent text-slate-600 dark:text-slate-300 hover:text-slate-800 dark:hover:text-white'
+              ? 'border-teal-700 text-teal-900 font-semibold'
+              : 'border-transparent text-slate-600 hover:text-slate-900'
           }`}
         >
           <History className="w-4 h-4" />
-          <span>System Audit Logs ({auditLogs.length})</span>
+          <span>Audit Logs ({auditLogs.length})</span>
         </button>
 
         <button
           onClick={() => setActiveTab('security-tests')}
-          className={`pb-3 px-4 text-xs font-bold flex items-center gap-2 border-b-2 transition-all cursor-pointer ${
+          className={`pb-2.5 px-3.5 text-xs font-medium flex items-center gap-2 border-b-2 transition-colors cursor-pointer shrink-0 ${
             activeTab === 'security-tests'
-              ? 'border-emerald-500 text-emerald-600 dark:text-emerald-400'
-              : 'border-transparent text-slate-600 dark:text-slate-300 hover:text-slate-800 dark:hover:text-white'
+              ? 'border-teal-700 text-teal-900 font-semibold'
+              : 'border-transparent text-slate-600 hover:text-slate-900'
           }`}
         >
-          <ShieldCheck className="w-4 h-4 text-emerald-500" />
-          <span>Security & Emulator Tests (19 Tests)</span>
+          <ShieldCheck className="w-4 h-4 text-emerald-600" />
+          <span>Security & Rules Verification</span>
         </button>
       </div>
 

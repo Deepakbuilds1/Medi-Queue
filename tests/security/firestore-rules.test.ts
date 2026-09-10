@@ -27,7 +27,7 @@ let testEnv: RulesTestEnvironment;
 
 // Test Actor Identifiers
 const SUPER_ADMIN_UID = 'super_admin_user_001';
-const SUPER_ADMIN_EMAIL = 'gdeepak4689@gmail.com';
+const SUPER_ADMIN_EMAIL = 'medi@gmail.com';
 
 const CLINIC_ADMIN_ALPHA_UID = 'clinic_admin_alpha_002';
 const CLINIC_ADMIN_ALPHA_EMAIL = 'admin@alpha-clinic.com';

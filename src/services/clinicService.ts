@@ -1223,7 +1223,7 @@ export async function saveUserProfile(profile: {
   
   // Designate default super admin
   let role = profile.role || 'PATIENT';
-  if (profile.email === 'medi@gmail.com' || profile.email === 'gdeepak4689@gmail.com') {
+  if (profile.email === 'medi@gmail.com') {
     role = 'SUPER_ADMIN';
   }
 
@@ -1422,7 +1422,7 @@ export async function verifyUserAuthorization(
   
   if (superAdminSession) {
     resolvedRole = 'SUPER_ADMIN';
-  } else if (currentUser?.email === 'medi@gmail.com' || currentUser?.email === 'gdeepak4689@gmail.com' || userProfile?.email === 'medi@gmail.com' || userProfile?.email === 'gdeepak4689@gmail.com') {
+  } else if (currentUser?.email === 'medi@gmail.com' || userProfile?.email === 'medi@gmail.com') {
     resolvedRole = 'SUPER_ADMIN';
   } else if (claims.role && typeof claims.role === 'string') {
     resolvedRole = claims.role as UserRole;
@@ -1595,7 +1595,7 @@ export async function logAuditEvent(params: {
   // Determine actor details accurately
   const actorUid = params.actorUid || currentUser?.uid || 'session_user';
   const actorEmail = params.actorEmail || currentUser?.email || (params.actorRole === 'SUPER_ADMIN' ? 'superadmin@mediqueue.internal' : undefined);
-  const isSuper = actorEmail === 'medi@gmail.com' || actorEmail === 'gdeepak4689@gmail.com' || actorEmail === 'superadmin@mediqueue.internal' || params.actorRole === 'SUPER_ADMIN';
+  const isSuper = actorEmail === 'medi@gmail.com' || actorEmail === 'superadmin@mediqueue.internal' || params.actorRole === 'SUPER_ADMIN';
   const actorRole = params.actorRole || (isSuper ? 'SUPER_ADMIN' : 'CLINIC_ADMIN');
 
   // Safely resolve clinicId & clinicName
@@ -1861,12 +1861,12 @@ export function getLocalClinicAdmins(): UserProfile[] {
   return [
     {
       uid: 'super_admin_root',
-      email: 'gdeepak4689@gmail.com',
-      name: 'Deepak G (Super Admin)',
-      displayName: 'Deepak G',
+      email: 'medi@gmail.com',
+      name: 'Super Administrator',
+      displayName: 'Super Administrator',
       phone: '+1 (800) 555-0100',
       age: 38,
-      gender: 'Male',
+      gender: 'Other',
       role: 'SUPER_ADMIN',
       clinicId: '',
       clinicIds: [],
@@ -2098,41 +2098,95 @@ export async function generateToken(params: {
 
   // 3. Create or sync patient record in clinic's patients subcollection
   let patientRecordId = '';
-  try {
-    const qPatients = query(
-      collection(db, 'clinics', clinicId, 'patients'),
-      where('phone', '==', phone)
-    );
-    const patientSnap = await getDocs(qPatients);
+  const currentAuthUser = auth.currentUser;
+  const targetUserId = userId || currentAuthUser?.uid || '';
 
-    if (!patientSnap.empty) {
-      const pDoc = patientSnap.docs[0];
-      patientRecordId = pDoc.id;
-      const currentData = pDoc.data();
-      await updateDoc(doc(db, 'clinics', clinicId, 'patients', pDoc.id), {
-        lastVisit: getTodayDateString(),
-        totalVisits: (currentData.totalVisits || 1) + 1,
-        name: patientName,
-        age: Number(age),
-        gender
-      });
+  try {
+    // Determine whether caller is authenticated clinic staff vs patient vs guest
+    let isStaffCaller = false;
+    if (currentAuthUser) {
+      try {
+        const authCheck = await verifyUserAuthorization({
+          clinicId,
+          requiredRole: ['CLINIC_ADMIN', 'admin', 'SUPER_ADMIN', 'DOCTOR', 'RECEPTIONIST']
+        });
+        isStaffCaller = authCheck.isAuthorized;
+      } catch {
+        isStaffCaller = false;
+      }
+    }
+
+    if (isStaffCaller) {
+      // Clinic staff is authorized to search and sync clinic patient directory by phone
+      const qPatients = query(
+        collection(db, 'clinics', clinicId, 'patients'),
+        where('phone', '==', phone)
+      );
+      const patientSnap = await getDocs(qPatients);
+
+      if (!patientSnap.empty) {
+        const pDoc = patientSnap.docs[0];
+        patientRecordId = pDoc.id;
+        const currentData = pDoc.data();
+        await updateDoc(doc(db, 'clinics', clinicId, 'patients', pDoc.id), {
+          lastVisit: getTodayDateString(),
+          totalVisits: (currentData.totalVisits || 1) + 1,
+          name: patientName,
+          age: Number(age),
+          gender
+        });
+      } else {
+        const generatedPatientId = `PAT-${Date.now().toString().slice(-6)}`;
+        const newDoc = await addDoc(collection(db, 'clinics', clinicId, 'patients'), {
+          clinicId,
+          patientId: generatedPatientId,
+          name: patientName,
+          age: Number(age),
+          gender,
+          phone,
+          reason: reason || 'General Consultation',
+          createdAt: new Date().toISOString(),
+          lastVisit: getTodayDateString(),
+          totalVisits: 1
+        });
+        patientRecordId = newDoc.id;
+      }
+    } else if (currentAuthUser && targetUserId === currentAuthUser.uid) {
+      // Authenticated patient strictly reads/writes their OWN patient record
+      // Firestore rule: allow read, update: if (request.auth.uid == patientId)
+      const patientDocRef = doc(db, 'clinics', clinicId, 'patients', currentAuthUser.uid);
+      const pDocSnap = await getDoc(patientDocRef);
+      patientRecordId = currentAuthUser.uid;
+
+      if (pDocSnap.exists()) {
+        const currentData = pDocSnap.data();
+        await updateDoc(patientDocRef, {
+          lastVisit: getTodayDateString(),
+          totalVisits: (currentData.totalVisits || 1) + 1,
+          name: patientName,
+          age: Number(age),
+          gender,
+          phone
+        });
+      } else {
+        await setDoc(patientDocRef, {
+          clinicId,
+          patientId: `PAT-${currentAuthUser.uid.slice(0, 6).toUpperCase()}`,
+          userId: currentAuthUser.uid,
+          name: patientName,
+          age: Number(age),
+          gender,
+          phone,
+          reason: reason || 'General Consultation',
+          createdAt: new Date().toISOString(),
+          lastVisit: getTodayDateString(),
+          totalVisits: 1
+        });
+      }
     } else {
-      const allPatientsSnap = await getDocs(collection(db, 'clinics', clinicId, 'patients'));
-      const nextNumber = allPatientsSnap.size + 1001;
-      const patientId = `PAT-${nextNumber}`;
-      const newDoc = await addDoc(collection(db, 'clinics', clinicId, 'patients'), {
-        clinicId,
-        patientId,
-        name: patientName,
-        age: Number(age),
-        gender,
-        phone,
-        reason: reason || 'General Consultation',
-        createdAt: new Date().toISOString(),
-        lastVisit: getTodayDateString(),
-        totalVisits: 1
-      });
-      patientRecordId = newDoc.id;
+      // Unauthenticated guest or booking without staff/patient privileges
+      // Queue token will hold patient details directly; do not attempt unauthorized patient directory reads
+      patientRecordId = `pat-${Date.now()}`;
     }
   } catch (err) {
     console.warn('Patient directory sync notice:', formatFirestoreError(err, 'Could not sync patient directory'));

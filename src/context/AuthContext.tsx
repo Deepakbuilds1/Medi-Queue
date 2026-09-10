@@ -422,12 +422,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         try {
           let profile = await getUserProfile(currentUser.uid);
           
-          if (!profile && (currentUser.email === 'medi@gmail.com' || currentUser.email === 'gdeepak4689@gmail.com')) {
+          if (!profile && currentUser.email === 'medi@gmail.com') {
             profile = {
               uid: currentUser.uid,
               email: currentUser.email,
-              name: currentUser.email === 'medi@gmail.com' ? 'Super Administrator' : 'Deepak G (Super Admin)',
-              displayName: currentUser.email === 'medi@gmail.com' ? 'Super Administrator' : 'Deepak G',
+              name: 'Super Administrator',
+              displayName: 'Super Administrator',
               phone: currentUser.phoneNumber || '+1 (800) 555-0100',
               age: 40,
               gender: 'Other',
@@ -441,7 +441,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             try {
               await saveUserProfile(profile);
             } catch (_) {}
-          } else if (profile && (currentUser.email === 'medi@gmail.com' || currentUser.email === 'gdeepak4689@gmail.com') && profile.role !== 'SUPER_ADMIN') {
+          } else if (profile && currentUser.email === 'medi@gmail.com' && profile.role !== 'SUPER_ADMIN') {
             profile = { ...profile, role: 'SUPER_ADMIN' };
             try {
               await saveUserProfile(profile);

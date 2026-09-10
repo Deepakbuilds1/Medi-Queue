@@ -45,7 +45,7 @@ import { getErrorMessage, safeRender } from './utils/errorUtils';
 
 const MainAppContent: React.FC = () => {
   const { user, userProfile, loading: authLoading, authReady, isSuperAdmin, isClinicAdmin, isClinicStaff, userRole, logout } = useAuth();
-  const { activeClinicId, activeClinic, switchClinic } = useClinic();
+  const { activeClinicId, activeClinic, switchClinic, loading: clinicLoading } = useClinic();
 
   // Navigation State: default view is '/admin/dashboard'
   const [currentPath, setCurrentPath] = useState<string>(() => window.location.pathname || '/admin/dashboard');
@@ -83,9 +83,11 @@ const MainAppContent: React.FC = () => {
   // Subscribe to Firestore Realtime Data strictly scoped to activeClinicId
   useEffect(() => {
     // Guard against uninitialized auth state and uninitialized clinicId
-    if (authLoading || !authReady || !activeClinicId || typeof activeClinicId !== 'string' || !activeClinicId.trim()) {
+    if (authLoading || !authReady || clinicLoading || !activeClinicId || typeof activeClinicId !== 'string' || !activeClinicId.trim()) {
       return;
     }
+
+    const trimmedClinicId = activeClinicId.trim();
 
     // Reset previous clinic tenant data to prevent data leakage during transition
     setDoctors([]);
@@ -95,12 +97,12 @@ const MainAppContent: React.FC = () => {
 
     // Public subscriptions for basic clinic configuration (scoped to validated activeClinicId)
     const unsubSettings = subscribeSettings(
-      activeClinicId,
+      trimmedClinicId,
       (s) => setSettings(s),
       (err) => setConnectionError(getErrorMessage(err, 'Connection notice: unable to sync clinic settings'))
     );
     const unsubDoctors = subscribeDoctors(
-      activeClinicId,
+      trimmedClinicId,
       (d) => setDoctors(d),
       (err) => setConnectionError(getErrorMessage(err, 'Connection notice: unable to sync doctors directory'))
     );
@@ -108,22 +110,50 @@ const MainAppContent: React.FC = () => {
     let unsubPatients: (() => void) | null = null;
     let unsubTokens: (() => void) | null = null;
 
-    // Only start protected clinic data subscriptions once user session is stabilized and authenticated
-    if ((user || isSuperAdmin) && !authLoading && authReady && auth.currentUser) {
-      const isStaff = isSuperAdmin || isClinicAdmin || isClinicStaff || userRole === 'DOCTOR' || userRole === 'RECEPTIONIST';
-      
-      // Patient directory listener is exclusively for authorized staff (PATIENTS ARE NEVER SUBSCRIBED)
-      if (isStaff) {
-        unsubPatients = subscribePatients(
-          activeClinicId,
-          (p) => setPatients(p),
-          (err) => setConnectionError(getErrorMessage(err, 'Connection notice: unable to sync patients directory'))
-        );
-      }
+    // Condition 1: Firebase Auth initialization is complete
+    const isAuthComplete = !authLoading && authReady;
 
-      // Today's token queue listener
+    // Condition 2: request.auth exists
+    const hasValidAuth = !!auth.currentUser && !!user;
+
+    // Condition 3: user's Firestore /users/{uid} document has loaded
+    const hasLoadedUserProfile = !!userProfile && userProfile.uid === auth.currentUser?.uid;
+
+    // Condition 4: activeClinicId has been resolved and authorized
+    const authorizedClinics = isSuperAdmin
+      ? [trimmedClinicId]
+      : (userProfile?.clinicIds || userProfile?.accessibleClinicIds || (userProfile?.clinicId ? [userProfile.clinicId] : []));
+    const isAuthorizedForClinic = isSuperAdmin || authorizedClinics.includes(trimmedClinicId);
+
+    // Role check: Strictly authorized staff (PATIENTS ARE NEVER SUBSCRIBED)
+    const isStaffRole = isSuperAdmin || (
+      hasLoadedUserProfile &&
+      userProfile.role !== 'PATIENT' &&
+      userProfile.role !== 'patient' &&
+      ['SUPER_ADMIN', 'CLINIC_ADMIN', 'admin', 'DOCTOR', 'RECEPTIONIST'].includes(userProfile.role)
+    );
+
+    const canSubscribePatientDirectory = (
+      isAuthComplete &&
+      hasValidAuth &&
+      hasLoadedUserProfile &&
+      isAuthorizedForClinic &&
+      isStaffRole
+    );
+
+    // Patient directory listener is exclusively for authorized staff under all 4 required security conditions
+    if (canSubscribePatientDirectory) {
+      unsubPatients = subscribePatients(
+        trimmedClinicId,
+        (p) => setPatients(p),
+        (err) => setConnectionError(getErrorMessage(err, 'Connection notice: unable to sync patients directory'))
+      );
+    }
+
+    // Queue token listener for authorized users or active queue view
+    if ((user || isSuperAdmin) && isAuthComplete && auth.currentUser) {
       unsubTokens = subscribeTodayTokens(
-        activeClinicId,
+        trimmedClinicId,
         (t) => setTokens(t),
         (err) => setConnectionError(getErrorMessage(err, 'Connection notice: unable to sync today queue'))
       );
@@ -135,7 +165,18 @@ const MainAppContent: React.FC = () => {
       if (unsubPatients) unsubPatients();
       if (unsubTokens) unsubTokens();
     };
-  }, [user, authLoading, authReady, userProfile, isSuperAdmin, isClinicAdmin, isClinicStaff, userRole, activeClinicId]);
+  }, [
+    user,
+    authLoading,
+    authReady,
+    userProfile,
+    isSuperAdmin,
+    isClinicAdmin,
+    isClinicStaff,
+    userRole,
+    activeClinicId,
+    clinicLoading
+  ]);
 
   // Listen for browser popstate
   useEffect(() => {

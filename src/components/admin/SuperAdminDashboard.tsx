@@ -754,7 +754,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-700/60">
                   {filteredAdmins.map((admin) => {
-                    const isSuper = admin.role === 'SUPER_ADMIN' || admin.email === 'gdeepak4689@gmail.com';
+                    const isSuper = admin.role === 'SUPER_ADMIN' || admin.email === 'medi@gmail.com';
                     const assignedList = admin.clinicIds || admin.accessibleClinicIds || (admin.clinicId ? [admin.clinicId] : []);
                     const isActiveStatus = admin.status !== 'inactive' && admin.status !== 'INACTIVE';
 

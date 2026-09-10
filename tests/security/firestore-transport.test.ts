@@ -117,7 +117,7 @@ describe('Firestore Transport & Error Classification', () => {
       const admins = getLocalClinicAdmins();
       expect(admins.length).toBeGreaterThan(0);
       expect(admins[0].role).toBe('SUPER_ADMIN');
-      expect(admins[0].email).toBe('gdeepak4689@gmail.com');
+      expect(admins[0].email).toBe('medi@gmail.com');
     });
 
     it('stores and updates clinic admin in local storage', async () => {

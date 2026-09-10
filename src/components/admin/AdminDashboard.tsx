@@ -170,13 +170,19 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   return (
     <div className="space-y-4 max-w-7xl mx-auto animate-in fade-in duration-200">
+      <h1 className="sr-only">Admin Dashboard</h1>
       
       {/* Top Doctor Filter Bar & Clinic Status Banner */}
       <div className="bg-white dark:bg-slate-800 p-3 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xs flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2 text-xs font-bold text-slate-700 dark:text-slate-300">
           <Filter className="w-4 h-4 text-blue-600" />
+          <label htmlFor="admin-doctor-filter-select" className="sr-only">
+            Filter queue by doctor
+          </label>
           <span>FILTER BY DOCTOR:</span>
           <select
+            id="admin-doctor-filter-select"
+            aria-label="Filter queue by doctor"
             value={selectedDoctorFilter}
             onChange={(e) => setSelectedDoctorFilter(e.target.value)}
             className="bg-slate-100 dark:bg-slate-900 text-slate-800 dark:text-slate-200 px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 text-xs font-semibold focus:outline-none"
@@ -189,7 +195,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         </div>
 
         <div className="flex items-center gap-2 ml-auto">
-          <span className="text-[11px] font-semibold text-slate-500 hidden sm:inline">
+          <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-300 hidden sm:inline">
             Active Tenant: <strong className="text-slate-800 dark:text-slate-200">{activeClinic?.name || (activeClinicId ? `Clinic: ${activeClinicId}` : 'None')}</strong>
           </span>
           <button
@@ -213,7 +219,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xs">
           <div className="flex items-center justify-between mb-1">
-            <span className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">Today's Patients</span>
+            <span className="text-[10px] uppercase tracking-wider text-slate-600 dark:text-slate-300 font-bold">Today's Patients</span>
             <Users className="w-4 h-4 text-blue-500" />
           </div>
           <p className="text-2xl md:text-3xl font-black text-slate-900 dark:text-white font-mono">{totalToday}</p>
@@ -221,7 +227,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
         <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xs">
           <div className="flex items-center justify-between mb-1">
-            <span className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">Waiting</span>
+            <span className="text-[10px] uppercase tracking-wider text-slate-600 dark:text-slate-300 font-bold">Waiting</span>
             <Clock className="w-4 h-4 text-amber-500" />
           </div>
           <p className="text-2xl md:text-3xl font-black text-amber-500 font-mono">{String(waitingCount).padStart(2, '0')}</p>
@@ -229,7 +235,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
         <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xs">
           <div className="flex items-center justify-between mb-1">
-            <span className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">In Consultation</span>
+            <span className="text-[10px] uppercase tracking-wider text-slate-600 dark:text-slate-300 font-bold">In Consultation</span>
             <Activity className="w-4 h-4 text-blue-500" />
           </div>
           <p className="text-2xl md:text-3xl font-black text-blue-500 font-mono">{String(inConsultationCount).padStart(2, '0')}</p>
@@ -237,7 +243,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
         <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xs">
           <div className="flex items-center justify-between mb-1">
-            <span className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">Completed</span>
+            <span className="text-[10px] uppercase tracking-wider text-slate-600 dark:text-slate-300 font-bold">Completed</span>
             <CheckCircle2 className="w-4 h-4 text-emerald-500" />
           </div>
           <p className="text-2xl md:text-3xl font-black text-emerald-500 font-mono">{String(completedCount).padStart(2, '0')}</p>
@@ -260,10 +266,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               <button
                 onClick={() => playTokenCallSound()}
                 title="Test Call Chime Sound"
-                className="text-xs text-slate-500 hover:text-blue-600 dark:text-slate-400 flex items-center gap-1.5 px-2 py-1 bg-slate-100 dark:bg-slate-700 rounded-lg transition-colors cursor-pointer"
+                className="text-xs text-slate-700 hover:text-blue-600 dark:text-slate-200 dark:hover:text-white flex items-center gap-1.5 px-2 py-1 bg-slate-100 dark:bg-slate-700 rounded-lg transition-colors cursor-pointer"
               >
-                <Volume2 className="w-3.5 h-3.5" />
-                <span>Test Chime</span>
+                <Volume2 className="w-3.5 h-3.5 text-slate-700 dark:text-slate-200" />
+                <span className="text-slate-700 dark:text-slate-200">Test Chime</span>
               </button>
             </div>
 
@@ -440,7 +446,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="bg-slate-50 dark:bg-slate-900/60 text-[10px] uppercase font-bold text-slate-500 border-b border-slate-100 dark:border-slate-700">
+              <tr className="bg-slate-50 dark:bg-slate-900/60 text-[10px] uppercase font-bold text-slate-600 dark:text-slate-300 border-b border-slate-100 dark:border-slate-700">
                 <th className="p-3">Token</th>
                 <th className="p-3">Patient Name</th>
                 <th className="p-3">Doctor</th>

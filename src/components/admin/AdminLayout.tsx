@@ -237,7 +237,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
                 <Icon className={`w-4 h-4 ${isActive ? (isSuper ? 'text-white' : 'text-blue-400') : (isSuper ? 'text-indigo-400' : 'text-slate-400')}`} />
                 <span>{item.label}</span>
                 {isSuper && (
-                  <span className="ml-auto px-1.5 py-0.5 bg-indigo-500/30 text-indigo-300 rounded text-[9px] font-bold">
+                  <span className="ml-auto px-1.5 py-0.5 bg-indigo-700 text-indigo-100 rounded text-[9px] font-bold">
                     ROOT
                   </span>
                 )}

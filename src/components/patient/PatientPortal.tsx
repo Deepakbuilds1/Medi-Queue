@@ -184,15 +184,22 @@ export const PatientPortal: React.FC<PatientPortalProps> = ({
                 <span>{activeClinic?.name || 'Registered Clinic'}</span>
               </div>
             ) : clinics.length > 1 ? (
-              <select
-                value={activeClinicId}
-                onChange={(e) => switchClinic(e.target.value)}
-                className="text-xs font-bold text-slate-700 bg-slate-100 border border-slate-300 px-2 py-1 rounded-lg cursor-pointer focus:outline-none"
-              >
-                {clinics.map(c => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
-                ))}
-              </select>
+              <div className="flex items-center">
+                <label htmlFor="header-clinic-selector" className="sr-only">
+                  Select clinic
+                </label>
+                <select
+                  id="header-clinic-selector"
+                  aria-label="Select clinic"
+                  value={activeClinicId}
+                  onChange={(e) => switchClinic(e.target.value)}
+                  className="text-xs font-bold text-slate-700 bg-slate-100 border border-slate-300 px-2 py-1 rounded-lg cursor-pointer focus:outline-none"
+                >
+                  {clinics.map(c => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+              </div>
             ) : null}
 
             <button
@@ -284,7 +291,7 @@ export const PatientPortal: React.FC<PatientPortalProps> = ({
               </button>
               <button
                 onClick={() => { setAuthModalMode('signup'); setIsAuthModalOpen(true); }}
-                className="px-3 py-1 bg-teal-600 hover:bg-teal-500 text-white rounded-lg text-xs font-bold transition-colors cursor-pointer shadow-2xs"
+                className="px-3 py-1 bg-teal-700 hover:bg-teal-800 text-white rounded-lg text-xs font-bold transition-colors cursor-pointer shadow-2xs"
               >
                 Sign Up
               </button>
@@ -351,9 +358,9 @@ export const PatientPortal: React.FC<PatientPortalProps> = ({
           <div className="bg-white rounded-2xl border border-slate-200 shadow-md p-6 space-y-4">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div>
-                <h3 className="font-extrabold text-sm text-slate-900 uppercase tracking-wider">
+                <h2 className="font-extrabold text-sm text-slate-900 uppercase tracking-wider">
                   My Booked Queue Tokens
-                </h3>
+                </h2>
                 <p className="text-[11px] text-slate-500">Real-time status updates for your clinic visits</p>
               </div>
               <span className="text-[10px] bg-teal-50 text-teal-700 px-2.5 py-1 rounded-full font-bold">
@@ -370,7 +377,7 @@ export const PatientPortal: React.FC<PatientPortalProps> = ({
                 </p>
                 <button
                   onClick={() => { setAuthModalMode('signin'); setIsAuthModalOpen(true); }}
-                  className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs rounded-xl shadow-md cursor-pointer"
+                  className="px-4 py-2 bg-teal-700 hover:bg-teal-800 text-white font-bold text-xs rounded-xl shadow-md cursor-pointer"
                 >
                   Sign In / Sign Up
                 </button>
@@ -382,7 +389,7 @@ export const PatientPortal: React.FC<PatientPortalProps> = ({
                 <p className="text-xs text-slate-500">Book your first consultation token using the Book Token tab.</p>
                 <button
                   onClick={() => setActiveTab('book')}
-                  className="px-4 py-2 bg-teal-600 text-white font-bold text-xs rounded-xl cursor-pointer"
+                  className="px-4 py-2 bg-teal-700 hover:bg-teal-800 text-white font-bold text-xs rounded-xl cursor-pointer"
                 >
                   Book Consultation Token
                 </button>
@@ -433,9 +440,14 @@ export const PatientPortal: React.FC<PatientPortalProps> = ({
             <form onSubmit={handleCheckStatus} className="max-w-md mx-auto space-y-3">
               <div className="relative">
                 <Search className="w-5 h-5 text-slate-400 absolute left-4 top-3.5" />
+                <label htmlFor="token-status-search-input" className="sr-only">
+                  Token Number
+                </label>
                 <input
+                  id="token-status-search-input"
                   type="text"
                   required
+                  aria-label="Enter Token Number"
                   value={tokenInput}
                   onChange={(e) => setTokenInput(e.target.value.toUpperCase())}
                   placeholder="Enter Token Number (e.g. A-025)"
@@ -446,7 +458,7 @@ export const PatientPortal: React.FC<PatientPortalProps> = ({
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full py-3 bg-teal-600 hover:bg-teal-700 active:bg-teal-800 text-white font-extrabold text-sm rounded-xl shadow-lg shadow-teal-600/20 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                className="w-full py-3 bg-teal-700 hover:bg-teal-800 active:bg-teal-900 text-white font-extrabold text-sm rounded-xl shadow-lg shadow-teal-700/20 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
               >
                 {loading ? 'Checking Queue...' : 'CHECK STATUS'}
               </button>
@@ -509,11 +521,11 @@ export const PatientPortal: React.FC<PatientPortalProps> = ({
           <div className="flex items-center justify-between border-b border-slate-100 pb-3">
             <div className="flex items-center gap-2">
               <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping" />
-              <h3 className="font-extrabold text-xs text-slate-900 uppercase tracking-wider">
+              <h2 className="font-extrabold text-xs text-slate-900 uppercase tracking-wider">
                 Live Queue ({clinicName})
-              </h3>
+              </h2>
             </div>
-            <span className="text-[10px] text-slate-400">Public Token Board</span>
+            <span className="text-[10px] text-slate-600">Public Token Board</span>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -545,7 +557,7 @@ export const PatientPortal: React.FC<PatientPortalProps> = ({
                 UP NEXT (WAITING)
               </span>
               {publicQueue.upNext.length === 0 ? (
-                <p className="text-xs text-slate-400 italic">No waiting patients.</p>
+                <p className="text-xs text-slate-600 italic">No waiting patients.</p>
               ) : (
                 <div className="flex flex-wrap gap-2">
                   {publicQueue.upNext.slice(0, 6).map(t => (
@@ -581,7 +593,7 @@ export const PatientPortal: React.FC<PatientPortalProps> = ({
           {/* Col 1: Brand & Clinic Info */}
           <div className="space-y-2 md:col-span-1">
             <div className="flex items-center gap-2">
-              <div className="w-6 h-6 bg-teal-600 rounded-lg flex items-center justify-center font-bold text-white text-xs">
+              <div className="w-6 h-6 bg-teal-700 rounded-lg flex items-center justify-center font-bold text-white text-xs">
                 M
               </div>
               <span className="font-extrabold text-white text-sm">MediQueue</span>
@@ -589,7 +601,7 @@ export const PatientPortal: React.FC<PatientPortalProps> = ({
             <p className="text-[11px] text-slate-400 leading-relaxed">
               Multi-Clinic Queue Management & Token OS for {clinicName}.
             </p>
-            <p className="text-[10px] text-slate-500 font-mono">
+            <p className="text-[10px] text-slate-300 font-mono">
               Tenant ID: {activeClinicId}
             </p>
           </div>
@@ -599,12 +611,12 @@ export const PatientPortal: React.FC<PatientPortalProps> = ({
             <h4 className="font-bold text-slate-200 uppercase tracking-wider text-[10px]">
               Legal & Compliance
             </h4>
-            <ul className="space-y-1.5 text-[11px]">
+            <ul className="space-y-1 text-[11px]">
               <li>
                 <button
                   type="button"
                   onClick={() => onOpenLegalDoc && onOpenLegalDoc('privacy')}
-                  className="hover:text-teal-400 transition-colors cursor-pointer"
+                  className="inline-flex min-h-6 items-center px-1 hover:text-teal-400 transition-colors cursor-pointer"
                 >
                   Privacy Policy
                 </button>
@@ -613,7 +625,7 @@ export const PatientPortal: React.FC<PatientPortalProps> = ({
                 <button
                   type="button"
                   onClick={() => onOpenLegalDoc && onOpenLegalDoc('terms')}
-                  className="hover:text-teal-400 transition-colors cursor-pointer"
+                  className="inline-flex min-h-6 items-center px-1 hover:text-teal-400 transition-colors cursor-pointer"
                 >
                   Terms of Service
                 </button>
@@ -622,7 +634,7 @@ export const PatientPortal: React.FC<PatientPortalProps> = ({
                 <button
                   type="button"
                   onClick={() => onOpenLegalDoc && onOpenLegalDoc('disclaimer')}
-                  className="text-amber-400 hover:text-amber-300 font-semibold transition-colors cursor-pointer flex items-center gap-1"
+                  className="inline-flex min-h-6 items-center gap-1 px-1 text-amber-400 hover:text-amber-300 font-semibold transition-colors cursor-pointer"
                 >
                   <AlertTriangle className="w-3 h-3" />
                   <span>Medical Disclaimer</span>
@@ -632,7 +644,7 @@ export const PatientPortal: React.FC<PatientPortalProps> = ({
                 <button
                   type="button"
                   onClick={() => onOpenLegalDoc && onOpenLegalDoc('cancellation')}
-                  className="hover:text-teal-400 transition-colors cursor-pointer"
+                  className="inline-flex min-h-6 items-center px-1 hover:text-teal-400 transition-colors cursor-pointer"
                 >
                   Cancellation Policy
                 </button>
@@ -645,12 +657,12 @@ export const PatientPortal: React.FC<PatientPortalProps> = ({
             <h4 className="font-bold text-slate-200 uppercase tracking-wider text-[10px]">
               Security & Privacy
             </h4>
-            <ul className="space-y-1.5 text-[11px]">
+            <ul className="space-y-1 text-[11px]">
               <li>
                 <button
                   type="button"
                   onClick={() => onOpenLegalDoc && onOpenLegalDoc('security')}
-                  className="hover:text-teal-400 transition-colors cursor-pointer"
+                  className="inline-flex min-h-6 items-center px-1 hover:text-teal-400 transition-colors cursor-pointer"
                 >
                   Security Architecture
                 </button>
@@ -659,7 +671,7 @@ export const PatientPortal: React.FC<PatientPortalProps> = ({
                 <button
                   type="button"
                   onClick={() => onOpenLegalDoc && onOpenLegalDoc('cookies')}
-                  className="hover:text-teal-400 transition-colors cursor-pointer"
+                  className="inline-flex min-h-6 items-center px-1 hover:text-teal-400 transition-colors cursor-pointer"
                 >
                   Cookie & Storage Policy
                 </button>
@@ -668,7 +680,7 @@ export const PatientPortal: React.FC<PatientPortalProps> = ({
                 <button
                   type="button"
                   onClick={onOpenCookiePreferences}
-                  className="hover:text-teal-400 transition-colors cursor-pointer text-teal-400"
+                  className="inline-flex min-h-6 items-center px-1 hover:text-teal-400 transition-colors cursor-pointer text-teal-400"
                 >
                   Cookie Preferences
                 </button>
@@ -677,7 +689,7 @@ export const PatientPortal: React.FC<PatientPortalProps> = ({
                 <button
                   type="button"
                   onClick={() => onOpenLegalDoc && onOpenLegalDoc('accessibility')}
-                  className="hover:text-teal-400 transition-colors cursor-pointer"
+                  className="inline-flex min-h-6 items-center px-1 hover:text-teal-400 transition-colors cursor-pointer"
                 >
                   Accessibility Statement
                 </button>
@@ -690,12 +702,12 @@ export const PatientPortal: React.FC<PatientPortalProps> = ({
             <h4 className="font-bold text-slate-200 uppercase tracking-wider text-[10px]">
               Assistance & Help
             </h4>
-            <ul className="space-y-1.5 text-[11px]">
+            <ul className="space-y-1 text-[11px]">
               <li>
                 <button
                   type="button"
                   onClick={onOpenHelpCenter}
-                  className="hover:text-teal-400 transition-colors cursor-pointer text-teal-400 font-semibold"
+                  className="inline-flex min-h-6 items-center px-1 hover:text-teal-400 transition-colors cursor-pointer text-teal-400 font-semibold"
                 >
                   Help Center & FAQs
                 </button>
@@ -704,7 +716,7 @@ export const PatientPortal: React.FC<PatientPortalProps> = ({
                 <button
                   type="button"
                   onClick={onNavigateToPublicDisplay}
-                  className="hover:text-emerald-400 transition-colors cursor-pointer"
+                  className="inline-flex min-h-6 items-center px-1 hover:text-emerald-400 transition-colors cursor-pointer"
                 >
                   TV Waiting Display
                 </button>
@@ -713,7 +725,7 @@ export const PatientPortal: React.FC<PatientPortalProps> = ({
                 <button
                   type="button"
                   onClick={onNavigateToAdminLogin}
-                  className="hover:text-white transition-colors cursor-pointer"
+                  className="inline-flex min-h-6 items-center px-1 hover:text-white transition-colors cursor-pointer"
                 >
                   Clinic Admin Portal
                 </button>
@@ -723,7 +735,7 @@ export const PatientPortal: React.FC<PatientPortalProps> = ({
                   <button
                     type="button"
                     onClick={onOpenAccountSettings}
-                    className="hover:text-teal-400 transition-colors cursor-pointer"
+                    className="inline-flex min-h-6 items-center px-1 hover:text-teal-400 transition-colors cursor-pointer"
                   >
                     Account & Data Export
                   </button>
@@ -736,7 +748,7 @@ export const PatientPortal: React.FC<PatientPortalProps> = ({
 
         {/* Bottom copyright & emergency warning */}
         <div className="max-w-4xl mx-auto pt-6 border-t border-slate-800 flex flex-col sm:flex-row items-center justify-between text-[11px] text-slate-500 gap-3">
-          <p>© {new Date().getFullYear()} {clinicName}. All rights reserved.</p>
+          <p className="text-slate-300">© {new Date().getFullYear()} {clinicName}. All rights reserved.</p>
           <div className="flex items-center gap-1.5 text-amber-500/90 text-[10px]">
             <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
             <span>Emergency medical cases: Dial 911 / 112 immediately.</span>

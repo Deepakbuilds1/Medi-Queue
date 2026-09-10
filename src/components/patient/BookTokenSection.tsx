@@ -104,9 +104,9 @@ export const BookTokenSection: React.FC<BookTokenSectionProps> = ({ onTokenGener
             <PlusCircle className="w-5 h-5" />
           </div>
           <div>
-            <h3 className="font-extrabold text-sm text-slate-900 uppercase tracking-wider">
+            <h2 className="font-extrabold text-sm text-slate-900 uppercase tracking-wider">
               Book Queue Token
-            </h3>
+            </h2>
             <p className="text-[11px] text-slate-500">
               {user ? `Logged in as ${userProfile?.name || user.email}` : 'Sign in or Sign up to generate a queue token'}
             </p>
@@ -124,7 +124,12 @@ export const BookTokenSection: React.FC<BookTokenSectionProps> = ({ onTokenGener
         ) : clinics.length > 1 ? (
           <div className="flex items-center gap-1.5 bg-slate-50 px-2.5 py-1 rounded-xl border border-slate-200">
             <Building2 className="w-3.5 h-3.5 text-teal-600" />
+            <label htmlFor="booking-clinic-selector" className="sr-only">
+              Select clinic
+            </label>
             <select
+              id="booking-clinic-selector"
+              aria-label="Select clinic"
               value={activeClinicId}
               onChange={(e) => switchClinic(e.target.value)}
               className="bg-transparent text-xs font-bold text-slate-800 focus:outline-none cursor-pointer"
@@ -140,7 +145,7 @@ export const BookTokenSection: React.FC<BookTokenSectionProps> = ({ onTokenGener
           <button
             type="button"
             onClick={() => setIsAuthModalOpen(true)}
-            className="px-3 py-1.5 bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold rounded-xl flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs"
+            className="px-3 py-1.5 bg-teal-700 hover:bg-teal-800 text-white text-xs font-bold rounded-xl flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs"
           >
             <LogIn className="w-3.5 h-3.5" />
             Sign In / Sign Up
@@ -237,18 +242,28 @@ export const BookTokenSection: React.FC<BookTokenSectionProps> = ({ onTokenGener
             </div>
 
             <div>
-              <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Age & Gender</label>
+              <span className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Age & Gender</span>
               <div className="flex gap-2">
+                <label htmlFor="patient-age" className="sr-only">
+                  Age
+                </label>
                 <input
+                  id="patient-age"
                   type="number"
                   required
                   min={1}
                   max={120}
+                  aria-label="Age"
                   value={age}
                   onChange={(e) => setAge(Number(e.target.value))}
                   className="w-20 px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold focus:border-teal-500 focus:outline-none text-center"
                 />
+                <label htmlFor="patient-gender" className="sr-only">
+                  Gender
+                </label>
                 <select
+                  id="patient-gender"
+                  aria-label="Gender"
                   value={gender}
                   onChange={(e) => setGender(e.target.value as any)}
                   className="flex-1 px-3 py-2 bg-white border border-slate-300 rounded-xl font-semibold focus:border-teal-500 focus:outline-none"
@@ -277,7 +292,7 @@ export const BookTokenSection: React.FC<BookTokenSectionProps> = ({ onTokenGener
         <button
           type="submit"
           disabled={loading || !selectedDoctorId}
-          className="w-full py-3.5 bg-teal-600 hover:bg-teal-700 active:bg-teal-800 text-white font-extrabold text-sm rounded-xl shadow-lg shadow-teal-600/20 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+          className="w-full py-3.5 bg-teal-700 hover:bg-teal-800 active:bg-teal-900 text-white font-extrabold text-sm rounded-xl shadow-lg shadow-teal-700/20 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
         >
           <Sparkles className="w-4 h-4 text-amber-300" />
           {loading 

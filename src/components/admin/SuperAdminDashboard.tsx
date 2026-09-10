@@ -352,17 +352,17 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
     <div className="space-y-6 max-w-7xl mx-auto animate-in fade-in duration-200">
       
       {/* Header Banner */}
-      <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white p-6 rounded-2xl border border-slate-800 shadow-xl flex flex-wrap items-center justify-between gap-4">
+      <div className="bg-gradient-to-r from-slate-950 via-indigo-950 to-slate-950 text-white p-6 rounded-2xl border border-slate-800 shadow-xl flex flex-wrap items-center justify-between gap-4">
         <div className="space-y-1">
           <div className="flex items-center gap-2">
-            <span className="px-2.5 py-0.5 bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 rounded-md text-[10px] font-extrabold uppercase tracking-widest flex items-center gap-1.5">
-              <ShieldCheck className="w-3.5 h-3.5 text-indigo-400" />
+            <span className="px-2.5 py-0.5 bg-indigo-900 text-indigo-100 border border-indigo-700 rounded-md text-[10px] font-extrabold uppercase tracking-widest flex items-center gap-1.5">
+              <ShieldCheck className="w-3.5 h-3.5 text-indigo-200" />
               Super Admin Console
             </span>
-            <span className="text-xs text-slate-400 font-mono">Multi-Tenant Management Engine</span>
+            <span className="text-xs text-slate-300 font-mono">Multi-Tenant Management Engine</span>
           </div>
           <h1 className="text-2xl font-black tracking-tight text-white">Super Admin Control Center</h1>
-          <p className="text-xs text-slate-300">
+          <p className="text-xs text-slate-200">
             Manage all clinics, provision Clinic Admin accounts, assign multi-clinic permissions, and audit security events.
           </p>
         </div>
@@ -402,7 +402,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
           className={`pb-3 px-4 text-xs font-bold flex items-center gap-2 border-b-2 transition-all cursor-pointer ${
             activeTab === 'clinics'
               ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400'
-              : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+              : 'border-transparent text-slate-600 dark:text-slate-300 hover:text-slate-800 dark:hover:text-white'
           }`}
         >
           <Building2 className="w-4 h-4" />
@@ -414,7 +414,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
           className={`pb-3 px-4 text-xs font-bold flex items-center gap-2 border-b-2 transition-all cursor-pointer ${
             activeTab === 'admins'
               ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400'
-              : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+              : 'border-transparent text-slate-600 dark:text-slate-300 hover:text-slate-800 dark:hover:text-white'
           }`}
         >
           <Users className="w-4 h-4" />
@@ -426,7 +426,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
           className={`pb-3 px-4 text-xs font-bold flex items-center gap-2 border-b-2 transition-all cursor-pointer ${
             activeTab === 'audit'
               ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400'
-              : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+              : 'border-transparent text-slate-600 dark:text-slate-300 hover:text-slate-800 dark:hover:text-white'
           }`}
         >
           <History className="w-4 h-4" />
@@ -438,7 +438,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
           className={`pb-3 px-4 text-xs font-bold flex items-center gap-2 border-b-2 transition-all cursor-pointer ${
             activeTab === 'security-tests'
               ? 'border-emerald-500 text-emerald-600 dark:text-emerald-400'
-              : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+              : 'border-transparent text-slate-600 dark:text-slate-300 hover:text-slate-800 dark:hover:text-white'
           }`}
         >
           <ShieldCheck className="w-4 h-4 text-emerald-500" />
@@ -476,7 +476,12 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
 
               <div className="flex flex-wrap items-center gap-3">
                 <div className="relative flex-1 sm:flex-initial">
+                  <label htmlFor="super-admin-clinic-selector" className="sr-only">
+                    Select clinic
+                  </label>
                   <select
+                    id="super-admin-clinic-selector"
+                    aria-label="Select clinic"
                     value={activeClinicId}
                     onChange={(e) => switchClinic(e.target.value)}
                     className="w-full sm:w-64 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 text-slate-900 dark:text-white text-xs font-bold py-2.5 px-3 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-hidden cursor-pointer"
@@ -558,7 +563,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
 
             <div className="flex items-center gap-2 w-full sm:w-auto">
               <Filter className="w-3.5 h-3.5 text-slate-400" />
-              <span className="text-xs font-bold text-slate-500">Status:</span>
+              <span className="text-xs font-bold text-slate-600 dark:text-slate-300">Status:</span>
               {(['ALL', 'ACTIVE', 'INACTIVE'] as const).map(status => (
                 <button
                   key={status}
@@ -1192,8 +1197,10 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="font-bold text-slate-700 dark:text-slate-300">Status</label>
+                  <label htmlFor="create-clinic-status" className="font-bold text-slate-700 dark:text-slate-300">Status</label>
                   <select
+                    id="create-clinic-status"
+                    aria-label="Clinic Status"
                     value={createForm.status}
                     onChange={(e) => setCreateForm({ ...createForm, status: e.target.value as any })}
                     className="w-full p-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl"
@@ -1293,8 +1300,10 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="font-bold text-slate-700 dark:text-slate-300">Status</label>
+                  <label htmlFor="edit-clinic-status" className="font-bold text-slate-700 dark:text-slate-300">Status</label>
                   <select
+                    id="edit-clinic-status"
+                    aria-label="Edit Clinic Status"
                     value={editForm.status || 'ACTIVE'}
                     onChange={(e) => setEditForm({ ...editForm, status: e.target.value as any })}
                     className="w-full p-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl"

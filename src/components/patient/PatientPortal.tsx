@@ -617,172 +617,174 @@ export const PatientPortal: React.FC<PatientPortalProps> = ({
       />
 
       {/* Production Footer with Verified Legal, Emergency & Support Links */}
-      <footer className="bg-slate-900 text-slate-400 py-8 px-4 text-xs border-t border-slate-800 space-y-6">
-        <div className="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-6 text-left">
+      <footer className="bg-slate-900 text-slate-400 py-4 sm:py-6 px-3.5 sm:px-4 text-xs border-t border-slate-800">
+        <div className="max-w-4xl mx-auto space-y-3.5 sm:space-y-4">
           
-          {/* Col 1: Brand & Clinic Info */}
-          <div className="space-y-2 md:col-span-1">
-            <div className="flex items-center gap-2">
-              <div className="w-6 h-6 bg-teal-700 rounded-lg flex items-center justify-center font-bold text-white text-xs">
+          {/* Top Row: Brand, Clinic & Tenant Identity */}
+          <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-800/80">
+            <div className="flex items-center gap-2 min-w-0">
+              <div className="w-5 h-5 bg-teal-600 rounded-md flex items-center justify-center font-bold text-white text-[10px] shrink-0">
                 M
               </div>
-              <span className="font-extrabold text-white text-sm">MediQueue</span>
+              <span className="font-extrabold text-white text-xs tracking-tight">MediQueue</span>
+              <span className="text-slate-500 text-xs hidden sm:inline">•</span>
+              <span className="text-[11px] text-slate-300 truncate max-w-[180px] sm:max-w-xs">
+                {clinicName}
+              </span>
             </div>
-            <p className="text-xs text-slate-200 leading-relaxed">
-              Multi-Clinic Queue Management & Token OS for {clinicName}.
-            </p>
-            <p className="text-[10px] text-slate-300 font-mono">
-              Tenant ID: {activeClinicId}
-            </p>
+            <div className="flex items-center gap-2 shrink-0">
+              <span className="text-[10px] text-slate-400 font-mono bg-slate-800 px-2 py-0.5 rounded border border-slate-700/60">
+                Tenant: {activeClinicId}
+              </span>
+            </div>
           </div>
 
-          {/* Col 2: Legal & Disclosures */}
-          <div className="space-y-2">
-            <h4 className="font-bold text-slate-200 uppercase tracking-wider text-[10px]">
-              Legal & Compliance
-            </h4>
-            <ul className="space-y-1 text-[11px]">
-              <li>
-                <button
-                  type="button"
-                  onClick={() => onOpenLegalDoc && onOpenLegalDoc('privacy')}
-                  className="inline-flex min-h-6 items-center px-1 hover:text-teal-400 transition-colors cursor-pointer"
-                >
-                  Privacy Policy
-                </button>
-              </li>
-              <li>
-                <button
-                  type="button"
-                  onClick={() => onOpenLegalDoc && onOpenLegalDoc('terms')}
-                  className="inline-flex min-h-6 items-center px-1 hover:text-teal-400 transition-colors cursor-pointer"
-                >
-                  Terms of Service
-                </button>
-              </li>
-              <li>
-                <button
-                  type="button"
-                  onClick={() => onOpenLegalDoc && onOpenLegalDoc('disclaimer')}
-                  className="inline-flex min-h-6 items-center gap-1 px-1 text-amber-400 hover:text-amber-300 font-semibold transition-colors cursor-pointer"
-                >
-                  <AlertTriangle className="w-3 h-3" />
-                  <span>Medical Disclaimer</span>
-                </button>
-              </li>
-              <li>
-                <button
-                  type="button"
-                  onClick={() => onOpenLegalDoc && onOpenLegalDoc('cancellation')}
-                  className="inline-flex min-h-6 items-center px-1 hover:text-teal-400 transition-colors cursor-pointer"
-                >
-                  Cancellation Policy
-                </button>
-              </li>
-            </ul>
-          </div>
-
-          {/* Col 3: Architecture & Security */}
-          <div className="space-y-2">
-            <h4 className="font-bold text-slate-200 uppercase tracking-wider text-[10px]">
-              Security & Privacy
-            </h4>
-            <ul className="space-y-1 text-[11px]">
-              <li>
-                <button
-                  type="button"
-                  onClick={() => onOpenLegalDoc && onOpenLegalDoc('security')}
-                  className="inline-flex min-h-6 items-center px-1 hover:text-teal-400 transition-colors cursor-pointer"
-                >
-                  Security Architecture
-                </button>
-              </li>
-              <li>
-                <button
-                  type="button"
-                  onClick={() => onOpenLegalDoc && onOpenLegalDoc('cookies')}
-                  className="inline-flex min-h-6 items-center px-1 hover:text-teal-400 transition-colors cursor-pointer"
-                >
-                  Cookie & Storage Policy
-                </button>
-              </li>
-              <li>
-                <button
-                  type="button"
-                  onClick={onOpenCookiePreferences}
-                  className="inline-flex min-h-6 items-center px-1 hover:text-teal-400 transition-colors cursor-pointer text-teal-400"
-                >
-                  Cookie Preferences
-                </button>
-              </li>
-              <li>
-                <button
-                  type="button"
-                  onClick={() => onOpenLegalDoc && onOpenLegalDoc('accessibility')}
-                  className="inline-flex min-h-6 items-center px-1 hover:text-teal-400 transition-colors cursor-pointer"
-                >
-                  Accessibility Statement
-                </button>
-              </li>
-            </ul>
-          </div>
-
-          {/* Col 4: Support & Navigation */}
-          <div className="space-y-2">
-            <h4 className="font-bold text-slate-200 uppercase tracking-wider text-[10px]">
-              Assistance & Help
-            </h4>
-            <ul className="space-y-1 text-[11px]">
-              <li>
-                <button
-                  type="button"
-                  onClick={onOpenHelpCenter}
-                  className="inline-flex min-h-6 items-center px-1 hover:text-teal-400 transition-colors cursor-pointer text-teal-400 font-semibold"
-                >
-                  Help Center & FAQs
-                </button>
-              </li>
-              <li>
-                <button
-                  type="button"
-                  onClick={onNavigateToPublicDisplay}
-                  className="inline-flex min-h-6 items-center px-1 hover:text-emerald-400 transition-colors cursor-pointer"
-                >
-                  TV Waiting Display
-                </button>
-              </li>
-              <li>
-                <button
-                  type="button"
-                  onClick={onNavigateToAdminLogin}
-                  className="inline-flex min-h-6 items-center px-1 hover:text-white transition-colors cursor-pointer"
-                >
-                  Clinic Admin Portal
-                </button>
-              </li>
-              {user && (
+          {/* Links Grid: 2-Col on Mobile, 3-Col on Tablet/Desktop */}
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-3 text-left">
+            
+            {/* Col 1: Legal & Compliance */}
+            <div className="space-y-1.5">
+              <h4 className="font-bold text-slate-200 uppercase tracking-wider text-[10px]">
+                Legal & Compliance
+              </h4>
+              <ul className="space-y-1 text-[11px]">
                 <li>
                   <button
                     type="button"
+                    onClick={() => onOpenLegalDoc && onOpenLegalDoc('privacy')}
+                    className="inline-flex py-0.5 hover:text-teal-400 transition-colors cursor-pointer text-left truncate max-w-full"
+                  >
+                    Privacy Policy
+                  </button>
+                </li>
+                <li>
+                  <button
+                    type="button"
+                    onClick={() => onOpenLegalDoc && onOpenLegalDoc('terms')}
+                    className="inline-flex py-0.5 hover:text-teal-400 transition-colors cursor-pointer text-left truncate max-w-full"
+                  >
+                    Terms of Service
+                  </button>
+                </li>
+                <li>
+                  <button
+                    type="button"
+                    onClick={() => onOpenLegalDoc && onOpenLegalDoc('disclaimer')}
+                    className="inline-flex items-center gap-1 py-0.5 text-amber-400 hover:text-amber-300 font-semibold transition-colors cursor-pointer text-left"
+                  >
+                    <AlertTriangle className="w-3 h-3 shrink-0" />
+                    <span className="truncate">Medical Disclaimer</span>
+                  </button>
+                </li>
+                <li>
+                  <button
+                    type="button"
+                    onClick={() => onOpenLegalDoc && onOpenLegalDoc('cancellation')}
+                    className="inline-flex py-0.5 hover:text-teal-400 transition-colors cursor-pointer text-left truncate max-w-full"
+                  >
+                    Cancellation Policy
+                  </button>
+                </li>
+              </ul>
+            </div>
+
+            {/* Col 2: Security & Privacy */}
+            <div className="space-y-1.5">
+              <h4 className="font-bold text-slate-200 uppercase tracking-wider text-[10px]">
+                Security & Privacy
+              </h4>
+              <ul className="space-y-1 text-[11px]">
+                <li>
+                  <button
+                    type="button"
+                    onClick={() => onOpenLegalDoc && onOpenLegalDoc('security')}
+                    className="inline-flex py-0.5 hover:text-teal-400 transition-colors cursor-pointer text-left truncate max-w-full"
+                  >
+                    Security Architecture
+                  </button>
+                </li>
+                <li>
+                  <button
+                    type="button"
+                    onClick={() => onOpenLegalDoc && onOpenLegalDoc('cookies')}
+                    className="inline-flex py-0.5 hover:text-teal-400 transition-colors cursor-pointer text-left truncate max-w-full"
+                  >
+                    Cookie & Storage Policy
+                  </button>
+                </li>
+                <li>
+                  <button
+                    type="button"
+                    onClick={onOpenCookiePreferences}
+                    className="inline-flex py-0.5 hover:text-teal-400 transition-colors cursor-pointer text-teal-400 text-left truncate max-w-full"
+                  >
+                    Cookie Preferences
+                  </button>
+                </li>
+                <li>
+                  <button
+                    type="button"
+                    onClick={() => onOpenLegalDoc && onOpenLegalDoc('accessibility')}
+                    className="inline-flex py-0.5 hover:text-teal-400 transition-colors cursor-pointer text-left truncate max-w-full"
+                  >
+                    Accessibility Statement
+                  </button>
+                </li>
+              </ul>
+            </div>
+
+            {/* Col 3: Assistance & Portals (Horizontal pills on mobile, column on desktop) */}
+            <div className="col-span-2 md:col-span-1 space-y-1.5 pt-2 md:pt-0 border-t md:border-t-0 border-slate-800/60">
+              <h4 className="font-bold text-slate-200 uppercase tracking-wider text-[10px]">
+                Assistance & Help
+              </h4>
+              <div className="flex flex-wrap md:flex-col gap-x-3 gap-y-1 text-[11px]">
+                <button
+                  type="button"
+                  onClick={onOpenHelpCenter}
+                  className="inline-flex py-0.5 hover:text-teal-400 transition-colors cursor-pointer text-teal-400 font-semibold text-left"
+                >
+                  Help Center & FAQs
+                </button>
+                <button
+                  type="button"
+                  onClick={onNavigateToPublicDisplay}
+                  className="inline-flex py-0.5 hover:text-emerald-400 transition-colors cursor-pointer text-left"
+                >
+                  TV Waiting Display
+                </button>
+                <button
+                  type="button"
+                  onClick={onNavigateToAdminLogin}
+                  className="inline-flex py-0.5 hover:text-white transition-colors cursor-pointer text-left"
+                >
+                  Clinic Admin Portal
+                </button>
+                {user && (
+                  <button
+                    type="button"
                     onClick={onOpenAccountSettings}
-                    className="inline-flex min-h-6 items-center px-1 hover:text-teal-400 transition-colors cursor-pointer"
+                    className="inline-flex py-0.5 hover:text-teal-400 transition-colors cursor-pointer text-left"
                   >
                     Account & Data Export
                   </button>
-                </li>
-              )}
-            </ul>
+                )}
+              </div>
+            </div>
+
           </div>
 
-        </div>
-
-        {/* Bottom copyright & emergency warning */}
-        <div className="max-w-4xl mx-auto pt-6 border-t border-slate-800 flex flex-col sm:flex-row items-center justify-between text-[11px] text-slate-400 gap-3">
-          <p className="text-slate-300">© {new Date().getFullYear()} {clinicName}. All rights reserved.</p>
-          <div className="flex items-center gap-1.5 text-emerald-300 text-xs sm:text-sm font-semibold">
-            <AlertTriangle className="w-4 h-4 shrink-0" />
-            <span>Emergency medical cases: Dial 911 / 112 immediately.</span>
+          {/* Bottom Row: Copyright & Emergency Medical Notice */}
+          <div className="pt-3 border-t border-slate-800/80 flex flex-col sm:flex-row items-center justify-between text-[11px] text-slate-400 gap-2 text-center sm:text-left">
+            <p className="text-slate-400 text-[10px] sm:text-[11px]">
+              © {new Date().getFullYear()} {clinicName}. All rights reserved.
+            </p>
+            <div className="flex items-center gap-1.5 text-emerald-400 text-[10px] sm:text-xs font-semibold">
+              <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+              <span>Emergency medical cases: Dial 911 / 112 immediately.</span>
+            </div>
           </div>
+
         </div>
       </footer>
 

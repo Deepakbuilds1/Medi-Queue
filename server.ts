@@ -1,6 +1,7 @@
 import express, { Request, Response } from 'express';
 import http from 'http';
 import path from 'path';
+import fs from 'fs';
 import crypto from 'crypto';
 import dotenv from 'dotenv';
 import { createServer as createViteServer } from 'vite';
@@ -415,6 +416,22 @@ export { app };
 // VITE MIDDLEWARE & SPA SERVING
 // ----------------------------------------------------------------------------
 
+const VALID_FRONTEND_PATTERNS = [
+  /^\/$/,
+  /^\/patient\/?$/,
+  /^\/display\/?$/,
+  /^\/admin(\/.*)?$/,
+  /^\/super-admin(\/.*)?$/,
+  /^\/maintenance\/?$/,
+  /^\/forbidden\/?$/,
+  /^\/403\/?$/,
+  /^\/404\/?$/,
+];
+
+function isKnownFrontendRoute(pathname: string): boolean {
+  return VALID_FRONTEND_PATTERNS.some(pattern => pattern.test(pathname));
+}
+
 async function startServer() {
   const httpServer = http.createServer(app);
 
@@ -426,12 +443,44 @@ async function startServer() {
       },
       appType: 'spa',
     });
+
+    // Catch non-existent routes in development mode to return true HTTP 404
+    app.use(async (req, res, next) => {
+      const isHtmlNav = (req.headers.accept || '').includes('text/html');
+      const isViteInternal = req.path.startsWith('/@') || req.path.startsWith('/src') || req.path.startsWith('/node_modules') || req.path.includes('.');
+      
+      if (req.method === 'GET' && isHtmlNav && !isViteInternal) {
+        if (!isKnownFrontendRoute(req.path)) {
+          try {
+            const template = fs.readFileSync(path.resolve(process.cwd(), 'index.html'), 'utf-8');
+            const html = await vite.transformIndexHtml(req.url, template);
+            return res.status(404).set({ 'Content-Type': 'text/html' }).end(html);
+          } catch {
+            const fallback404 = path.resolve(process.cwd(), 'public/404.html');
+            if (fs.existsSync(fallback404)) {
+              return res.status(404).sendFile(fallback404);
+            }
+          }
+        }
+      }
+      next();
+    });
+
     app.use(vite.middlewares);
   } else {
     const distPath = path.join(process.cwd(), 'dist');
     app.use(express.static(distPath));
-    app.get('*', (_req: Request, res: Response) => {
-      res.sendFile(path.join(distPath, 'index.html'));
+    app.get('*', (req: Request, res: Response) => {
+      if (isKnownFrontendRoute(req.path)) {
+        res.status(200).sendFile(path.join(distPath, 'index.html'));
+      } else {
+        const custom404 = path.join(distPath, '404.html');
+        if (fs.existsSync(custom404)) {
+          res.status(404).sendFile(custom404);
+        } else {
+          res.status(404).sendFile(path.join(distPath, 'index.html'));
+        }
+      }
     });
   }
 

@@ -6,7 +6,47 @@
       "destination": "/api/health"
     },
     {
-      "source": "/((?!api|health).*)",
+      "source": "/",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/patient",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/display",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/admin",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/admin/:match*",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/super-admin",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/super-admin/:match*",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/maintenance",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/forbidden",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/403",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/404",
       "destination": "/index.html"
     }
   ],

@@ -107,7 +107,7 @@ export const BookTokenSection: React.FC<BookTokenSectionProps> = ({ onTokenGener
             <h2 className="font-extrabold text-sm text-slate-900 uppercase tracking-wider">
               Book Queue Token
             </h2>
-            <p className="text-[11px] text-slate-500">
+            <p className="text-base text-slate-700">
               {user ? `Logged in as ${userProfile?.name || user.email}` : 'Sign in or Sign up to generate a queue token'}
             </p>
           </div>
@@ -132,7 +132,7 @@ export const BookTokenSection: React.FC<BookTokenSectionProps> = ({ onTokenGener
               aria-label="Select clinic"
               value={activeClinicId}
               onChange={(e) => switchClinic(e.target.value)}
-              className="bg-transparent text-xs font-bold text-slate-800 focus:outline-none cursor-pointer"
+              className="bg-transparent text-xs font-bold text-slate-800 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:ring-offset-1 rounded-md cursor-pointer"
             >
               {clinics.map(c => (
                 <option key={c.id} value={c.id}>{c.name}</option>
@@ -145,7 +145,7 @@ export const BookTokenSection: React.FC<BookTokenSectionProps> = ({ onTokenGener
           <button
             type="button"
             onClick={() => setIsAuthModalOpen(true)}
-            className="px-3 py-1.5 bg-teal-700 hover:bg-teal-800 text-white text-xs font-bold rounded-xl flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs"
+            className="px-3 py-1.5 bg-teal-700 hover:bg-teal-800 text-white text-xs font-bold rounded-xl flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:ring-offset-1 focus:outline-hidden"
           >
             <LogIn className="w-3.5 h-3.5" />
             Sign In / Sign Up
@@ -164,11 +164,11 @@ export const BookTokenSection: React.FC<BookTokenSectionProps> = ({ onTokenGener
         
         {/* 1. Doctor Selection */}
         <div>
-          <label className="block text-[11px] font-bold text-slate-600 uppercase mb-1.5">
+          <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1.5">
             1. Select Consulting Doctor at {activeClinic?.name || 'Clinic'} *
           </label>
           {doctors.length === 0 ? (
-            <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-400 italic">
+            <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 text-base italic">
               No doctors currently available in this clinic.
             </div>
           ) : (
@@ -218,31 +218,31 @@ export const BookTokenSection: React.FC<BookTokenSectionProps> = ({ onTokenGener
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Full Name</label>
+              <label className="block text-[10px] font-bold text-slate-700 uppercase mb-1">Full Name</label>
               <input
                 type="text"
                 required
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Patient Full Name"
-                className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-medium focus:border-teal-500 focus:outline-none"
+                className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-medium focus:border-teal-500 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-teal-500"
               />
             </div>
 
             <div>
-              <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Phone Number</label>
+              <label className="block text-[10px] font-bold text-slate-700 uppercase mb-1">Phone Number</label>
               <input
                 type="tel"
                 required
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
                 placeholder="Mobile / Phone Number"
-                className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-mono focus:border-teal-500 focus:outline-none"
+                className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-mono focus:border-teal-500 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-teal-500"
               />
             </div>
 
             <div>
-              <span className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Age & Gender</span>
+              <span className="block text-[10px] font-bold text-slate-700 uppercase mb-1">Age & Gender</span>
               <div className="flex gap-2">
                 <label htmlFor="patient-age" className="sr-only">
                   Age
@@ -256,7 +256,7 @@ export const BookTokenSection: React.FC<BookTokenSectionProps> = ({ onTokenGener
                   aria-label="Age"
                   value={age}
                   onChange={(e) => setAge(Number(e.target.value))}
-                  className="w-20 px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold focus:border-teal-500 focus:outline-none text-center"
+                  className="w-20 px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold focus:border-teal-500 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-teal-500 text-center"
                 />
                 <label htmlFor="patient-gender" className="sr-only">
                   Gender
@@ -266,7 +266,7 @@ export const BookTokenSection: React.FC<BookTokenSectionProps> = ({ onTokenGener
                   aria-label="Gender"
                   value={gender}
                   onChange={(e) => setGender(e.target.value as any)}
-                  className="flex-1 px-3 py-2 bg-white border border-slate-300 rounded-xl font-semibold focus:border-teal-500 focus:outline-none"
+                  className="flex-1 px-3 py-2 bg-white border border-slate-300 rounded-xl font-semibold focus:border-teal-500 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-teal-500"
                 >
                   <option value="Male">Male</option>
                   <option value="Female">Female</option>
@@ -276,13 +276,13 @@ export const BookTokenSection: React.FC<BookTokenSectionProps> = ({ onTokenGener
             </div>
 
             <div>
-              <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Reason for Visit / Symptoms</label>
+              <label className="block text-[10px] font-bold text-slate-700 uppercase mb-1">Reason for Visit / Symptoms</label>
               <input
                 type="text"
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
                 placeholder="e.g. Fever, Dental checkup, Consultation"
-                className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-medium focus:border-teal-500 focus:outline-none"
+                className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-medium focus:border-teal-500 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-teal-500"
               />
             </div>
           </div>

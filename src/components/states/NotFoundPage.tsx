@@ -34,8 +34,8 @@ export const NotFoundPage: React.FC<NotFoundPageProps> = ({
           <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
             Page Not Found
           </h1>
-          <p className="text-xs text-slate-500 leading-relaxed">
-            The requested destination <code className="px-1.5 py-0.5 bg-slate-100 dark:bg-slate-700 rounded text-slate-700 dark:text-slate-300 font-mono text-[11px] break-all">{requestedPath}</code> does not exist or has been relocated within the MediQueue system.
+          <p className="text-base text-slate-700 dark:text-slate-300 leading-relaxed">
+            The requested destination <code className="px-1.5 py-0.5 bg-slate-100 dark:bg-slate-700 rounded text-slate-800 dark:text-slate-200 font-mono text-xs break-all">{requestedPath}</code> does not exist or has been relocated within the MediQueue system.
           </p>
         </div>
 
@@ -44,7 +44,7 @@ export const NotFoundPage: React.FC<NotFoundPageProps> = ({
           <button
             type="button"
             onClick={onNavigateHome}
-            className="w-full py-2.5 px-4 bg-teal-700 hover:bg-teal-800 text-white font-bold text-xs rounded-xl shadow-xs transition-colors flex items-center justify-center gap-2 cursor-pointer"
+            className="w-full py-2.5 px-4 bg-teal-700 hover:bg-teal-800 text-white font-bold text-xs rounded-xl shadow-xs transition-colors flex items-center justify-center gap-2 cursor-pointer focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:ring-offset-2 focus:outline-hidden"
           >
             <Home className="w-4 h-4" />
             <span>Return to Patient Portal</span>
@@ -54,9 +54,9 @@ export const NotFoundPage: React.FC<NotFoundPageProps> = ({
             <button
               type="button"
               onClick={onNavigateDisplay}
-              className="w-full py-2.5 px-4 bg-slate-100 dark:bg-slate-700/60 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-semibold text-xs rounded-xl transition-colors flex items-center justify-center gap-2 cursor-pointer"
+              className="w-full py-2.5 px-4 bg-slate-100 dark:bg-slate-700/60 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-semibold text-xs rounded-xl transition-colors flex items-center justify-center gap-2 cursor-pointer focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:ring-offset-2 focus:outline-hidden"
             >
-              <Monitor className="w-4 h-4 text-emerald-500" />
+              <Monitor className="w-4 h-4 text-emerald-600" />
               <span>Open TV Waiting Display</span>
             </button>
           )}
@@ -65,7 +65,7 @@ export const NotFoundPage: React.FC<NotFoundPageProps> = ({
             <button
               type="button"
               onClick={onNavigateAdmin}
-              className="w-full py-2 px-4 text-slate-500 hover:text-slate-900 dark:hover:text-white text-xs font-semibold rounded-xl transition-colors flex items-center justify-center gap-2 cursor-pointer"
+              className="w-full py-2 px-4 text-slate-700 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white text-xs font-semibold rounded-xl transition-colors flex items-center justify-center gap-2 cursor-pointer focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:ring-offset-2 focus:outline-hidden"
             >
               <Building2 className="w-3.5 h-3.5" />
               <span>Clinic Administration Login</span>
@@ -73,7 +73,7 @@ export const NotFoundPage: React.FC<NotFoundPageProps> = ({
           )}
         </div>
 
-        <div className="pt-4 border-t border-slate-100 dark:border-slate-700/60 text-[11px] text-slate-400">
+        <div className="pt-4 border-t border-slate-100 dark:border-slate-700/60 text-xs text-slate-600 dark:text-slate-400">
           MediQueue Multi-Clinic OS • Real-Time Token Routing
         </div>
 

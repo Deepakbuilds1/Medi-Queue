@@ -78,12 +78,12 @@ export const CookieConsentBanner: React.FC<CookieConsentBannerProps> = ({
               <X className="w-3.5 h-3.5" />
             </button>
           </div>
-          <p className="text-slate-500 dark:text-slate-400 text-[11px] leading-relaxed">
+          <p className="text-slate-700 dark:text-slate-300 text-base leading-relaxed">
             MediQueue uses essential browser storage for clinic session sync, sound announcements, and queue updates. Review our{' '}
             <button
               type="button"
               onClick={onOpenPrivacyPolicy}
-              className="text-teal-700 dark:text-teal-400 underline font-semibold"
+              className="text-teal-800 dark:text-teal-300 underline font-bold focus-visible:ring-2 focus-visible:ring-teal-600 focus:outline-hidden rounded-xs cursor-pointer"
             >
               Privacy Policy
             </button>.
@@ -92,7 +92,7 @@ export const CookieConsentBanner: React.FC<CookieConsentBannerProps> = ({
             <button
               type="button"
               onClick={handleAcceptAll}
-              className="px-3 py-1.5 bg-teal-700 hover:bg-teal-800 text-white font-bold rounded-lg transition-colors cursor-pointer text-[11px] flex items-center gap-1 shadow-xs"
+              className="px-3 py-1.5 bg-teal-700 hover:bg-teal-800 text-white font-bold rounded-lg transition-colors cursor-pointer text-xs flex items-center gap-1 shadow-xs focus-visible:ring-2 focus-visible:ring-teal-600 focus:outline-hidden"
             >
               <Check className="w-3.5 h-3.5" />
               <span>Accept All</span>
@@ -100,7 +100,7 @@ export const CookieConsentBanner: React.FC<CookieConsentBannerProps> = ({
             <button
               type="button"
               onClick={onOpenPreferences}
-              className="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-semibold rounded-lg transition-colors cursor-pointer text-[11px] flex items-center gap-1"
+              className="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-semibold rounded-lg transition-colors cursor-pointer text-xs flex items-center gap-1 focus-visible:ring-2 focus-visible:ring-teal-600 focus:outline-hidden"
             >
               <SlidersHorizontal className="w-3.5 h-3.5" />
               <span>Customize</span>
@@ -108,7 +108,7 @@ export const CookieConsentBanner: React.FC<CookieConsentBannerProps> = ({
             <button
               type="button"
               onClick={handleReject}
-              className="px-2 py-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 text-[11px]"
+              className="px-2.5 py-1.5 text-slate-700 dark:text-slate-200 hover:text-slate-900 dark:hover:text-white text-xs font-semibold rounded-lg transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-teal-600 focus:outline-hidden"
             >
               Essential Only
             </button>

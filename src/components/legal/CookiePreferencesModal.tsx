@@ -136,7 +136,7 @@ export const CookiePreferencesModal: React.FC<CookiePreferencesModalProps> = ({
         {/* Content Body */}
         <div className="p-5 space-y-4 max-h-[70vh] overflow-y-auto text-slate-800 dark:text-slate-200 text-xs">
           
-          <p className="text-slate-600 dark:text-slate-400 leading-relaxed">
+          <p className="text-slate-700 dark:text-slate-300 text-base leading-relaxed">
             MediQueue uses browser local storage to maintain clinic queue sessions, sound alerts, and login authentication. You can customize your optional preferences below:
           </p>
 
@@ -249,14 +249,14 @@ export const CookiePreferencesModal: React.FC<CookiePreferencesModalProps> = ({
             <button
               type="button"
               onClick={handleRejectNonEssential}
-              className="w-full sm:w-auto px-3 py-2 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white text-xs font-semibold rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors cursor-pointer"
+              className="w-full sm:w-auto px-3 py-2 text-slate-800 dark:text-slate-200 hover:text-slate-950 dark:hover:text-white text-xs font-semibold rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-teal-600 focus:outline-hidden"
             >
               Essential Only
             </button>
             <button
               type="button"
               onClick={handleAcceptAll}
-              className="w-full sm:w-auto px-3 py-2 text-slate-700 dark:text-slate-300 hover:text-slate-900 text-xs font-semibold rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors cursor-pointer"
+              className="w-full sm:w-auto px-3 py-2 text-slate-800 dark:text-slate-200 hover:text-slate-950 dark:hover:text-white text-xs font-semibold rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-teal-600 focus:outline-hidden"
             >
               Enable All
             </button>
@@ -265,7 +265,7 @@ export const CookiePreferencesModal: React.FC<CookiePreferencesModalProps> = ({
           <button
             type="button"
             onClick={handleSave}
-            className="w-full sm:w-auto px-5 py-2 bg-teal-700 hover:bg-teal-800 text-white font-bold text-xs rounded-xl shadow-xs transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+            className="w-full sm:w-auto px-5 py-2 bg-teal-700 hover:bg-teal-800 text-white font-bold text-xs rounded-xl shadow-xs transition-colors cursor-pointer flex items-center justify-center gap-1.5 focus-visible:ring-2 focus-visible:ring-teal-600 focus:outline-hidden"
           >
             {savedSuccess ? (
               <>

@@ -1,1 +1,24 @@
 @import "tailwindcss";
+
+@layer base {
+  html {
+    text-size-adjust: 100%;
+    -webkit-text-size-adjust: 100%;
+    tab-size: 4;
+    -moz-tab-size: 4;
+    hyphens: manual;
+    -webkit-hyphens: manual;
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+/* Fallback for browsers without backdrop-filter support */
+@supports not (backdrop-filter: blur(1px)) {
+  .backdrop-blur-xs,
+  .backdrop-blur-sm,
+  .backdrop-blur-md,
+  .backdrop-blur-lg,
+  .backdrop-blur-xl {
+    background-color: rgba(15, 23, 42, 0.95) !important;
+  }
+}

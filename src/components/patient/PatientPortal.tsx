@@ -12,6 +12,7 @@ import { LegalDocType } from '../legal/LegalPagesModal';
 interface PatientPortalProps {
   settings: ClinicSettings | null;
   onNavigateToAdminLogin: () => void;
+  onNavigateToAdminDashboard?: () => void;
   onNavigateToPublicDisplay: () => void;
   onOpenLegalDoc?: (doc: LegalDocType) => void;
   onOpenHelpCenter?: () => void;
@@ -23,6 +24,7 @@ interface PatientPortalProps {
 export const PatientPortal: React.FC<PatientPortalProps> = ({
   settings,
   onNavigateToAdminLogin,
+  onNavigateToAdminDashboard,
   onNavigateToPublicDisplay,
   onOpenLegalDoc,
   onOpenHelpCenter,
@@ -30,7 +32,7 @@ export const PatientPortal: React.FC<PatientPortalProps> = ({
   onOpenAccountSettings,
   onOpenForgotPassword,
 }) => {
-  const { user, userProfile, logout } = useAuth();
+  const { user, userProfile, logout, isSuperAdmin, isClinicAdmin, isClinicStaff } = useAuth();
   const { activeClinicId, activeClinic, clinics, switchClinic } = useClinic();
 
   const [activeTab, setActiveTab] = useState<'book' | 'my-tokens' | 'lookup'>('book');
@@ -157,31 +159,37 @@ export const PatientPortal: React.FC<PatientPortalProps> = ({
   };
 
   return (
-    <div className="min-h-screen bg-slate-100 font-sans text-slate-800 antialiased selection:bg-teal-500 selection:text-white flex flex-col justify-between">
+    <div className="min-h-screen bg-slate-100 font-sans text-slate-800 antialiased selection:bg-teal-500 selection:text-white flex flex-col justify-between overflow-x-hidden w-full">
       
       {/* Top Patient Header */}
-      <header className="bg-white border-b border-slate-200 px-4 py-3 sticky top-0 z-30 shadow-xs">
-        <div className="max-w-4xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-3">
+      <header className="bg-white border-b border-slate-200 px-3 sm:px-4 py-2.5 sticky top-0 z-30 shadow-xs">
+        <div className="max-w-4xl mx-auto flex items-center justify-between gap-2">
+          {/* Clinic Brand & Title */}
+          <div className="flex items-center gap-2.5 min-w-0 flex-1 sm:flex-initial">
             {clinicLogo ? (
-              <img src={clinicLogo} alt={clinicName} className="w-8 h-8 rounded-lg object-cover border border-[#E2E8F0]" />
+              <img src={clinicLogo} alt={clinicName} className="w-8 h-8 rounded-lg object-cover border border-[#E2E8F0] shrink-0" />
             ) : (
-              <div className="w-8 h-8 bg-teal-700 rounded-lg flex items-center justify-center text-white font-bold">
+              <div className="w-8 h-8 bg-teal-700 rounded-lg flex items-center justify-center text-white font-bold shrink-0">
                 <Activity className="w-4 h-4 text-white" />
               </div>
             )}
-            <div>
-              <h1 className="font-bold text-xs text-slate-900 tracking-tight">{clinicName}</h1>
-              <p className="text-[10px] font-semibold text-teal-700 uppercase tracking-wider">Patient Portal & Live Queue</p>
+            <div className="min-w-0 flex-1">
+              <h1 className="font-bold text-xs sm:text-sm text-slate-900 tracking-tight truncate leading-tight" title={clinicName}>
+                {clinicName}
+              </h1>
+              <p className="text-[10px] font-semibold text-teal-700 uppercase tracking-wider truncate leading-tight">
+                Patient Portal & Live Queue
+              </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          {/* Header Action Controls */}
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
             {/* Clinic Dropdown for guests or registered clinic badge for patient */}
             {user && (userProfile?.role === 'PATIENT' || userProfile?.role === 'patient') ? (
               <div className="hidden sm:flex items-center gap-1.5 text-xs font-bold text-teal-900 bg-teal-50 border border-teal-200 px-2.5 py-1 rounded-lg">
                 <span className="w-2 h-2 rounded-full bg-teal-500 animate-pulse"></span>
-                <span>{activeClinic?.name || 'Registered Clinic'}</span>
+                <span className="truncate max-w-[140px]">{activeClinic?.name || 'Registered Clinic'}</span>
               </div>
             ) : clinics.length > 1 ? (
               <div className="flex items-center">
@@ -193,7 +201,7 @@ export const PatientPortal: React.FC<PatientPortalProps> = ({
                   aria-label="Select clinic"
                   value={activeClinicId}
                   onChange={(e) => switchClinic(e.target.value)}
-                  className="text-xs font-bold text-slate-700 bg-slate-100 border border-slate-300 px-2 py-1 rounded-lg cursor-pointer focus:outline-hidden focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:ring-offset-2"
+                  className="text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200/80 border border-slate-300 px-2 py-1.5 rounded-lg cursor-pointer focus:outline-hidden focus-visible:ring-2 focus-visible:ring-teal-600 max-w-[110px] sm:max-w-[170px] truncate"
                 >
                   {clinics.map(c => (
                     <option key={c.id} value={c.id}>{c.name}</option>
@@ -202,45 +210,67 @@ export const PatientPortal: React.FC<PatientPortalProps> = ({
               </div>
             ) : null}
 
+            {/* TV Public Display link */}
             <button
               onClick={onNavigateToPublicDisplay}
-              className="text-xs font-semibold text-slate-600 hover:text-teal-700 bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer"
+              className="text-xs font-semibold text-slate-600 hover:text-teal-700 bg-slate-100 hover:bg-slate-200 px-2 sm:px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer shrink-0"
+              title="Open Live TV Display"
             >
-              <Monitor className="w-3.5 h-3.5 text-emerald-600" />
+              <Monitor className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
               <span className="hidden sm:inline">TV Display</span>
             </button>
-            <button
-              onClick={onNavigateToAdminLogin}
-              className="text-xs font-semibold text-slate-500 hover:text-slate-800 px-2 py-1.5 transition-colors cursor-pointer"
-            >
-              Admin Login
-            </button>
+
+            {/* Admin or Staff Dashboard / Login link */}
+            {isSuperAdmin || isClinicAdmin || isClinicStaff ? (
+              <button
+                onClick={() => {
+                  if (onNavigateToAdminDashboard) {
+                    onNavigateToAdminDashboard();
+                  } else {
+                    onNavigateToAdminLogin();
+                  }
+                }}
+                className="text-xs font-bold text-teal-800 bg-teal-50 hover:bg-teal-100 border border-teal-200 px-2 sm:px-2.5 py-1.5 rounded-lg transition-colors cursor-pointer flex items-center gap-1 shrink-0"
+                title="Open Admin Dashboard"
+              >
+                <ShieldCheck className="w-3.5 h-3.5 text-teal-700 shrink-0" />
+                <span>{isSuperAdmin ? 'Super Admin' : 'Admin'}</span>
+              </button>
+            ) : (
+              <button
+                onClick={onNavigateToAdminLogin}
+                className="text-xs font-semibold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 px-2 sm:px-2.5 py-1.5 rounded-lg transition-colors cursor-pointer shrink-0"
+                title="Clinic Staff & Administrator Sign In"
+              >
+                Admin
+              </button>
+            )}
           </div>
         </div>
       </header>
 
       {/* Patient User Account Banner */}
-      <div className="bg-slate-900 text-white border-b border-slate-800 py-2.5 px-4">
-        <div className="max-w-4xl mx-auto flex items-center justify-between text-xs">
+      <div className="bg-slate-900 text-white border-b border-slate-800 py-2.5 px-3 sm:px-4">
+        <div className="max-w-4xl mx-auto flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs">
           {user ? (
-            <div className="flex items-center gap-2.5">
-              <div className="w-7 h-7 bg-teal-600 rounded-full flex items-center justify-center font-bold text-white text-xs">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="w-7 h-7 bg-teal-600 rounded-full flex items-center justify-center font-bold text-white text-xs shrink-0">
                 {userProfile?.name ? userProfile.name.charAt(0).toUpperCase() : 'P'}
               </div>
-              <div>
-                <span className="font-bold text-slate-100">{userProfile?.name || 'Patient User'}</span>
-                <span className="text-[11px] text-slate-400 block font-mono">{user.email}</span>
+              <div className="min-w-0">
+                <span className="font-bold text-slate-100 block truncate">{userProfile?.name || 'Patient User'}</span>
+                <span className="text-[11px] text-slate-400 block font-mono truncate">{user.email}</span>
               </div>
             </div>
           ) : (
-            <div className="flex items-center gap-2 text-slate-200 text-base">
-              <User className="w-5 h-5 text-amber-400 shrink-0" />
+            <div className="flex items-center gap-2 text-slate-200 text-xs">
+              <User className="w-4 h-4 text-amber-400 shrink-0" />
               <span>Connect your account to book and track your queue tokens</span>
             </div>
           )}
 
           {user ? (
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5 self-end sm:self-auto shrink-0">
               {onOpenAccountSettings && (
                 <button
                   type="button"
@@ -272,7 +302,7 @@ export const PatientPortal: React.FC<PatientPortalProps> = ({
               </button>
             </div>
           ) : (
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5 self-end sm:self-auto shrink-0">
               {onOpenHelpCenter && (
                 <button
                   type="button"
@@ -301,42 +331,42 @@ export const PatientPortal: React.FC<PatientPortalProps> = ({
       </div>
 
       {/* Navigation Tabs */}
-      <div className="bg-white border-b border-slate-200 px-4">
-        <div className="max-w-2xl mx-auto flex gap-2 text-xs font-bold">
+      <div className="bg-white border-b border-slate-200 px-2 sm:px-4">
+        <div className="max-w-2xl mx-auto flex gap-1 sm:gap-2 text-xs font-bold overflow-x-auto scrollbar-none">
           <button
             onClick={() => setActiveTab('book')}
-            className={`py-3 px-4 border-b-2 flex items-center gap-1.5 transition-colors cursor-pointer ${
+            className={`py-3 px-3 sm:px-4 border-b-2 flex items-center gap-1.5 transition-colors cursor-pointer shrink-0 whitespace-nowrap ${
               activeTab === 'book' 
                 ? 'border-teal-600 text-teal-700 font-extrabold' 
                 : 'border-transparent text-slate-500 hover:text-slate-800'
             }`}
           >
-            <PlusCircle className="w-4 h-4 text-teal-600" />
-            Book Token
+            <PlusCircle className="w-4 h-4 text-teal-600 shrink-0" />
+            <span>Book Token</span>
           </button>
 
           <button
             onClick={() => setActiveTab('my-tokens')}
-            className={`py-3 px-4 border-b-2 flex items-center gap-1.5 transition-colors cursor-pointer ${
+            className={`py-3 px-3 sm:px-4 border-b-2 flex items-center gap-1.5 transition-colors cursor-pointer shrink-0 whitespace-nowrap ${
               activeTab === 'my-tokens' 
                 ? 'border-teal-600 text-teal-700 font-extrabold' 
                 : 'border-transparent text-slate-500 hover:text-slate-800'
             }`}
           >
-            <Ticket className="w-4 h-4 text-teal-600" />
-            My Tokens ({userTokens.length})
+            <Ticket className="w-4 h-4 text-teal-600 shrink-0" />
+            <span>My Tokens ({userTokens.length})</span>
           </button>
 
           <button
             onClick={() => setActiveTab('lookup')}
-            className={`py-3 px-4 border-b-2 flex items-center gap-1.5 transition-colors cursor-pointer ${
+            className={`py-3 px-3 sm:px-4 border-b-2 flex items-center gap-1.5 transition-colors cursor-pointer shrink-0 whitespace-nowrap ${
               activeTab === 'lookup' 
                 ? 'border-teal-600 text-teal-700 font-extrabold' 
                 : 'border-transparent text-slate-500 hover:text-slate-800'
             }`}
           >
-            <Search className="w-4 h-4 text-teal-600" />
-            Token Status Lookup
+            <Search className="w-4 h-4 text-teal-600 shrink-0" />
+            <span>Token Status Lookup</span>
           </button>
         </div>
       </div>

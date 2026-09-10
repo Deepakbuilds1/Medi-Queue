@@ -200,23 +200,23 @@ export const PatientAuthModal: React.FC<PatientAuthModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-xs p-4 animate-in fade-in duration-200">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full border border-slate-200 overflow-hidden flex flex-col max-h-[90vh]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-xs p-2 sm:p-4 animate-in fade-in duration-200 overflow-x-hidden">
+      <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full border border-slate-200 overflow-hidden flex flex-col max-h-[94vh] sm:max-h-[90vh]">
         
         {/* Modal Header */}
-        <div className="p-5 bg-teal-800 text-white flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-2.5">
-            <div className="p-2 bg-teal-900 rounded-xl border border-teal-700">
+        <div className="p-4 sm:p-5 bg-teal-800 text-white flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="p-2 bg-teal-900 rounded-xl border border-teal-700 shrink-0">
               {mode === 'signup' ? <UserPlus className="w-5 h-5 text-teal-200" /> : <LogIn className="w-5 h-5 text-teal-200" />}
             </div>
-            <div>
-              <h3 className="font-extrabold text-base tracking-tight">
+            <div className="min-w-0">
+              <h3 className="font-extrabold text-sm sm:text-base tracking-tight truncate">
                 {mode === 'signup' 
                   ? (signupStep === 1 ? 'Patient Signup — Select Clinic' : 'Patient Signup — Your Details')
                   : 'Patient Portal Sign In'
                 }
               </h3>
-              <p className="text-xs text-teal-200">
+              <p className="text-[11px] sm:text-xs text-teal-200 truncate">
                 {mode === 'signup' 
                   ? (signupStep === 1 ? 'Step 1 of 2: Choose your medical clinic' : `Step 2 of 2: Registering at ${selectedClinic?.name || 'Clinic'}`)
                   : 'Sign in to access your tokens and queue status'
@@ -227,7 +227,7 @@ export const PatientAuthModal: React.FC<PatientAuthModalProps> = ({
           <button 
             type="button"
             onClick={onClose}
-            className="p-1.5 text-teal-200 hover:text-white rounded-lg transition-colors cursor-pointer"
+            className="p-1.5 text-teal-200 hover:text-white rounded-lg transition-colors cursor-pointer shrink-0 ml-2"
           >
             <X className="w-5 h-5" />
           </button>
@@ -267,7 +267,7 @@ export const PatientAuthModal: React.FC<PatientAuthModalProps> = ({
         </div>
 
         {/* Modal Body with Scroll */}
-        <div className="p-5 overflow-y-auto flex-1 text-slate-800 text-xs space-y-4">
+        <div className="p-4 sm:p-5 overflow-y-auto flex-1 text-slate-800 text-xs space-y-4">
           
           {errorState && (
             <div role="alert" className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-xl font-medium flex items-start gap-2 animate-in fade-in">
@@ -289,7 +289,7 @@ export const PatientAuthModal: React.FC<PatientAuthModalProps> = ({
                   Your patient account will be permanently associated with your chosen clinic.
                 </p>
 
-                {/* Optional Search if more than 3 clinics */}
+                {/* Optional Search if more than 2 clinics */}
                 {activeClinics.length > 2 && (
                   <div className="relative mb-3">
                     <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
@@ -303,7 +303,7 @@ export const PatientAuthModal: React.FC<PatientAuthModalProps> = ({
                   </div>
                 )}
 
-                <div className="space-y-2.5 max-h-60 overflow-y-auto pr-1">
+                <div className="space-y-2.5 pr-0.5">
                   {filteredClinics.length === 0 ? (
                     <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl text-center text-slate-400 italic">
                       No active clinics found matching your search.
@@ -324,14 +324,14 @@ export const PatientAuthModal: React.FC<PatientAuthModalProps> = ({
                               : 'border-slate-200 bg-slate-50 hover:bg-slate-100'
                           }`}
                         >
-                          <div className="flex items-start gap-3">
+                          <div className="flex items-start gap-3 min-w-0 flex-1">
                             <div className={`p-2 rounded-lg shrink-0 mt-0.5 ${
                               isSelected ? 'bg-teal-600 text-white' : 'bg-slate-200 text-slate-600'
                             }`}>
                               <Building2 className="w-4 h-4" />
                             </div>
-                            <div>
-                              <div className="flex items-center gap-2">
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-2 flex-wrap">
                                 <span className="font-extrabold text-slate-900 text-xs">
                                   {clinic.name}
                                 </span>
@@ -342,7 +342,7 @@ export const PatientAuthModal: React.FC<PatientAuthModalProps> = ({
                               {clinic.address && (
                                 <p className="text-[11px] text-slate-500 flex items-center gap-1 mt-0.5">
                                   <MapPin className="w-3 h-3 text-slate-400 shrink-0" />
-                                  <span>{clinic.address}</span>
+                                  <span className="truncate">{clinic.address}</span>
                                 </p>
                               )}
                               {clinic.phone && (
@@ -369,12 +369,12 @@ export const PatientAuthModal: React.FC<PatientAuthModalProps> = ({
                 </div>
               </div>
 
-              <div className="pt-2">
+              <div className="sticky bottom-0 bg-white pt-2.5 pb-1 border-t border-slate-100 mt-2 z-10">
                 <button
                   type="button"
                   onClick={handleStep1Continue}
                   disabled={!selectedClinicId}
-                  className="w-full py-3 bg-teal-600 hover:bg-teal-700 active:bg-teal-800 text-white font-extrabold text-xs rounded-xl shadow-md shadow-teal-600/20 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                  className="w-full py-3 bg-teal-700 hover:bg-teal-800 active:bg-teal-900 text-white font-extrabold text-xs rounded-xl shadow-md shadow-teal-700/20 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
                 >
                   <span>CONTINUE TO PATIENT DETAILS</span>
                   <ArrowRight className="w-4 h-4" />

@@ -249,6 +249,7 @@ const MainAppContent: React.FC = () => {
         <PatientPortal
           settings={resolvedClinicSettings}
           onNavigateToAdminLogin={() => navigate('/admin/login')}
+          onNavigateToAdminDashboard={() => navigate(isSuperAdminUser ? '/admin/super-admin' : '/admin/dashboard')}
           onNavigateToPublicDisplay={() => navigate('/display')}
         />
         <CookieConsentBanner
@@ -399,12 +400,13 @@ const MainAppContent: React.FC = () => {
     '/admin/doctors',
     '/admin/reports',
     '/admin/settings',
-    '/admin/super-admin'
+    '/admin/super-admin',
+    '/super-admin'
   ];
 
   const isMatchedAdminRoute = validAdminPrefixes.some(prefix => currentPath.startsWith(prefix));
 
-  if (!isMatchedAdminRoute && !currentPath.startsWith('/admin')) {
+  if (!isMatchedAdminRoute && !currentPath.startsWith('/admin') && !currentPath.startsWith('/super-admin')) {
     return (
       <NotFoundPage
         onNavigateHome={() => navigate(isSuperAdmin ? '/admin/super-admin' : '/admin/dashboard')}

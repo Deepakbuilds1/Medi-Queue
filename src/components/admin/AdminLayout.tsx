@@ -264,7 +264,10 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
               Displays & Portals
             </span>
             <button
-              onClick={onNavigateToPatientPortal}
+              onClick={() => {
+                setMobileMenuOpen(false);
+                onNavigateToPatientPortal();
+              }}
               className="w-full px-3 py-1.5 rounded-lg flex items-center gap-2.5 text-xs font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-colors cursor-pointer text-left"
             >
               <Building2 className="w-4 h-4 text-slate-400 shrink-0" />
@@ -272,7 +275,10 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
             </button>
             
             <button
-              onClick={onNavigateToPublicDisplay}
+              onClick={() => {
+                setMobileMenuOpen(false);
+                onNavigateToPublicDisplay();
+              }}
               className="w-full px-3 py-1.5 rounded-lg flex items-center gap-2.5 text-xs font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-colors cursor-pointer text-left"
             >
               <Monitor className="w-4 h-4 text-slate-400 shrink-0" />
@@ -403,7 +409,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
         </header>
 
         {/* Content Body */}
-        <main className="flex-1 overflow-y-auto p-4 md:p-6 bg-[#F8FAFC] pb-16 md:pb-6">
+        <main className="flex-1 overflow-y-auto overflow-x-hidden p-3 sm:p-4 md:p-6 bg-[#F8FAFC] pb-20 md:pb-6">
           {children}
         </main>
 

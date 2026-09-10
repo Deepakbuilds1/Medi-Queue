@@ -96,18 +96,18 @@ export const BookTokenSection: React.FC<BookTokenSectionProps> = ({ onTokenGener
   const activeDoc = doctors.find(d => d.id === selectedDoctorId);
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-200 shadow-md p-6 space-y-5">
+    <div className="bg-white rounded-2xl border border-slate-200 shadow-md p-4 sm:p-6 space-y-5">
       
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-3">
-        <div className="flex items-center gap-2">
-          <div className="p-2 bg-teal-50 text-teal-600 rounded-xl">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className="p-2 bg-teal-50 text-teal-600 rounded-xl shrink-0">
             <PlusCircle className="w-5 h-5" />
           </div>
-          <div>
-            <h2 className="font-extrabold text-sm text-slate-900 uppercase tracking-wider">
+          <div className="min-w-0">
+            <h2 className="font-extrabold text-sm text-slate-900 uppercase tracking-wider truncate">
               Book Queue Token
             </h2>
-            <p className="text-base text-slate-700">
+            <p className="text-xs text-slate-500 truncate">
               {user ? `Logged in as ${userProfile?.name || user.email}` : 'Sign in or Sign up to generate a queue token'}
             </p>
           </div>
@@ -116,14 +116,14 @@ export const BookTokenSection: React.FC<BookTokenSectionProps> = ({ onTokenGener
         {/* Clinic Display / Selector */}
         {user && (userProfile?.role === 'PATIENT' || userProfile?.role === 'patient') ? (
           <div className="flex items-center gap-1.5 bg-teal-50 px-3 py-1.5 rounded-xl border border-teal-200">
-            <Building2 className="w-3.5 h-3.5 text-teal-700" />
-            <span className="text-xs font-extrabold text-teal-900">
+            <Building2 className="w-3.5 h-3.5 text-teal-700 shrink-0" />
+            <span className="text-xs font-extrabold text-teal-900 truncate max-w-[160px]">
               {activeClinic?.name || userProfile?.clinicName || 'Registered Clinic'}
             </span>
           </div>
         ) : clinics.length > 1 ? (
-          <div className="flex items-center gap-1.5 bg-slate-50 px-2.5 py-1 rounded-xl border border-slate-200">
-            <Building2 className="w-3.5 h-3.5 text-teal-600" />
+          <div className="flex items-center gap-1.5 bg-slate-50 px-2.5 py-1.5 rounded-xl border border-slate-200">
+            <Building2 className="w-3.5 h-3.5 text-teal-600 shrink-0" />
             <label htmlFor="booking-clinic-selector" className="sr-only">
               Select clinic
             </label>
@@ -132,7 +132,7 @@ export const BookTokenSection: React.FC<BookTokenSectionProps> = ({ onTokenGener
               aria-label="Select clinic"
               value={activeClinicId}
               onChange={(e) => switchClinic(e.target.value)}
-              className="bg-transparent text-xs font-bold text-slate-800 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:ring-offset-1 rounded-md cursor-pointer"
+              className="bg-transparent text-xs font-semibold text-slate-800 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-teal-600 rounded-md cursor-pointer max-w-[130px] sm:max-w-[170px] truncate"
             >
               {clinics.map(c => (
                 <option key={c.id} value={c.id}>{c.name}</option>

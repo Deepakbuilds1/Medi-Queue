@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Mail, KeyRound, ArrowRight, X, CheckCircle2, AlertCircle, ShieldCheck } from 'lucide-react';
 import { useAuth, parseAuthError, logAuthError } from '../../context/AuthContext';
 import { normalizeFirebaseError, safeRender, AppErrorState } from '../../utils/errorUtils';
+import { Button } from '../shared/Button';
 
 interface ForgotPasswordModalProps {
   isOpen: boolean;
@@ -84,14 +85,15 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({
               </p>
             </div>
           </div>
-          <button
-            type="button"
+          <Button
+            variant="ghost"
+            size="icon"
             onClick={onClose}
             aria-label="Close"
-            className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors cursor-pointer"
+            className="text-slate-400 hover:text-white hover:bg-slate-800"
           >
             <X className="w-5 h-5" />
-          </button>
+          </Button>
         </header>
 
         {/* Content */}
@@ -119,13 +121,15 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({
                 <p>The recovery link remains valid for 1 hour. Never share this link with anyone.</p>
               </div>
 
-              <button
+              <Button
                 type="button"
+                variant="Primary"
+                size="md"
+                fullWidth
                 onClick={onClose}
-                className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl shadow-xs transition-colors cursor-pointer"
               >
                 Return to Sign In
-              </button>
+              </Button>
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-4">
@@ -158,21 +162,26 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({
               </div>
 
               <div className="flex items-center gap-3 pt-2">
-                <button
+                <Button
                   type="button"
+                  variant="Secondary"
+                  size="md"
+                  className="flex-1"
                   onClick={onClose}
-                  className="flex-1 py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold rounded-xl transition-colors cursor-pointer"
                 >
                   Cancel
-                </button>
-                <button
+                </Button>
+                <Button
                   type="submit"
+                  variant="Primary"
+                  size="md"
+                  className="flex-1"
                   disabled={loading}
-                  className="flex-1 py-2.5 bg-teal-700 hover:bg-teal-800 active:bg-teal-900 disabled:opacity-50 text-white font-bold rounded-xl transition-colors cursor-pointer flex items-center justify-center gap-1.5 shadow-xs"
+                  isLoading={loading}
+                  rightIcon={<ArrowRight className="w-4 h-4" />}
                 >
-                  <span>{loading ? 'Sending...' : 'Send Link'}</span>
-                  <ArrowRight className="w-4 h-4" />
-                </button>
+                  {loading ? 'Sending...' : 'Send Link'}
+                </Button>
               </div>
             </form>
           )}

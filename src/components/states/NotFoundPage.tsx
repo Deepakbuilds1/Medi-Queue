@@ -1,5 +1,6 @@
 import React from 'react';
-import { FileQuestion, ArrowLeft, Home, Monitor, Building2, ShieldAlert } from 'lucide-react';
+import { FileQuestion, Home, Monitor, Building2 } from 'lucide-react';
+import { Button } from '../shared/Button';
 
 interface NotFoundPageProps {
   onNavigateHome: () => void;
@@ -41,35 +42,41 @@ export const NotFoundPage: React.FC<NotFoundPageProps> = ({
 
         {/* Recovery Links */}
         <div className="space-y-2 pt-2">
-          <button
+          <Button
             type="button"
+            variant="Primary"
+            size="md"
+            fullWidth
             onClick={onNavigateHome}
-            className="w-full py-2.5 px-4 bg-teal-700 hover:bg-teal-800 text-white font-bold text-xs rounded-xl shadow-xs transition-colors flex items-center justify-center gap-2 cursor-pointer focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:ring-offset-2 focus:outline-hidden"
+            leftIcon={<Home className="w-4 h-4" />}
           >
-            <Home className="w-4 h-4" />
-            <span>Return to Patient Portal</span>
-          </button>
+            Return to Patient Portal
+          </Button>
 
           {onNavigateDisplay && (
-            <button
+            <Button
               type="button"
+              variant="Secondary"
+              size="md"
+              fullWidth
               onClick={onNavigateDisplay}
-              className="w-full py-2.5 px-4 bg-slate-100 dark:bg-slate-700/60 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-semibold text-xs rounded-xl transition-colors flex items-center justify-center gap-2 cursor-pointer focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:ring-offset-2 focus:outline-hidden"
+              leftIcon={<Monitor className="w-4 h-4 text-emerald-600" />}
             >
-              <Monitor className="w-4 h-4 text-emerald-600" />
-              <span>Open TV Waiting Display</span>
-            </button>
+              Open TV Waiting Display
+            </Button>
           )}
 
           {onNavigateAdmin && (
-            <button
+            <Button
               type="button"
+              variant="ghost"
+              size="md"
+              fullWidth
               onClick={onNavigateAdmin}
-              className="w-full py-2 px-4 text-slate-700 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white text-xs font-semibold rounded-xl transition-colors flex items-center justify-center gap-2 cursor-pointer focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:ring-offset-2 focus:outline-hidden"
+              leftIcon={<Building2 className="w-3.5 h-3.5" />}
             >
-              <Building2 className="w-3.5 h-3.5" />
-              <span>Clinic Administration Login</span>
-            </button>
+              Clinic Administration Login
+            </Button>
           )}
         </div>
 

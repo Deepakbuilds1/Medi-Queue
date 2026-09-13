@@ -1,5 +1,6 @@
 import React from 'react';
 import { LucideIcon, FolderOpen, Plus } from 'lucide-react';
+import { Button } from '../shared/Button';
 
 interface EmptyStateProps {
   title: string;
@@ -28,15 +29,16 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
         {description}
       </p>
       {actionLabel && onAction && (
-        <button
-          type="button"
+        <Button
+          variant="Primary"
+          size="sm"
           onClick={onAction}
-          className="py-2 px-4 bg-teal-700 hover:bg-teal-800 text-white rounded-xl font-bold text-xs flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
+          leftIcon={<Plus className="w-4 h-4" />}
         >
-          <Plus className="w-4 h-4" />
-          <span>{actionLabel}</span>
-        </button>
+          {actionLabel}
+        </Button>
       )}
     </div>
   );
 };
+

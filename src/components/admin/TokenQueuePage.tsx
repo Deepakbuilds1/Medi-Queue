@@ -17,6 +17,7 @@ import { updateTokenStatus, deleteToken } from '../../services/clinicService';
 import { playTokenCallSound } from '../../lib/sound';
 import { ConfirmModal } from '../common/ConfirmModal';
 import { useClinic } from '../../context/ClinicContext';
+import { Button } from '../shared/Button';
 
 interface TokenQueuePageProps {
   tokens: QueueToken[];
@@ -171,19 +172,30 @@ export const TokenQueuePage: React.FC<TokenQueuePageProps> = ({ tokens, doctors 
           </div>
         </div>
 
-        <button
+        <Button
+          type="button"
+          variant="Secondary"
+          size="sm"
           onClick={() => playTokenCallSound()}
-          className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200/80 text-slate-700 rounded-lg text-xs font-medium flex items-center gap-2 cursor-pointer transition-colors"
+          leftIcon={<Volume2 className="w-3.5 h-3.5 text-teal-700" />}
         >
-          <Volume2 className="w-3.5 h-3.5 text-teal-700" />
-          <span>Test Audio Chime</span>
-        </button>
+          Test Audio Chime
+        </Button>
       </div>
 
       {errorMessage && (
         <div className="bg-amber-50 border border-amber-200 p-3 rounded-xl text-amber-800 text-xs font-medium flex items-center justify-between">
           <span>{errorMessage}</span>
-          <button onClick={() => setErrorMessage(null)} className="text-amber-600 hover:text-amber-800 font-bold ml-2 cursor-pointer">✕</button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => setErrorMessage(null)}
+            className="text-amber-600 hover:text-amber-800 font-bold ml-2 p-1 h-auto"
+            aria-label="Dismiss error"
+          >
+            ✕
+          </Button>
         </div>
       )}
 
@@ -294,79 +306,101 @@ export const TokenQueuePage: React.FC<TokenQueuePageProps> = ({ tokens, doctors 
                       <div className="flex items-center justify-end gap-1.5 flex-wrap">
                         
                         {t.status === 'WAITING' && (
-                          <button
+                          <Button
+                            type="button"
+                            variant="Primary"
+                            size="sm"
                             onClick={() => handleStatusChange(t.id, 'CALLED')}
                             disabled={loadingId === t.id}
-                            className="px-2.5 py-1 bg-teal-700 hover:bg-teal-800 text-white rounded text-[11px] font-medium flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                            leftIcon={<PhoneCall className="w-3 h-3" />}
+                            className="text-[11px] py-1 px-2.5 h-auto"
                           >
-                            <PhoneCall className="w-3 h-3" />
-                            <span>Call</span>
-                          </button>
+                            Call
+                          </Button>
                         )}
 
                         {(t.status === 'CALLED' || t.status === 'SKIPPED') && (
-                          <button
+                          <Button
+                            type="button"
+                            variant="Secondary"
+                            size="sm"
                             onClick={() => handleStatusChange(t.id, 'CALLED')}
                             disabled={loadingId === t.id}
-                            className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-[11px] font-medium flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                            leftIcon={<RotateCcw className="w-3 h-3" />}
+                            className="text-[11px] py-1 px-2.5 h-auto"
                           >
-                            <RotateCcw className="w-3 h-3" />
-                            <span>Recall</span>
-                          </button>
+                            Recall
+                          </Button>
                         )}
 
                         {t.status === 'CALLED' && (
-                          <button
+                          <Button
+                            type="button"
+                            variant="Secondary"
+                            size="sm"
                             onClick={() => handleStatusChange(t.id, 'IN CONSULTATION')}
                             disabled={loadingId === t.id}
-                            className="px-2.5 py-1 bg-purple-600 hover:bg-purple-700 text-white rounded text-[11px] font-medium flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                            leftIcon={<Stethoscope className="w-3 h-3" />}
+                            className="text-[11px] py-1 px-2.5 h-auto bg-purple-50 text-purple-700 hover:bg-purple-100 border-purple-200"
                           >
-                            <Stethoscope className="w-3 h-3" />
-                            <span>Start</span>
-                          </button>
+                            Start
+                          </Button>
                         )}
 
                         {(t.status === 'CALLED' || t.status === 'IN CONSULTATION') && (
-                          <button
+                          <Button
+                            type="button"
+                            variant="Secondary"
+                            size="sm"
                             onClick={() => handleStatusChange(t.id, 'COMPLETED')}
                             disabled={loadingId === t.id}
-                            className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-[11px] font-medium flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                            leftIcon={<CheckCheck className="w-3 h-3" />}
+                            className="text-[11px] py-1 px-2.5 h-auto bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border-emerald-200"
                           >
-                            <CheckCheck className="w-3 h-3" />
-                            <span>Complete</span>
-                          </button>
+                            Complete
+                          </Button>
                         )}
 
                         {(t.status === 'WAITING' || t.status === 'CALLED') && (
-                          <button
+                          <Button
+                            type="button"
+                            variant="Secondary"
+                            size="sm"
                             onClick={() => handleSkipClick(t)}
                             disabled={loadingId === t.id}
-                            className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-[11px] font-medium flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                            leftIcon={<FastForward className="w-3 h-3" />}
+                            className="text-[11px] py-1 px-2 h-auto"
                           >
-                            <FastForward className="w-3 h-3" />
-                            <span>Skip</span>
-                          </button>
+                            Skip
+                          </Button>
                         )}
 
                         {t.status !== 'CANCELLED' && t.status !== 'COMPLETED' && (
-                          <button
+                          <Button
+                            type="button"
+                            variant="Destructive"
+                            size="sm"
                             onClick={() => handleCancelClick(t)}
                             disabled={loadingId === t.id}
-                            className="px-2 py-1 bg-amber-50 hover:bg-amber-100 text-amber-700 rounded text-[11px] font-medium flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                            leftIcon={<XCircle className="w-3 h-3" />}
+                            className="text-[11px] py-1 px-2 h-auto"
                           >
-                            <XCircle className="w-3 h-3" />
-                            <span>Cancel</span>
-                          </button>
+                            Cancel
+                          </Button>
                         )}
 
-                        <button
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
                           onClick={() => handleDeleteClick(t)}
                           disabled={loadingId === t.id}
-                          className="px-2 py-1 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded text-[11px] font-medium flex items-center gap-1 cursor-pointer transition-colors"
+                          className="text-slate-400 hover:text-red-600 hover:bg-red-50 p-1 w-7 h-7"
                           title="Delete Token"
+                          aria-label="Delete Token"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
-                        </button>
+                        </Button>
 
                       </div>
                     </td>

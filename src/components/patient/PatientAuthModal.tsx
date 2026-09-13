@@ -20,6 +20,7 @@ import { useAuth, parseAuthError, logAuthError } from '../../context/AuthContext
 import { useClinic } from '../../context/ClinicContext';
 import { Clinic } from '../../types';
 import { normalizeFirebaseError, safeRender, AppErrorState } from '../../utils/errorUtils';
+import { Button } from '../shared/Button';
 
 interface PatientAuthModalProps {
   isOpen: boolean;
@@ -224,46 +225,52 @@ export const PatientAuthModal: React.FC<PatientAuthModalProps> = ({
               </p>
             </div>
           </div>
-          <button 
-            type="button"
+          <Button 
+            variant="ghost"
+            size="icon"
             onClick={onClose}
-            className="p-1.5 text-teal-200 hover:text-white rounded-lg transition-colors cursor-pointer shrink-0 ml-2"
+            aria-label="Close modal"
+            className="text-teal-200 hover:text-white hover:bg-teal-700/60 shrink-0 ml-2"
           >
             <X className="w-5 h-5" />
-          </button>
+          </Button>
         </div>
 
         {/* Tab Switcher */}
         <div className="flex border-b border-slate-200 bg-slate-50 text-xs font-bold text-slate-600 shrink-0">
-          <button
+          <Button
             type="button"
+            variant="ghost"
+            fullWidth
             onClick={() => { 
               setMode('signup'); 
               setSignupStep(1); 
               setErrorState(null); 
             }}
-            className={`flex-1 py-3 text-center transition-all cursor-pointer ${
+            className={`rounded-none border-b-2 py-3 text-xs font-bold ${
               mode === 'signup' 
-                ? 'bg-white text-teal-700 border-b-2 border-teal-600 font-extrabold shadow-2xs' 
-                : 'hover:bg-slate-100'
+                ? 'bg-white text-teal-700 border-teal-600 font-extrabold shadow-2xs' 
+                : 'border-transparent hover:bg-slate-100'
             }`}
           >
             NEW PATIENT SIGN UP
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
+            variant="ghost"
+            fullWidth
             onClick={() => { 
               setMode('signin'); 
               setErrorState(null); 
             }}
-            className={`flex-1 py-3 text-center transition-all cursor-pointer ${
+            className={`rounded-none border-b-2 py-3 text-xs font-bold ${
               mode === 'signin' 
-                ? 'bg-white text-teal-700 border-b-2 border-teal-600 font-extrabold shadow-2xs' 
-                : 'hover:bg-slate-100'
+                ? 'bg-white text-teal-700 border-teal-600 font-extrabold shadow-2xs' 
+                : 'border-transparent hover:bg-slate-100'
             }`}
           >
             EXISTING PATIENT SIGN IN
-          </button>
+          </Button>
         </div>
 
         {/* Modal Body with Scroll */}
@@ -370,15 +377,17 @@ export const PatientAuthModal: React.FC<PatientAuthModalProps> = ({
               </div>
 
               <div className="sticky bottom-0 bg-white pt-2.5 pb-1 border-t border-slate-100 mt-2 z-10">
-                <button
+                <Button
                   type="button"
+                  variant="Primary"
+                  size="md"
+                  fullWidth
                   onClick={handleStep1Continue}
                   disabled={!selectedClinicId}
-                  className="w-full py-3 bg-teal-700 hover:bg-teal-800 active:bg-teal-900 text-white font-extrabold text-xs rounded-xl shadow-md shadow-teal-700/20 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                  rightIcon={<ArrowRight className="w-4 h-4" />}
                 >
-                  <span>CONTINUE TO PATIENT DETAILS</span>
-                  <ArrowRight className="w-4 h-4" />
-                </button>
+                  CONTINUE TO PATIENT DETAILS
+                </Button>
               </div>
             </div>
           )}
@@ -398,13 +407,15 @@ export const PatientAuthModal: React.FC<PatientAuthModalProps> = ({
                     <span className="font-extrabold text-teal-950 text-xs">{selectedClinic?.name}</span>
                   </div>
                 </div>
-                <button
+                <Button
                   type="button"
+                  variant="link"
+                  size="sm"
                   onClick={() => setSignupStep(1)}
-                  className="text-[11px] font-bold text-teal-700 hover:text-teal-900 underline cursor-pointer"
+                  className="p-0 h-auto text-[11px] text-teal-700"
                 >
                   Change
-                </button>
+                </Button>
               </div>
 
               <div>
@@ -514,22 +525,26 @@ export const PatientAuthModal: React.FC<PatientAuthModalProps> = ({
               </div>
 
               <div className="pt-2 flex items-center gap-2">
-                <button
+                <Button
                   type="button"
+                  variant="Secondary"
+                  size="md"
                   onClick={() => setSignupStep(1)}
-                  className="px-4 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-all flex items-center gap-1.5 cursor-pointer"
+                  leftIcon={<ArrowLeft className="w-4 h-4" />}
                 >
-                  <ArrowLeft className="w-4 h-4" />
-                  <span>Back</span>
-                </button>
-                <button
+                  Back
+                </Button>
+                <Button
                   type="submit"
+                  variant="Primary"
+                  size="md"
+                  fullWidth
                   disabled={loading}
-                  className="flex-1 py-3 bg-teal-600 hover:bg-teal-700 active:bg-teal-800 text-white font-extrabold text-xs rounded-xl shadow-md shadow-teal-600/20 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                  isLoading={loading}
+                  leftIcon={<ShieldCheck className="w-4 h-4" />}
                 >
-                  <ShieldCheck className="w-4 h-4" />
-                  <span>{loading ? 'CREATING ACCOUNT...' : 'COMPLETE REGISTRATION'}</span>
-                </button>
+                  {loading ? 'CREATING ACCOUNT...' : 'COMPLETE REGISTRATION'}
+                </Button>
               </div>
             </form>
           )}
@@ -563,16 +578,18 @@ export const PatientAuthModal: React.FC<PatientAuthModalProps> = ({
                 <div className="flex items-center justify-between mb-1">
                   <label className="block text-[11px] font-bold text-slate-700 uppercase">Password *</label>
                   {onOpenForgotPassword && (
-                    <button
+                    <Button
                       type="button"
+                      variant="link"
+                      size="sm"
                       onClick={() => {
                         onClose();
                         onOpenForgotPassword();
                       }}
-                      className="text-[10px] font-bold text-teal-700 hover:text-teal-900 underline cursor-pointer"
+                      className="p-0 h-auto text-[10px] text-teal-700"
                     >
                       Forgot password?
-                    </button>
+                    </Button>
                   )}
                 </div>
                 <div className="relative">
@@ -589,28 +606,33 @@ export const PatientAuthModal: React.FC<PatientAuthModalProps> = ({
               </div>
 
               <div className="pt-2">
-                <button
+                <Button
                   type="submit"
+                  variant="Primary"
+                  size="md"
+                  fullWidth
                   disabled={loading}
-                  className="w-full py-3 bg-teal-600 hover:bg-teal-700 active:bg-teal-800 text-white font-extrabold text-xs rounded-xl shadow-md shadow-teal-600/20 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                  isLoading={loading}
+                  leftIcon={<LogIn className="w-4 h-4" />}
                 >
-                  <LogIn className="w-4 h-4" />
-                  <span>{loading ? 'AUTHENTICATING...' : 'SIGN IN TO PATIENT PORTAL'}</span>
-                </button>
+                  {loading ? 'AUTHENTICATING...' : 'SIGN IN TO PATIENT PORTAL'}
+                </Button>
               </div>
 
               <div className="text-center pt-1">
-                <button
+                <Button
                   type="button"
+                  variant="link"
+                  size="sm"
                   onClick={() => {
                     setMode('signup');
                     setSignupStep(1);
                     setErrorState(null);
                   }}
-                  className="text-[11px] font-bold text-teal-700 hover:text-teal-900 underline cursor-pointer"
+                  className="text-[11px] text-teal-700"
                 >
                   Don't have an account? Sign up here
-                </button>
+                </Button>
               </div>
             </form>
           )}
@@ -624,38 +646,44 @@ export const PatientAuthModal: React.FC<PatientAuthModalProps> = ({
           </p>
           {onOpenLegalDoc && (
             <div className="flex items-center justify-center gap-2 text-[10px] text-slate-500">
-              <button
+              <Button
                 type="button"
+                variant="link"
+                size="sm"
                 onClick={() => {
                   onClose();
                   onOpenLegalDoc('privacy');
                 }}
-                className="hover:underline hover:text-teal-700"
+                className="p-0 h-auto text-[10px] text-slate-500 hover:text-teal-700"
               >
                 Privacy Policy
-              </button>
+              </Button>
               <span>•</span>
-              <button
+              <Button
                 type="button"
+                variant="link"
+                size="sm"
                 onClick={() => {
                   onClose();
                   onOpenLegalDoc('terms');
                 }}
-                className="hover:underline hover:text-teal-700"
+                className="p-0 h-auto text-[10px] text-slate-500 hover:text-teal-700"
               >
                 Terms of Service
-              </button>
+              </Button>
               <span>•</span>
-              <button
+              <Button
                 type="button"
+                variant="link"
+                size="sm"
                 onClick={() => {
                   onClose();
                   onOpenLegalDoc('disclaimer');
                 }}
-                className="hover:underline hover:text-amber-600 font-semibold"
+                className="p-0 h-auto text-[10px] text-amber-600 font-semibold"
               >
                 Medical Disclaimer
-              </button>
+              </Button>
             </div>
           )}
         </div>

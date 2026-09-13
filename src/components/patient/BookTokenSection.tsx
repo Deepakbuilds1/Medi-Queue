@@ -5,6 +5,7 @@ import { subscribeDoctors, generateToken } from '../../services/clinicService';
 import { useAuth } from '../../context/AuthContext';
 import { useClinic } from '../../context/ClinicContext';
 import { PatientAuthModal } from './PatientAuthModal';
+import { Button } from '../shared/Button';
 
 interface BookTokenSectionProps {
   onTokenGenerated: (token: QueueToken) => void;
@@ -142,14 +143,14 @@ export const BookTokenSection: React.FC<BookTokenSectionProps> = ({ onTokenGener
         ) : null}
 
         {!user && (
-          <button
-            type="button"
+          <Button
+            variant="Primary"
+            size="sm"
             onClick={() => setIsAuthModalOpen(true)}
-            className="px-3 py-1.5 bg-teal-700 hover:bg-teal-800 text-white text-xs font-bold rounded-xl flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:ring-offset-1 focus:outline-hidden"
+            leftIcon={<LogIn className="w-3.5 h-3.5" />}
           >
-            <LogIn className="w-3.5 h-3.5" />
             Sign In / Sign Up
-          </button>
+          </Button>
         )}
       </div>
 
@@ -289,19 +290,23 @@ export const BookTokenSection: React.FC<BookTokenSectionProps> = ({ onTokenGener
         </div>
 
         {/* Submit Action */}
-        <button
+        <Button
           type="submit"
-          disabled={loading || !selectedDoctorId}
-          className="w-full py-3.5 bg-teal-700 hover:bg-teal-800 active:bg-teal-900 text-white font-extrabold text-sm rounded-xl shadow-lg shadow-teal-700/20 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+          variant="Primary"
+          size="lg"
+          fullWidth
+          disabled={!selectedDoctorId}
+          isLoading={loading}
+          leftIcon={<Sparkles className="w-4 h-4 text-amber-300" />}
+          className="shadow-lg shadow-teal-700/20"
         >
-          <Sparkles className="w-4 h-4 text-amber-300" />
           {loading 
             ? 'Generating Token...' 
             : user 
               ? `GENERATE TOKEN FOR ${activeDoc ? activeDoc.name : 'DOCTOR'}`
               : 'SIGN IN & GENERATE TOKEN'
           }
-        </button>
+        </Button>
 
       </form>
 

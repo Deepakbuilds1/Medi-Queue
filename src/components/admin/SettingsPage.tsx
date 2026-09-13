@@ -4,6 +4,7 @@ import { ClinicSettings } from '../../types';
 import { updateSettings } from '../../services/clinicService';
 import { useClinic } from '../../context/ClinicContext';
 import { ClinicBrandingSection } from './ClinicBrandingSection';
+import { Button } from '../shared/Button';
 
 interface SettingsPageProps {
   settings: ClinicSettings | null;
@@ -222,14 +223,16 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ settings }) => {
         </div>
 
         <div className="pt-3 border-t border-slate-100 flex justify-end">
-          <button
+          <Button
             type="submit"
+            variant="Primary"
+            size="md"
             disabled={saving}
-            className="px-4 py-2 bg-teal-700 hover:bg-teal-800 text-white font-medium text-xs rounded-lg shadow-xs transition-colors flex items-center gap-2 cursor-pointer disabled:opacity-50"
+            isLoading={saving}
+            leftIcon={<Save className="w-3.5 h-3.5" />}
           >
-            <Save className="w-3.5 h-3.5" />
-            <span>{saving ? 'Saving Changes...' : 'Save Configuration'}</span>
-          </button>
+            {saving ? 'Saving Changes...' : 'Save Configuration'}
+          </Button>
         </div>
 
       </form>

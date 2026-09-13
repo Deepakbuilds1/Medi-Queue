@@ -4,6 +4,7 @@ import { ClinicSettings, QueueToken } from '../../types';
 import { subscribePublicQueue } from '../../services/clinicService';
 import { playTokenCallSound } from '../../lib/sound';
 import { useClinic } from '../../context/ClinicContext';
+import { Button } from '../shared/Button';
 
 interface PublicDisplayProps {
   settings: ClinicSettings | null;
@@ -59,14 +60,16 @@ export const PublicDisplay: React.FC<PublicDisplayProps> = ({ settings, onNaviga
       <header className="bg-slate-900 border-b border-slate-800 px-3.5 sm:px-6 lg:px-8 py-3 sm:py-4 flex flex-wrap items-center justify-between gap-3 sm:gap-4 shrink-0 w-full box-border">
         {/* Brand & Clinic Title */}
         <div className="flex items-center gap-2.5 sm:gap-4 min-w-0 flex-1 max-w-full">
-          <button
+          <Button
+            variant="Secondary"
+            size="icon"
             onClick={onNavigateBack}
-            className="p-2 sm:p-2.5 text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-xl transition-colors cursor-pointer shrink-0 focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-[38px] min-h-[38px] flex items-center justify-center"
+            className="bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white border-slate-700 min-w-[38px] min-h-[38px]"
             aria-label="Back to patient portal"
             title="Back to patient portal"
           >
             <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5" aria-hidden="true" />
-          </button>
+          </Button>
           
           {clinicLogo ? (
             <img 
@@ -114,15 +117,16 @@ export const PublicDisplay: React.FC<PublicDisplayProps> = ({ settings, onNaviga
             </div>
           )}
 
-          <button
+          <Button
+            variant="Secondary"
+            size="sm"
             onClick={() => playTokenCallSound()}
-            className="px-2.5 sm:px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl font-bold flex items-center gap-1.5 sm:gap-2 transition-colors cursor-pointer shrink-0 focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[34px]"
-            style={{ fontSize: 'clamp(0.6875rem, 2.2vw, 0.75rem)' }}
+            className="bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700"
             aria-label="Test chime notification sound"
+            leftIcon={<Volume2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-blue-400 shrink-0" aria-hidden="true" />}
           >
-            <Volume2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-blue-400 shrink-0" aria-hidden="true" />
-            <span>Test Chime</span>
-          </button>
+            Test Chime
+          </Button>
 
           <div className="text-right font-mono shrink-0 pl-1">
             <div 

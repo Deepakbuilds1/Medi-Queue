@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { WifiOff, RefreshCw, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { WifiOff, RefreshCw, CheckCircle2 } from 'lucide-react';
+import { Button } from '../shared/Button';
 
 export const OfflineIndicator: React.FC = () => {
   const [isOnline, setIsOnline] = useState(
@@ -63,15 +64,17 @@ export const OfflineIndicator: React.FC = () => {
               <strong>Internet Connection Lost:</strong> Real-time queue updates and sound announcements are paused until reconnected.
             </span>
           </div>
-          <button
+          <Button
             type="button"
+            variant="Secondary"
+            size="sm"
             onClick={handleManualRetry}
             disabled={isRetrying}
-            className="px-3 py-1 bg-white/20 hover:bg-white/30 text-white rounded-lg text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5 shrink-0"
+            isLoading={isRetrying}
+            className="shrink-0 bg-white/20 hover:bg-white/30 text-white border-white/30"
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${isRetrying ? 'animate-spin' : ''}`} />
-            <span>{isRetrying ? 'Checking...' : 'Retry'}</span>
-          </button>
+            Retry
+          </Button>
         </div>
       ) : (
         <div 

@@ -3,6 +3,7 @@ import { Users, Search, History, Edit2, X, Phone, Calendar, Clock, FileText } fr
 import { Patient, QueueToken } from '../../types';
 import { updatePatientRecord } from '../../services/clinicService';
 import { useClinic } from '../../context/ClinicContext';
+import { Button } from '../shared/Button';
 
 interface PatientListPageProps {
   patients: Patient[];
@@ -139,22 +140,24 @@ export const PatientListPage: React.FC<PatientListPageProps> = ({ patients, toke
                       </span>
                     </td>
                     <td className="p-3.5 text-right space-x-1.5">
-                      <button
+                      <Button
+                        variant="Secondary"
+                        size="sm"
                         onClick={() => setSelectedPatientHistory(p)}
                         title="View History"
-                        className="px-2.5 py-1 bg-teal-50 hover:bg-teal-100 text-teal-800 rounded text-xs font-medium inline-flex items-center gap-1 cursor-pointer transition-colors"
+                        leftIcon={<History className="w-3.5 h-3.5" />}
                       >
-                        <History className="w-3.5 h-3.5" />
-                        <span>History</span>
-                      </button>
-                      <button
+                        History
+                      </Button>
+                      <Button
+                        variant="Secondary"
+                        size="sm"
                         onClick={() => handleStartEdit(p)}
                         title="Edit Patient"
-                        className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-xs font-medium inline-flex items-center gap-1 cursor-pointer transition-colors"
+                        leftIcon={<Edit2 className="w-3.5 h-3.5" />}
                       >
-                        <Edit2 className="w-3.5 h-3.5" />
-                        <span>Edit</span>
-                      </button>
+                        Edit
+                      </Button>
                     </td>
                   </tr>
                 ))
@@ -177,12 +180,14 @@ export const PatientListPage: React.FC<PatientListPageProps> = ({ patients, toke
                   ID: {selectedPatientHistory.patientId} • Phone: {selectedPatientHistory.phone}
                 </p>
               </div>
-              <button 
+              <Button 
+                variant="ghost"
+                size="icon"
                 onClick={() => setSelectedPatientHistory(null)}
-                className="p-1 text-slate-400 hover:text-slate-600 rounded-md cursor-pointer"
+                aria-label="Close history modal"
               >
                 <X className="w-4 h-4" />
-              </button>
+              </Button>
             </div>
 
             <div className="p-4 space-y-2.5 max-h-96 overflow-y-auto">
@@ -209,12 +214,13 @@ export const PatientListPage: React.FC<PatientListPageProps> = ({ patients, toke
             </div>
 
             <div className="p-3.5 bg-slate-50 border-t border-[#E2E8F0] text-right">
-              <button
+              <Button
+                variant="Secondary"
+                size="sm"
                 onClick={() => setSelectedPatientHistory(null)}
-                className="px-3.5 py-1.5 bg-slate-200 hover:bg-slate-300 text-xs font-medium rounded-lg text-slate-700 cursor-pointer"
               >
                 Close
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -226,9 +232,14 @@ export const PatientListPage: React.FC<PatientListPageProps> = ({ patients, toke
           <div className="bg-white rounded-xl shadow-xl max-w-md w-full border border-[#E2E8F0] overflow-hidden">
             <div className="p-4 border-b border-[#E2E8F0] flex justify-between items-center bg-slate-50">
               <h3 className="font-bold text-slate-900 text-sm">Edit Patient Record</h3>
-              <button onClick={() => setEditingPatient(null)} className="p-1 text-slate-400 hover:text-slate-600 cursor-pointer">
+              <Button 
+                variant="ghost" 
+                size="icon"
+                onClick={() => setEditingPatient(null)} 
+                aria-label="Close edit modal"
+              >
                 <X className="w-4 h-4" />
-              </button>
+              </Button>
             </div>
 
             <form onSubmit={handleSaveEdit} className="p-4 space-y-3">
@@ -279,20 +290,23 @@ export const PatientListPage: React.FC<PatientListPageProps> = ({ patients, toke
               </div>
 
               <div className="pt-3 border-t border-slate-100 flex justify-end gap-2">
-                <button
+                <Button
                   type="button"
+                  variant="Secondary"
+                  size="sm"
                   onClick={() => setEditingPatient(null)}
-                  className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-medium rounded-lg cursor-pointer"
                 >
                   Cancel
-                </button>
-                <button
+                </Button>
+                <Button
                   type="submit"
+                  variant="Primary"
+                  size="sm"
                   disabled={savingEdit}
-                  className="px-4 py-1.5 bg-teal-700 hover:bg-teal-800 text-white text-xs font-medium rounded-lg cursor-pointer disabled:opacity-50"
+                  isLoading={savingEdit}
                 >
-                  {savingEdit ? 'Saving...' : 'Save Record'}
-                </button>
+                  Save Record
+                </Button>
               </div>
             </form>
           </div>

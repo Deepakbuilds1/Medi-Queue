@@ -1,5 +1,6 @@
 import React from 'react';
 import { SearchX, RotateCcw } from 'lucide-react';
+import { Button } from '../shared/Button';
 
 interface NoResultsStateProps {
   searchQuery?: string;
@@ -21,14 +22,15 @@ export const NoResultsState: React.FC<NoResultsStateProps> = ({
       <p className="text-[11px] text-slate-500 max-w-xs mb-3">
         {searchQuery ? `No results match "${searchQuery}".` : 'No items match your active filters.'}
       </p>
-      <button
-        type="button"
+      <Button
+        variant="Secondary"
+        size="sm"
         onClick={onClearFilters}
-        className="py-1.5 px-3 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-800 dark:text-slate-200 rounded-lg font-bold text-[11px] flex items-center gap-1.5 transition-colors cursor-pointer"
+        leftIcon={<RotateCcw className="w-3.5 h-3.5" />}
       >
-        <RotateCcw className="w-3.5 h-3.5" />
-        <span>Reset Filters</span>
-      </button>
+        Reset Filters
+      </Button>
     </div>
   );
 };
+

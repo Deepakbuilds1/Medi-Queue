@@ -8,6 +8,7 @@ import { useClinic } from '../../context/ClinicContext';
 import { PatientAuthModal } from './PatientAuthModal';
 import { BookTokenSection } from './BookTokenSection';
 import { LegalDocType } from '../legal/LegalPagesModal';
+import { Button } from '../shared/Button';
 
 interface PatientPortalProps {
   settings: ClinicSettings | null;
@@ -211,18 +212,22 @@ export const PatientPortal: React.FC<PatientPortalProps> = ({
             ) : null}
 
             {/* TV Public Display link */}
-            <button
+            <Button
+              variant="Secondary"
+              size="sm"
               onClick={onNavigateToPublicDisplay}
-              className="text-xs font-semibold text-slate-600 hover:text-teal-700 bg-slate-100 hover:bg-slate-200 px-2 sm:px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer shrink-0"
+              className="shrink-0"
               title="Open Live TV Display"
+              leftIcon={<Monitor className="w-3.5 h-3.5 text-emerald-600 shrink-0" />}
             >
-              <Monitor className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
               <span className="hidden sm:inline">TV Display</span>
-            </button>
+            </Button>
 
             {/* Admin or Staff Dashboard / Login link */}
             {isSuperAdmin || isClinicAdmin || isClinicStaff ? (
-              <button
+              <Button
+                variant="Secondary"
+                size="sm"
                 onClick={() => {
                   if (onNavigateToAdminDashboard) {
                     onNavigateToAdminDashboard();
@@ -230,20 +235,22 @@ export const PatientPortal: React.FC<PatientPortalProps> = ({
                     onNavigateToAdminLogin();
                   }
                 }}
-                className="text-xs font-bold text-teal-800 bg-teal-50 hover:bg-teal-100 border border-teal-200 px-2 sm:px-2.5 py-1.5 rounded-lg transition-colors cursor-pointer flex items-center gap-1 shrink-0"
+                className="shrink-0 bg-teal-50 hover:bg-teal-100 text-teal-800 border-teal-200"
                 title="Open Admin Dashboard"
+                leftIcon={<ShieldCheck className="w-3.5 h-3.5 text-teal-700 shrink-0" />}
               >
-                <ShieldCheck className="w-3.5 h-3.5 text-teal-700 shrink-0" />
                 <span>{isSuperAdmin ? 'Super Admin' : 'Admin'}</span>
-              </button>
+              </Button>
             ) : (
-              <button
+              <Button
+                variant="Secondary"
+                size="sm"
                 onClick={onNavigateToAdminLogin}
-                className="text-xs font-semibold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 px-2 sm:px-2.5 py-1.5 rounded-lg transition-colors cursor-pointer shrink-0"
+                className="shrink-0"
                 title="Clinic Staff & Administrator Sign In"
               >
                 Admin
-              </button>
+              </Button>
             )}
           </div>
         </div>
@@ -272,59 +279,73 @@ export const PatientPortal: React.FC<PatientPortalProps> = ({
           {user ? (
             <div className="flex items-center gap-1.5 self-end sm:self-auto shrink-0">
               {onOpenAccountSettings && (
-                <button
+                <Button
                   type="button"
+                  variant="Secondary"
+                  size="sm"
                   onClick={onOpenAccountSettings}
-                  className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-teal-400 hover:text-teal-300 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+                  className="bg-slate-800 hover:bg-slate-700 text-teal-400 hover:text-teal-300 border-slate-700"
                   title="Account Settings"
+                  leftIcon={<SettingsIcon className="w-3.5 h-3.5" />}
                 >
-                  <SettingsIcon className="w-3.5 h-3.5" />
                   <span className="hidden sm:inline">Settings</span>
-                </button>
+                </Button>
               )}
               {onOpenHelpCenter && (
-                <button
+                <Button
                   type="button"
+                  variant="Secondary"
+                  size="sm"
                   onClick={onOpenHelpCenter}
-                  className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+                  className="bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border-slate-700"
                   title="Help Center"
+                  leftIcon={<HelpCircle className="w-3.5 h-3.5" />}
                 >
-                  <HelpCircle className="w-3.5 h-3.5" />
                   <span className="hidden sm:inline">Help</span>
-                </button>
+                </Button>
               )}
-              <button
+              <Button
+                type="button"
+                variant="Secondary"
+                size="sm"
                 onClick={logout}
-                className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+                className="bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border-slate-700"
+                leftIcon={<LogOut className="w-3.5 h-3.5" />}
               >
-                <LogOut className="w-3.5 h-3.5" />
-                <span>Sign Out</span>
-              </button>
+                Sign Out
+              </Button>
             </div>
           ) : (
             <div className="flex items-center gap-1.5 self-end sm:self-auto shrink-0">
               {onOpenHelpCenter && (
-                <button
+                <Button
                   type="button"
+                  variant="Secondary"
+                  size="sm"
                   onClick={onOpenHelpCenter}
-                  className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+                  className="bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border-slate-700"
+                  leftIcon={<HelpCircle className="w-3.5 h-3.5" />}
                 >
-                  <HelpCircle className="w-3.5 h-3.5" />
-                  <span>Help</span>
-                </button>
+                  Help
+                </Button>
               )}
-              <button
+              <Button
+                type="button"
+                variant="Secondary"
+                size="sm"
                 onClick={() => { setAuthModalMode('signin'); setIsAuthModalOpen(true); }}
-                className="px-3 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-bold transition-colors cursor-pointer"
+                className="bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700"
               >
                 Sign In
-              </button>
-              <button
+              </Button>
+              <Button
+                type="button"
+                variant="Primary"
+                size="sm"
                 onClick={() => { setAuthModalMode('signup'); setIsAuthModalOpen(true); }}
-                className="px-3 py-1 bg-teal-700 hover:bg-teal-800 text-white rounded-lg text-xs font-bold transition-colors cursor-pointer shadow-2xs"
               >
                 Sign Up
-              </button>
+              </Button>
             </div>
           )}
         </div>
@@ -333,41 +354,50 @@ export const PatientPortal: React.FC<PatientPortalProps> = ({
       {/* Navigation Tabs */}
       <div className="bg-white border-b border-slate-200 px-2 sm:px-4">
         <div className="max-w-2xl mx-auto flex gap-1 sm:gap-2 text-xs font-bold overflow-x-auto scrollbar-none">
-          <button
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
             onClick={() => setActiveTab('book')}
-            className={`py-3 px-3 sm:px-4 border-b-2 flex items-center gap-1.5 transition-colors cursor-pointer shrink-0 whitespace-nowrap ${
+            className={`rounded-none border-b-2 py-3 px-3 sm:px-4 text-xs font-bold whitespace-nowrap ${
               activeTab === 'book' 
-                ? 'border-teal-600 text-teal-700 font-extrabold' 
-                : 'border-transparent text-slate-500 hover:text-slate-800'
+                ? 'border-teal-600 text-teal-700 font-extrabold hover:bg-transparent' 
+                : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-transparent'
             }`}
+            leftIcon={<PlusCircle className="w-4 h-4 text-teal-600 shrink-0" />}
           >
-            <PlusCircle className="w-4 h-4 text-teal-600 shrink-0" />
-            <span>Book Token</span>
-          </button>
+            Book Token
+          </Button>
 
-          <button
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
             onClick={() => setActiveTab('my-tokens')}
-            className={`py-3 px-3 sm:px-4 border-b-2 flex items-center gap-1.5 transition-colors cursor-pointer shrink-0 whitespace-nowrap ${
+            className={`rounded-none border-b-2 py-3 px-3 sm:px-4 text-xs font-bold whitespace-nowrap ${
               activeTab === 'my-tokens' 
-                ? 'border-teal-600 text-teal-700 font-extrabold' 
-                : 'border-transparent text-slate-500 hover:text-slate-800'
+                ? 'border-teal-600 text-teal-700 font-extrabold hover:bg-transparent' 
+                : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-transparent'
             }`}
+            leftIcon={<Ticket className="w-4 h-4 text-teal-600 shrink-0" />}
           >
-            <Ticket className="w-4 h-4 text-teal-600 shrink-0" />
-            <span>My Tokens ({userTokens.length})</span>
-          </button>
+            My Tokens ({userTokens.length})
+          </Button>
 
-          <button
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
             onClick={() => setActiveTab('lookup')}
-            className={`py-3 px-3 sm:px-4 border-b-2 flex items-center gap-1.5 transition-colors cursor-pointer shrink-0 whitespace-nowrap ${
+            className={`rounded-none border-b-2 py-3 px-3 sm:px-4 text-xs font-bold whitespace-nowrap ${
               activeTab === 'lookup' 
-                ? 'border-teal-600 text-teal-700 font-extrabold' 
-                : 'border-transparent text-slate-500 hover:text-slate-800'
+                ? 'border-teal-600 text-teal-700 font-extrabold hover:bg-transparent' 
+                : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-transparent'
             }`}
+            leftIcon={<Search className="w-4 h-4 text-teal-600 shrink-0" />}
           >
-            <Search className="w-4 h-4 text-teal-600 shrink-0" />
-            <span>Token Status Lookup</span>
-          </button>
+            Token Status Lookup
+          </Button>
         </div>
       </div>
 
@@ -405,24 +435,26 @@ export const PatientPortal: React.FC<PatientPortalProps> = ({
                 <p className="text-xs text-slate-500 max-w-sm mx-auto">
                   Please sign in or create an account to view and manage your clinic appointment queue tokens.
                 </p>
-                <button
+                <Button
+                  variant="Primary"
+                  size="sm"
                   onClick={() => { setAuthModalMode('signin'); setIsAuthModalOpen(true); }}
-                  className="px-4 py-2 bg-teal-700 hover:bg-teal-800 text-white font-bold text-xs rounded-xl shadow-md cursor-pointer"
                 >
                   Sign In / Sign Up
-                </button>
+                </Button>
               </div>
             ) : userTokens.length === 0 ? (
               <div className="p-8 text-center bg-slate-50 rounded-2xl border border-slate-200 space-y-3">
                 <Ticket className="w-8 h-8 text-slate-400 mx-auto" />
                 <h4 className="font-extrabold text-sm text-slate-800">No Tokens Booked Yet</h4>
                 <p className="text-xs text-slate-500">Book your first consultation token using the Book Token tab.</p>
-                <button
+                <Button
+                  variant="Primary"
+                  size="sm"
                   onClick={() => setActiveTab('book')}
-                  className="px-4 py-2 bg-teal-700 hover:bg-teal-800 text-white font-bold text-xs rounded-xl cursor-pointer"
                 >
                   Book Consultation Token
-                </button>
+                </Button>
               </div>
             ) : (
               <div className="space-y-3">
@@ -485,13 +517,16 @@ export const PatientPortal: React.FC<PatientPortalProps> = ({
                 />
               </div>
 
-              <button
+              <Button
                 type="submit"
+                variant="Primary"
+                size="lg"
+                fullWidth
                 disabled={loading}
-                className="w-full py-3 bg-teal-700 hover:bg-teal-800 active:bg-teal-900 text-white font-extrabold text-sm rounded-xl shadow-lg shadow-teal-700/20 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                isLoading={loading}
               >
-                {loading ? 'Checking Queue...' : 'CHECK STATUS'}
-              </button>
+                CHECK STATUS
+              </Button>
             </form>
 
             {error && (
@@ -649,41 +684,49 @@ export const PatientPortal: React.FC<PatientPortalProps> = ({
               </h4>
               <ul className="space-y-1 text-[11px]">
                 <li>
-                  <button
+                  <Button
                     type="button"
+                    variant="link"
+                    size="sm"
                     onClick={() => onOpenLegalDoc && onOpenLegalDoc('privacy')}
-                    className="inline-flex py-0.5 hover:text-teal-400 transition-colors cursor-pointer text-left truncate max-w-full"
+                    className="p-0 h-auto text-[11px] text-slate-300 hover:text-teal-400"
                   >
                     Privacy Policy
-                  </button>
+                  </Button>
                 </li>
                 <li>
-                  <button
+                  <Button
                     type="button"
+                    variant="link"
+                    size="sm"
                     onClick={() => onOpenLegalDoc && onOpenLegalDoc('terms')}
-                    className="inline-flex py-0.5 hover:text-teal-400 transition-colors cursor-pointer text-left truncate max-w-full"
+                    className="p-0 h-auto text-[11px] text-slate-300 hover:text-teal-400"
                   >
                     Terms of Service
-                  </button>
+                  </Button>
                 </li>
                 <li>
-                  <button
+                  <Button
                     type="button"
+                    variant="link"
+                    size="sm"
                     onClick={() => onOpenLegalDoc && onOpenLegalDoc('disclaimer')}
-                    className="inline-flex items-center gap-1 py-0.5 text-amber-400 hover:text-amber-300 font-semibold transition-colors cursor-pointer text-left"
+                    className="p-0 h-auto text-[11px] text-amber-400 hover:text-amber-300 font-semibold"
+                    leftIcon={<AlertTriangle className="w-3 h-3 shrink-0" />}
                   >
-                    <AlertTriangle className="w-3 h-3 shrink-0" />
-                    <span className="truncate">Medical Disclaimer</span>
-                  </button>
+                    Medical Disclaimer
+                  </Button>
                 </li>
                 <li>
-                  <button
+                  <Button
                     type="button"
+                    variant="link"
+                    size="sm"
                     onClick={() => onOpenLegalDoc && onOpenLegalDoc('cancellation')}
-                    className="inline-flex py-0.5 hover:text-teal-400 transition-colors cursor-pointer text-left truncate max-w-full"
+                    className="p-0 h-auto text-[11px] text-slate-300 hover:text-teal-400"
                   >
                     Cancellation Policy
-                  </button>
+                  </Button>
                 </li>
               </ul>
             </div>
@@ -695,40 +738,48 @@ export const PatientPortal: React.FC<PatientPortalProps> = ({
               </h4>
               <ul className="space-y-1 text-[11px]">
                 <li>
-                  <button
+                  <Button
                     type="button"
+                    variant="link"
+                    size="sm"
                     onClick={() => onOpenLegalDoc && onOpenLegalDoc('security')}
-                    className="inline-flex py-0.5 hover:text-teal-400 transition-colors cursor-pointer text-left truncate max-w-full"
+                    className="p-0 h-auto text-[11px] text-slate-300 hover:text-teal-400"
                   >
                     Security Architecture
-                  </button>
+                  </Button>
                 </li>
                 <li>
-                  <button
+                  <Button
                     type="button"
+                    variant="link"
+                    size="sm"
                     onClick={() => onOpenLegalDoc && onOpenLegalDoc('cookies')}
-                    className="inline-flex py-0.5 hover:text-teal-400 transition-colors cursor-pointer text-left truncate max-w-full"
+                    className="p-0 h-auto text-[11px] text-slate-300 hover:text-teal-400"
                   >
                     Cookie & Storage Policy
-                  </button>
+                  </Button>
                 </li>
                 <li>
-                  <button
+                  <Button
                     type="button"
+                    variant="link"
+                    size="sm"
                     onClick={onOpenCookiePreferences}
-                    className="inline-flex py-0.5 hover:text-teal-400 transition-colors cursor-pointer text-teal-400 text-left truncate max-w-full"
+                    className="p-0 h-auto text-[11px] text-teal-400 hover:text-teal-300"
                   >
                     Cookie Preferences
-                  </button>
+                  </Button>
                 </li>
                 <li>
-                  <button
+                  <Button
                     type="button"
+                    variant="link"
+                    size="sm"
                     onClick={() => onOpenLegalDoc && onOpenLegalDoc('accessibility')}
-                    className="inline-flex py-0.5 hover:text-teal-400 transition-colors cursor-pointer text-left truncate max-w-full"
+                    className="p-0 h-auto text-[11px] text-slate-300 hover:text-teal-400"
                   >
                     Accessibility Statement
-                  </button>
+                  </Button>
                 </li>
               </ul>
             </div>
@@ -739,35 +790,43 @@ export const PatientPortal: React.FC<PatientPortalProps> = ({
                 Assistance & Help
               </h4>
               <div className="flex flex-wrap md:flex-col gap-x-3 gap-y-1 text-[11px]">
-                <button
+                <Button
                   type="button"
+                  variant="link"
+                  size="sm"
                   onClick={onOpenHelpCenter}
-                  className="inline-flex py-0.5 hover:text-teal-400 transition-colors cursor-pointer text-teal-400 font-semibold text-left"
+                  className="p-0 h-auto text-[11px] text-teal-400 hover:text-teal-300 font-semibold justify-start"
                 >
                   Help Center & FAQs
-                </button>
-                <button
+                </Button>
+                <Button
                   type="button"
+                  variant="link"
+                  size="sm"
                   onClick={onNavigateToPublicDisplay}
-                  className="inline-flex py-0.5 hover:text-emerald-400 transition-colors cursor-pointer text-left"
+                  className="p-0 h-auto text-[11px] text-slate-300 hover:text-emerald-400 justify-start"
                 >
                   TV Waiting Display
-                </button>
-                <button
+                </Button>
+                <Button
                   type="button"
+                  variant="link"
+                  size="sm"
                   onClick={onNavigateToAdminLogin}
-                  className="inline-flex py-0.5 hover:text-white transition-colors cursor-pointer text-left"
+                  className="p-0 h-auto text-[11px] text-slate-300 hover:text-white justify-start"
                 >
                   Clinic Admin Portal
-                </button>
+                </Button>
                 {user && (
-                  <button
+                  <Button
                     type="button"
+                    variant="link"
+                    size="sm"
                     onClick={onOpenAccountSettings}
-                    className="inline-flex py-0.5 hover:text-teal-400 transition-colors cursor-pointer text-left"
+                    className="p-0 h-auto text-[11px] text-slate-300 hover:text-teal-400 justify-start"
                   >
                     Account & Data Export
-                  </button>
+                  </Button>
                 )}
               </div>
             </div>

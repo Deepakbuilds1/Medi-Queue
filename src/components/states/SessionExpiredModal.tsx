@@ -1,5 +1,6 @@
 import React from 'react';
-import { Clock, LogIn, ShieldAlert, ArrowRight } from 'lucide-react';
+import { Clock, LogIn } from 'lucide-react';
+import { Button } from '../shared/Button';
 
 interface SessionExpiredModalProps {
   isOpen: boolean;
@@ -35,14 +36,16 @@ export const SessionExpiredModal: React.FC<SessionExpiredModalProps> = ({
           </p>
         </div>
 
-        <button
+        <Button
           type="button"
+          variant="Primary"
+          size="md"
+          fullWidth
           onClick={onLogin}
-          className="w-full py-2.5 px-4 bg-teal-700 hover:bg-teal-800 text-white font-bold text-xs rounded-xl shadow-xs transition-colors flex items-center justify-center gap-2 cursor-pointer"
+          leftIcon={<LogIn className="w-4 h-4" />}
         >
-          <LogIn className="w-4 h-4" />
-          <span>Sign In Again</span>
-        </button>
+          Sign In Again
+        </Button>
       </div>
     </div>
   );

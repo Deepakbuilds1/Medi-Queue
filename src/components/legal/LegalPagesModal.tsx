@@ -20,6 +20,7 @@ import {
   SlidersHorizontal
 } from 'lucide-react';
 import { useClinic } from '../../context/ClinicContext';
+import { Button } from '../shared/Button';
 
 export type LegalDocType = 
   | 'privacy' 
@@ -102,23 +103,27 @@ export const LegalPagesModal: React.FC<LegalPagesModalProps> = ({
           </div>
           
           <div className="flex items-center gap-2">
-            <button
+            <Button
               type="button"
+              variant="ghost"
+              size="icon"
               onClick={() => window.print()}
               aria-label="Print document"
-              className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
+              className="text-slate-400 hover:text-white hover:bg-slate-800"
               title="Print document"
             >
               <Printer className="w-4 h-4" />
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
+              variant="ghost"
+              size="icon"
               onClick={onClose}
               aria-label="Close legal modal"
-              className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
+              className="text-slate-400 hover:text-white hover:bg-slate-800"
             >
               <X className="w-5 h-5" />
-            </button>
+            </Button>
           </div>
         </header>
 
@@ -161,17 +166,20 @@ export const LegalPagesModal: React.FC<LegalPagesModalProps> = ({
 
             {onOpenCookiePreferences && (
               <div className="pt-3 mt-3 border-t border-slate-200 dark:border-slate-800">
-                <button
+                <Button
                   type="button"
+                  variant="Secondary"
+                  size="sm"
+                  fullWidth
                   onClick={() => {
                     onClose();
                     onOpenCookiePreferences();
                   }}
-                  className="w-full p-2.5 rounded-xl text-left text-xs font-bold text-teal-700 dark:text-teal-400 bg-teal-50 dark:bg-teal-950/40 hover:bg-teal-100 dark:hover:bg-teal-900/60 transition-colors flex items-center gap-2"
+                  className="text-left justify-start text-xs font-bold text-teal-700 dark:text-teal-400 bg-teal-50 dark:bg-teal-950/40 hover:bg-teal-100 dark:hover:bg-teal-900/60 border-teal-200 dark:border-teal-800"
+                  leftIcon={<SlidersHorizontal className="w-4 h-4 text-teal-600" />}
                 >
-                  <SlidersHorizontal className="w-4 h-4 text-teal-600" />
-                  <span>Manage Cookie Preferences</span>
-                </button>
+                  Manage Cookie Preferences
+                </Button>
               </div>
             )}
           </nav>
@@ -570,13 +578,14 @@ export const LegalPagesModal: React.FC<LegalPagesModalProps> = ({
           <div className="text-xs text-slate-500">
             Viewing: <span className="font-bold text-slate-800 dark:text-slate-200">{docList.find(d => d.id === activeDoc)?.label}</span>
           </div>
-          <button
+          <Button
             type="button"
+            variant="Primary"
+            size="sm"
             onClick={onClose}
-            className="px-4 py-1.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl shadow-xs transition-colors cursor-pointer"
           >
             Close Document
-          </button>
+          </Button>
         </footer>
 
       </div>

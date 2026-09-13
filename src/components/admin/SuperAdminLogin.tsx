@@ -14,6 +14,7 @@ import {
 import { useAuth } from '../../context/AuthContext';
 import { runAuthDiagnostics } from '../../services/authDiagnosticService';
 import { safeRender } from '../../utils/errorUtils';
+import { Button } from '../shared/Button';
 
 interface SuperAdminLoginProps {
   onLoginSuccess: () => void;
@@ -161,56 +162,57 @@ export const SuperAdminLogin: React.FC<SuperAdminLoginProps> = ({
                   className="w-full pl-10 pr-12 py-3 bg-slate-950/70 border border-slate-700/80 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 rounded-xl text-slate-100 placeholder-slate-500 text-sm transition-all disabled:opacity-50"
                 />
 
-                <button
+                <Button
                   type="button"
+                  variant="ghost"
+                  size="icon"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-200 transition-colors cursor-pointer"
+                  className="absolute inset-y-0 right-0 pr-3.5 text-slate-400 hover:text-slate-200 hover:bg-transparent"
                   aria-label={showPassword ? 'Hide password' : 'Show password'}
                 >
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
+                </Button>
               </div>
             </div>
 
             {/* Login Button */}
-            <button
+            <Button
               type="submit"
+              variant="Primary"
+              size="lg"
+              fullWidth
               disabled={loading || !email.trim() || !password}
-              className="w-full py-3.5 px-4 bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 disabled:opacity-50 text-white font-bold rounded-xl shadow-lg shadow-indigo-600/30 transition-all flex items-center justify-center gap-2 text-sm cursor-pointer mt-2"
+              isLoading={loading}
+              leftIcon={<ShieldCheck className="w-4 h-4" />}
+              className="mt-2"
             >
-              {loading ? (
-                <>
-                  <RefreshCw className="w-4 h-4 animate-spin" />
-                  <span>Authenticating...</span>
-                </>
-              ) : (
-                <>
-                  <ShieldCheck className="w-4 h-4" />
-                  <span>Sign In as Super Admin</span>
-                </>
-              )}
-            </button>
+              Sign In as Super Admin
+            </Button>
           </form>
 
           {/* Navigation Links to Clinic Admin and Patient Portal */}
           <div className="pt-4 border-t border-slate-800/80 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs">
-            <button
+            <Button
               type="button"
+              variant="ghost"
+              size="sm"
               onClick={onNavigateToClinicAdmin}
-              className="text-slate-400 hover:text-indigo-300 font-medium transition-colors flex items-center gap-1.5 cursor-pointer py-1"
+              className="text-slate-400 hover:text-indigo-300 py-1"
+              leftIcon={<Building2 className="w-3.5 h-3.5 text-slate-500" />}
             >
-              <Building2 className="w-3.5 h-3.5 text-slate-500" />
-              <span>Clinic Admin Login</span>
-            </button>
+              Clinic Admin Login
+            </Button>
 
-            <button
+            <Button
               type="button"
+              variant="ghost"
+              size="sm"
               onClick={onNavigateToPatientPortal}
-              className="text-slate-400 hover:text-slate-200 font-medium transition-colors flex items-center gap-1 cursor-pointer py-1"
+              className="text-slate-400 hover:text-slate-200 py-1"
+              leftIcon={<ArrowLeft className="w-3 h-3" />}
             >
-              <ArrowLeft className="w-3 h-3" />
-              <span>Patient Portal</span>
-            </button>
+              Patient Portal
+            </Button>
           </div>
 
         </div>

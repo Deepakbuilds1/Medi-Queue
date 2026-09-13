@@ -21,6 +21,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useClinic } from '../../context/ClinicContext';
 import { QueueToken } from '../../types';
 import { getErrorMessage, safeRender } from '../../utils/errorUtils';
+import { Button } from '../shared/Button';
 
 interface AccountSettingsModalProps {
   isOpen: boolean;
@@ -155,69 +156,79 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
               </p>
             </div>
           </div>
-          <button
+          <Button
             type="button"
+            variant="ghost"
+            size="icon"
             onClick={onClose}
-            aria-label="Close"
-            className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors cursor-pointer"
+            aria-label="Close settings"
+            className="text-slate-400 hover:text-white"
           >
             <X className="w-5 h-5" />
-          </button>
+          </Button>
         </header>
 
         {/* Tab Navigation */}
-        <div className="flex border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-5 gap-4 shrink-0 overflow-x-auto">
-          <button
+        <div className="flex border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-5 gap-2 shrink-0 overflow-x-auto">
+          <Button
             type="button"
+            variant="ghost"
+            size="sm"
             onClick={() => setActiveTab('profile')}
-            className={`py-3 text-xs font-bold border-b-2 flex items-center gap-2 transition-colors cursor-pointer whitespace-nowrap ${
+            className={`rounded-none border-b-2 py-3 text-xs font-bold whitespace-nowrap ${
               activeTab === 'profile'
-                ? 'border-teal-600 text-teal-700 dark:text-teal-400'
-                : 'border-transparent text-slate-500 hover:text-slate-900 dark:hover:text-slate-200'
+                ? 'border-teal-600 text-teal-700 dark:text-teal-400 hover:bg-transparent'
+                : 'border-transparent text-slate-500 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-transparent'
             }`}
+            leftIcon={<User className="w-4 h-4" />}
           >
-            <User className="w-4 h-4" />
-            <span>Profile Details</span>
-          </button>
+            Profile Details
+          </Button>
 
-          <button
+          <Button
             type="button"
+            variant="ghost"
+            size="sm"
             onClick={() => setActiveTab('security')}
-            className={`py-3 text-xs font-bold border-b-2 flex items-center gap-2 transition-colors cursor-pointer whitespace-nowrap ${
+            className={`rounded-none border-b-2 py-3 text-xs font-bold whitespace-nowrap ${
               activeTab === 'security'
-                ? 'border-teal-600 text-teal-400'
-                : 'border-transparent text-slate-500 hover:text-slate-900 dark:hover:text-slate-200'
+                ? 'border-teal-600 text-teal-700 dark:text-teal-400 hover:bg-transparent'
+                : 'border-transparent text-slate-500 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-transparent'
             }`}
+            leftIcon={<KeyRound className="w-4 h-4" />}
           >
-            <KeyRound className="w-4 h-4" />
-            <span>Security & Password</span>
-          </button>
+            Security & Password
+          </Button>
 
-          <button
+          <Button
             type="button"
+            variant="ghost"
+            size="sm"
             onClick={() => setActiveTab('data')}
-            className={`py-3 text-xs font-bold border-b-2 flex items-center gap-2 transition-colors cursor-pointer whitespace-nowrap ${
+            className={`rounded-none border-b-2 py-3 text-xs font-bold whitespace-nowrap ${
               activeTab === 'data'
-                ? 'border-teal-600 text-teal-400'
-                : 'border-transparent text-slate-500 hover:text-slate-900 dark:hover:text-slate-200'
+                ? 'border-teal-600 text-teal-700 dark:text-teal-400 hover:bg-transparent'
+                : 'border-transparent text-slate-500 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-transparent'
             }`}
+            leftIcon={<Download className="w-4 h-4" />}
           >
-            <Download className="w-4 h-4" />
-            <span>Data Portability</span>
-          </button>
+            Data Portability
+          </Button>
 
-          <button
+          <Button
             type="button"
+            variant="ghost"
+            size="sm"
             onClick={() => setActiveTab('danger')}
-            className={`py-3 text-xs font-bold border-b-2 flex items-center gap-2 transition-colors cursor-pointer whitespace-nowrap ${
+            className={`rounded-none border-b-2 py-3 text-xs font-bold whitespace-nowrap ${
               activeTab === 'danger'
-                ? 'border-red-600 text-red-600 dark:text-red-400'
-                : 'border-transparent text-slate-500 hover:text-red-600'
+                ? 'border-red-600 text-red-600 dark:text-red-400 hover:bg-transparent'
+                : 'border-transparent text-slate-500 hover:text-red-600 hover:bg-transparent'
             }`}
+            leftIcon={<Trash2 className="w-4 h-4" />}
           >
-            <Trash2 className="w-4 h-4" />
-            <span>Account Deletion</span>
-          </button>
+            Account Deletion
+          </Button>
         </div>
 
         {/* Tab Body */}
@@ -317,15 +328,17 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
                 <p className="text-slate-500 text-[11px]">
                   Click below to receive a secure, time-limited password reset link delivered to your registered email address ({userEmail}).
                 </p>
-                <button
+                <Button
                   type="button"
+                  variant="Primary"
+                  size="sm"
                   onClick={handlePasswordReset}
                   disabled={resetting}
-                  className="px-4 py-2 bg-teal-700 hover:bg-teal-800 active:bg-teal-900 disabled:opacity-50 text-white font-bold rounded-xl transition-colors cursor-pointer flex items-center gap-2 shadow-xs"
+                  isLoading={resetting}
+                  leftIcon={<KeyRound className="w-4 h-4" />}
                 >
-                  <KeyRound className="w-4 h-4" />
-                  <span>{resetting ? 'Sending Link...' : 'Send Password Reset Email'}</span>
-                </button>
+                  Send Password Reset Email
+                </Button>
               </div>
             </div>
           )}
@@ -341,14 +354,15 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
                 <p className="text-slate-500 text-[11px] leading-relaxed">
                   In compliance with patient data portability principles, you can export a complete machine-readable snapshot of your personal profile and all consultation tokens generated under your account.
                 </p>
-                <button
+                <Button
                   type="button"
+                  variant="Primary"
+                  size="sm"
                   onClick={handleExportData}
-                  className="px-4 py-2 bg-teal-700 hover:bg-teal-800 text-white font-bold rounded-xl transition-colors cursor-pointer flex items-center gap-2 shadow-xs"
+                  leftIcon={<Download className="w-4 h-4" />}
                 >
-                  <Download className="w-4 h-4" />
-                  <span>Download My Data (JSON)</span>
-                </button>
+                  Download My Data (JSON)
+                </Button>
               </div>
             </div>
           )}
@@ -384,15 +398,18 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
                     />
                   </div>
 
-                  <button
+                  <Button
                     type="button"
+                    variant="Destructive"
+                    size="md"
+                    fullWidth
                     onClick={handleRequestDeletion}
                     disabled={deleteConfirmText.toLowerCase() !== 'delete my account' || isDeleting}
-                    className="w-full py-2 bg-red-600 hover:bg-red-700 disabled:opacity-40 text-white font-bold rounded-xl transition-colors cursor-pointer flex items-center justify-center gap-2 shadow-xs"
+                    isLoading={isDeleting}
+                    leftIcon={<Trash2 className="w-4 h-4" />}
                   >
-                    <Trash2 className="w-4 h-4" />
-                    <span>{isDeleting ? 'Processing Erasure...' : 'Permanently Delete Account'}</span>
-                  </button>
+                    Permanently Delete Account
+                  </Button>
                 </div>
               )}
             </div>
@@ -402,13 +419,14 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
 
         {/* Footer */}
         <footer className="p-4 bg-slate-100 dark:bg-slate-800/80 border-t border-slate-200 dark:border-slate-700 flex items-center justify-end shrink-0">
-          <button
+          <Button
             type="button"
+            variant="Primary"
+            size="sm"
             onClick={onClose}
-            className="px-5 py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl shadow-xs transition-colors cursor-pointer"
           >
             Done
-          </button>
+          </Button>
         </footer>
 
       </div>

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Cookie, Check, X, Shield, Volume2, Moon, SlidersHorizontal, Info } from 'lucide-react';
+import { Button } from '../shared/Button';
 
 export interface CookiePreferences {
   essential: boolean; // Always true
@@ -123,14 +124,16 @@ export const CookiePreferencesModal: React.FC<CookiePreferencesModalProps> = ({
               </p>
             </div>
           </div>
-          <button
+          <Button
             type="button"
+            variant="ghost"
+            size="icon"
             onClick={onClose}
             aria-label="Close"
-            className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors cursor-pointer"
+            className="text-slate-400 hover:text-white hover:bg-slate-800"
           >
             <X className="w-5 h-5" />
-          </button>
+          </Button>
         </header>
 
         {/* Content Body */}
@@ -246,36 +249,36 @@ export const CookiePreferencesModal: React.FC<CookiePreferencesModalProps> = ({
         {/* Footer Actions */}
         <footer className="p-4 bg-slate-100 dark:bg-slate-800/80 border-t border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row items-center justify-between gap-2">
           <div className="flex items-center gap-2 w-full sm:w-auto">
-            <button
+            <Button
               type="button"
+              variant="Secondary"
+              size="sm"
+              className="w-full sm:w-auto"
               onClick={handleRejectNonEssential}
-              className="w-full sm:w-auto px-3 py-2 text-slate-800 dark:text-slate-200 hover:text-slate-950 dark:hover:text-white text-xs font-semibold rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-teal-600 focus:outline-hidden"
             >
               Essential Only
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
+              variant="Secondary"
+              size="sm"
+              className="w-full sm:w-auto"
               onClick={handleAcceptAll}
-              className="w-full sm:w-auto px-3 py-2 text-slate-800 dark:text-slate-200 hover:text-slate-950 dark:hover:text-white text-xs font-semibold rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-teal-600 focus:outline-hidden"
             >
               Enable All
-            </button>
+            </Button>
           </div>
 
-          <button
+          <Button
             type="button"
+            variant="Primary"
+            size="sm"
+            className="w-full sm:w-auto"
             onClick={handleSave}
-            className="w-full sm:w-auto px-5 py-2 bg-teal-700 hover:bg-teal-800 text-white font-bold text-xs rounded-xl shadow-xs transition-colors cursor-pointer flex items-center justify-center gap-1.5 focus-visible:ring-2 focus-visible:ring-teal-600 focus:outline-hidden"
+            leftIcon={savedSuccess ? <Check className="w-4 h-4" /> : undefined}
           >
-            {savedSuccess ? (
-              <>
-                <Check className="w-4 h-4" />
-                <span>Preferences Saved!</span>
-              </>
-            ) : (
-              <span>Save Choices</span>
-            )}
-          </button>
+            {savedSuccess ? 'Preferences Saved!' : 'Save Choices'}
+          </Button>
         </footer>
 
       </div>

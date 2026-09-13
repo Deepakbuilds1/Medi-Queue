@@ -26,6 +26,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useClinic } from '../../context/ClinicContext';
 import { AdminRoute, ClinicSettings } from '../../types';
 import { LegalDocType } from '../legal/LegalPagesModal';
+import { Button } from '../shared/Button';
 
 interface AdminLayoutProps {
   currentRoute: AdminRoute;
@@ -138,13 +139,16 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
                 <span className="text-[11px] text-teal-700 font-medium tracking-normal mt-0.5">Healthcare Operations</span>
               </div>
             </div>
-            <button 
+            <Button 
+              type="button"
+              variant="ghost"
+              size="icon"
               onClick={() => setMobileMenuOpen(false)} 
-              className="md:hidden text-slate-400 hover:text-slate-700 p-1 rounded-md"
+              className="md:hidden text-slate-400 hover:text-slate-700"
               aria-label="Close navigation"
             >
               <X className="w-5 h-5" />
-            </button>
+            </Button>
           </div>
 
           {/* Active Clinic Switcher Dropdown */}
@@ -212,16 +216,19 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
 
         {/* Primary Action Button */}
         <div className="px-3 pt-3 pb-1">
-          <button
+          <Button
+            type="button"
+            variant="Primary"
+            size="sm"
+            fullWidth
             onClick={() => {
               setMobileMenuOpen(false);
               onOpenPatientRegistration();
             }}
-            className="w-full py-2 px-3 bg-teal-700 hover:bg-teal-800 active:bg-teal-900 text-white rounded-lg font-medium text-xs flex items-center justify-center gap-2 shadow-xs transition-colors cursor-pointer"
+            leftIcon={<PlusCircle className="w-4 h-4" />}
           >
-            <PlusCircle className="w-4 h-4" />
-            <span>Register Patient</span>
-          </button>
+            Register Patient
+          </Button>
         </div>
 
         {/* Navigation Items */}
@@ -339,13 +346,17 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
                 </span>
               </div>
             </button>
-            <button
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
               onClick={() => logout()}
               title="Sign Out"
-              className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors cursor-pointer"
+              aria-label="Sign Out"
+              className="text-slate-400 hover:text-red-600 hover:bg-red-50"
             >
               <LogOut className="w-4 h-4" />
-            </button>
+            </Button>
           </div>
         </div>
       </aside>
@@ -356,13 +367,16 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
         {/* Compact Header */}
         <header className="h-14 bg-white border-b border-[#E2E8F0] px-4 md:px-6 flex items-center justify-between shrink-0 z-10">
           <div className="flex items-center gap-3 min-w-0">
-            <button
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
               onClick={() => setMobileMenuOpen(true)}
-              className="md:hidden p-1.5 -ml-1 text-slate-600 hover:text-slate-900 rounded-md hover:bg-slate-100"
+              className="md:hidden -ml-1 text-slate-600 hover:text-slate-900 hover:bg-slate-100"
               aria-label="Open navigation"
             >
               <Menu className="w-5 h-5" />
-            </button>
+            </Button>
 
             {/* Breadcrumb / Title */}
             <div className="flex items-center gap-2 min-w-0">
@@ -390,21 +404,27 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
             </div>
 
             {/* Register Patient Button in Header */}
-            <button
+            <Button
+              type="button"
+              variant="Primary"
+              size="sm"
               onClick={onOpenPatientRegistration}
-              className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-teal-700 hover:bg-teal-800 text-white rounded-lg text-xs font-medium shadow-xs cursor-pointer transition-colors"
+              leftIcon={<PlusCircle className="w-3.5 h-3.5" />}
+              className="hidden sm:inline-flex"
             >
-              <PlusCircle className="w-3.5 h-3.5" />
-              <span>New Patient</span>
-            </button>
+              New Patient
+            </Button>
 
             {/* Logout button */}
-            <button
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
               onClick={() => logout()}
-              className="text-xs font-medium text-slate-600 hover:text-red-600 px-2.5 py-1 rounded-md hover:bg-slate-100 transition-colors cursor-pointer"
+              className="text-slate-600 hover:text-red-600 hover:bg-slate-100"
             >
               Sign out
-            </button>
+            </Button>
           </div>
         </header>
 

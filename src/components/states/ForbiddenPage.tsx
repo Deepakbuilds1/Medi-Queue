@@ -1,7 +1,8 @@
 import React from 'react';
-import { ShieldAlert, ArrowLeft, LogOut, Home, Lock, Building2 } from 'lucide-react';
+import { ShieldAlert, LogOut, Home } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useClinic } from '../../context/ClinicContext';
+import { Button } from '../shared/Button';
 
 interface ForbiddenPageProps {
   requiredRole?: string;
@@ -66,24 +67,28 @@ export const ForbiddenPage: React.FC<ForbiddenPageProps> = ({
 
         {/* Actions */}
         <div className="space-y-2 pt-2">
-          <button
+          <Button
             type="button"
+            variant="Primary"
+            size="md"
+            fullWidth
             onClick={onNavigateHome}
-            className="w-full py-2.5 px-4 bg-teal-700 hover:bg-teal-800 text-white font-bold text-xs rounded-xl shadow-xs transition-colors flex items-center justify-center gap-2 cursor-pointer"
+            leftIcon={<Home className="w-4 h-4" />}
           >
-            <Home className="w-4 h-4" />
-            <span>Return to Patient Portal</span>
-          </button>
+            Return to Patient Portal
+          </Button>
 
           {user && (
-            <button
+            <Button
               type="button"
+              variant="Destructive"
+              size="md"
+              fullWidth
               onClick={() => logout()}
-              className="w-full py-2.5 px-4 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-red-600 dark:text-red-400 font-bold text-xs rounded-xl transition-colors flex items-center justify-center gap-2 cursor-pointer"
+              leftIcon={<LogOut className="w-4 h-4" />}
             >
-              <LogOut className="w-4 h-4" />
-              <span>Switch Account / Sign Out</span>
-            </button>
+              Switch Account / Sign Out
+            </Button>
           )}
         </div>
 

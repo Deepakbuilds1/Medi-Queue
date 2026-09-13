@@ -3,6 +3,7 @@ import { Stethoscope, Plus, Edit, UserCheck, UserX, X, Building2, UploadCloud, L
 import { Doctor } from '../../types';
 import { addDoctor, updateDoctor, uploadDoctorAvatar } from '../../services/clinicService';
 import { useClinic } from '../../context/ClinicContext';
+import { Button } from '../shared/Button';
 
 interface DoctorManagementPageProps {
   doctors: Doctor[];
@@ -131,13 +132,14 @@ export const DoctorManagementPage: React.FC<DoctorManagementPageProps> = ({ doct
           </div>
         </div>
 
-        <button
+        <Button
+          variant="Primary"
+          size="sm"
           onClick={handleOpenAdd}
-          className="bg-teal-700 hover:bg-teal-800 text-white px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 shadow-xs cursor-pointer transition-colors"
+          leftIcon={<Plus className="w-3.5 h-3.5" />}
         >
-          <Plus className="w-3.5 h-3.5" />
-          <span>Add Physician</span>
-        </button>
+          Add Physician
+        </Button>
       </div>
 
       {/* Doctor Cards Grid */}
@@ -193,25 +195,23 @@ export const DoctorManagementPage: React.FC<DoctorManagementPageProps> = ({ doct
               </div>
 
               <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
-                <button
+                <Button
+                  variant={isActive ? "Destructive" : "Secondary"}
+                  size="sm"
                   onClick={() => handleToggleStatus(doc)}
-                  className={`text-xs font-medium flex items-center gap-1 px-2.5 py-1 rounded-md border transition-colors cursor-pointer ${
-                    isActive 
-                      ? 'text-amber-700 bg-amber-50/70 border-amber-200 hover:bg-amber-100' 
-                      : 'text-emerald-700 bg-emerald-50/70 border-emerald-200 hover:bg-emerald-100'
-                  }`}
+                  leftIcon={isActive ? <UserX className="w-3 h-3" /> : <UserCheck className="w-3 h-3" />}
                 >
-                  {isActive ? <UserX className="w-3 h-3" /> : <UserCheck className="w-3 h-3" />}
-                  <span>{isActive ? 'Deactivate' : 'Activate'}</span>
-                </button>
+                  {isActive ? 'Deactivate' : 'Activate'}
+                </Button>
 
-                <button
+                <Button
+                  variant="Secondary"
+                  size="sm"
                   onClick={() => handleOpenEdit(doc)}
-                  className="text-xs font-medium text-slate-700 hover:text-teal-800 flex items-center gap-1 px-2.5 py-1 bg-slate-100 hover:bg-slate-200 rounded-md transition-colors cursor-pointer"
+                  leftIcon={<Edit className="w-3 h-3" />}
                 >
-                  <Edit className="w-3 h-3" />
-                  <span>Edit</span>
-                </button>
+                  Edit
+                </Button>
               </div>
 
             </div>
@@ -227,12 +227,14 @@ export const DoctorManagementPage: React.FC<DoctorManagementPageProps> = ({ doct
               <h3 className="font-bold text-sm text-slate-900">
                 {showAddModal ? 'Add Physician Profile' : 'Edit Physician Profile'}
               </h3>
-              <button 
+              <Button 
+                variant="ghost"
+                size="icon"
                 onClick={() => { setShowAddModal(false); setEditingDoctor(null); }}
-                className="text-slate-400 hover:text-slate-600 cursor-pointer"
+                aria-label="Close modal"
               >
                 <X className="w-4 h-4" />
-              </button>
+              </Button>
             </div>
 
             <form onSubmit={showAddModal ? handleSaveAdd : handleSaveEdit} className="p-4 space-y-3">
@@ -313,21 +315,23 @@ export const DoctorManagementPage: React.FC<DoctorManagementPageProps> = ({ doct
               </div>
 
               <div className="pt-3 border-t border-slate-100 flex justify-end gap-2">
-                <button
+                <Button
                   type="button"
+                  variant="Secondary"
+                  size="sm"
                   onClick={() => { setShowAddModal(false); setEditingDoctor(null); }}
-                  className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-xs font-medium rounded-lg text-slate-700 cursor-pointer"
                 >
                   Cancel
-                </button>
-                <button
+                </Button>
+                <Button
                   type="submit"
+                  variant="Primary"
+                  size="sm"
                   disabled={saving || uploadingAvatar}
-                  className="px-4 py-1.5 bg-teal-700 hover:bg-teal-800 text-white font-medium text-xs rounded-lg shadow-xs cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
+                  isLoading={saving || uploadingAvatar}
                 >
-                  {(saving || uploadingAvatar) && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                  <span>{saving || uploadingAvatar ? 'Saving...' : 'Save Physician'}</span>
-                </button>
+                  Save Physician
+                </Button>
               </div>
             </form>
           </div>

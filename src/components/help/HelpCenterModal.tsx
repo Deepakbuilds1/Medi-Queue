@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { useClinic } from '../../context/ClinicContext';
 import { useAuth } from '../../context/AuthContext';
+import { Button } from '../shared/Button';
 
 interface HelpCenterModalProps {
   isOpen: boolean;
@@ -144,14 +145,16 @@ export const HelpCenterModal: React.FC<HelpCenterModalProps> = ({ isOpen, onClos
               </p>
             </div>
           </div>
-          <button
+          <Button
             type="button"
+            variant="ghost"
+            size="icon"
             onClick={onClose}
-            aria-label="Close"
-            className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors cursor-pointer"
+            aria-label="Close help"
+            className="text-slate-400 hover:text-white"
           >
             <X className="w-5 h-5" />
-          </button>
+          </Button>
         </header>
 
         {/* Content Body: Search & Category filter */}
@@ -178,18 +181,16 @@ export const HelpCenterModal: React.FC<HelpCenterModalProps> = ({ isOpen, onClos
               { id: 'display', label: 'TV Waiting Display' },
               { id: 'admin', label: 'Multi-Clinic Admin' },
             ].map(cat => (
-              <button
+              <Button
                 key={cat.id}
                 type="button"
+                variant={selectedCategory === cat.id ? "Primary" : "Secondary"}
+                size="sm"
                 onClick={() => setSelectedCategory(cat.id as any)}
-                className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer whitespace-nowrap ${
-                  selectedCategory === cat.id
-                    ? 'bg-teal-700 text-white shadow-xs'
-                    : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
-                }`}
+                className="whitespace-nowrap"
               >
                 {cat.label}
-              </button>
+              </Button>
             ))}
           </div>
 
@@ -284,12 +285,13 @@ export const HelpCenterModal: React.FC<HelpCenterModalProps> = ({ isOpen, onClos
                   placeholder="Describe your issue or question in detail..."
                   className="w-full p-2.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-white"
                 />
-                <button
+                <Button
                   type="submit"
-                  className="px-5 py-2 bg-teal-700 hover:bg-teal-800 text-white font-bold rounded-xl shadow-xs transition-colors cursor-pointer text-xs"
+                  variant="Primary"
+                  size="sm"
                 >
                   Submit Inquiry
-                </button>
+                </Button>
               </form>
             )}
           </div>
@@ -301,13 +303,14 @@ export const HelpCenterModal: React.FC<HelpCenterModalProps> = ({ isOpen, onClos
           <span className="text-[11px] text-slate-400">
             Tenant: <strong className="text-slate-600 dark:text-slate-300">{activeClinicId}</strong>
           </span>
-          <button
+          <Button
             type="button"
+            variant="Primary"
+            size="sm"
             onClick={onClose}
-            className="px-5 py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl shadow-xs transition-colors cursor-pointer"
           >
             Close Support
-          </button>
+          </Button>
         </footer>
 
       </div>

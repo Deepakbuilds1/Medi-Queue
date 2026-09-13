@@ -4,6 +4,7 @@ import { useClinic } from '../../context/ClinicContext';
 import { verifyUserAuthorization } from '../../services/clinicService';
 import { AuthorizationResult, UserRole } from '../../types';
 import { ShieldAlert, ArrowRight, LogOut, Lock, ShieldCheck, RefreshCw } from 'lucide-react';
+import { Button } from '../shared/Button';
 
 interface AdminRouteProps {
   children: React.ReactNode;
@@ -124,29 +125,34 @@ export const AdminRoute: React.FC<AdminRouteProps> = ({
           </div>
 
           <div className="pt-2 flex flex-col gap-2.5">
-            <button
+            <Button
               id="admin-route-goto-patient-portal-btn"
               type="button"
+              variant="Primary"
+              size="md"
+              fullWidth
               onClick={() => onNavigateToPatientPortal ? onNavigateToPatientPortal() : (window.location.href = '/patient')}
-              className="w-full py-3 px-4 bg-teal-700 hover:bg-teal-600 active:bg-teal-800 text-white font-bold text-xs rounded-xl shadow-lg shadow-teal-700/20 transition-all flex items-center justify-center gap-2 cursor-pointer"
+              rightIcon={<ArrowRight className="w-4 h-4" />}
             >
-              <ArrowRight className="w-4 h-4" />
-              <span>Go to Patient Portal</span>
-            </button>
+              Go to Patient Portal
+            </Button>
 
-            <button
+            <Button
               id="admin-route-switch-account-btn"
               type="button"
+              variant="Secondary"
+              size="md"
+              fullWidth
               onClick={async () => {
                 await logout();
                 if (onNavigateToLogin) onNavigateToLogin();
                 else window.location.href = '/admin/login';
               }}
-              className="w-full py-2.5 px-4 bg-slate-800 hover:bg-slate-700 active:bg-slate-900 text-slate-300 hover:text-white font-semibold text-xs rounded-xl border border-slate-700/80 transition-all flex items-center justify-center gap-2 cursor-pointer"
+              leftIcon={<LogOut className="w-3.5 h-3.5" />}
+              className="bg-slate-800 hover:bg-slate-700 active:bg-slate-900 text-slate-300 hover:text-white border-slate-700/80"
             >
-              <LogOut className="w-3.5 h-3.5" />
-              <span>Sign Out & Switch Account</span>
-            </button>
+              Sign Out & Switch Account
+            </Button>
           </div>
         </div>
       </div>
@@ -168,26 +174,31 @@ export const AdminRoute: React.FC<AdminRouteProps> = ({
             </p>
           </div>
           <div className="pt-2 flex flex-col gap-2">
-            <button
+            <Button
               id="unauthorized-goto-patient-portal-btn"
               type="button"
+              variant="Primary"
+              size="md"
+              fullWidth
               onClick={() => onNavigateToPatientPortal ? onNavigateToPatientPortal() : (window.location.href = '/patient')}
-              className="w-full py-3 px-4 bg-teal-700 hover:bg-teal-600 text-white font-bold text-xs rounded-xl transition-all cursor-pointer"
             >
               Go to Patient Portal
-            </button>
-            <button
+            </Button>
+            <Button
               id="unauthorized-switch-account-btn"
               type="button"
+              variant="Secondary"
+              size="md"
+              fullWidth
               onClick={async () => {
                 await logout();
                 if (onNavigateToLogin) onNavigateToLogin();
                 else window.location.href = '/admin/login';
               }}
-              className="w-full py-2.5 px-4 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs rounded-xl transition-all cursor-pointer"
+              className="bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700"
             >
               Sign In with Authorized Account
-            </button>
+            </Button>
           </div>
         </div>
       </div>

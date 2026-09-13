@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { Wrench, RefreshCw, CheckCircle2, AlertCircle, Clock, ShieldCheck } from 'lucide-react';
+import { Wrench, CheckCircle2, AlertCircle, Clock, ShieldCheck, RefreshCw } from 'lucide-react';
 import { useClinic } from '../../context/ClinicContext';
+import { Button } from '../shared/Button';
 
 interface MaintenancePageProps {
   onRetry?: () => void;
@@ -95,15 +96,18 @@ export const MaintenancePage: React.FC<MaintenancePageProps> = ({
         )}
 
         <div className="pt-2">
-          <button
+          <Button
             type="button"
+            variant="Primary"
+            size="md"
+            fullWidth
             onClick={checkHealth}
             disabled={checking}
-            className="w-full py-2.5 px-4 bg-teal-700 hover:bg-teal-800 disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-xs transition-colors flex items-center justify-center gap-2 cursor-pointer"
+            isLoading={checking}
+            leftIcon={<RefreshCw className="w-4 h-4" />}
           >
-            <RefreshCw className={`w-4 h-4 ${checking ? 'animate-spin' : ''}`} />
-            <span>{checking ? 'Checking Status...' : 'Check Server Status'}</span>
-          </button>
+            Check Server Status
+          </Button>
         </div>
 
       </div>

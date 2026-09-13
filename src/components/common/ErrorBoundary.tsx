@@ -1,5 +1,6 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { AlertTriangle, RefreshCw, Home, Copy, Check, ChevronDown, ChevronUp, LifeBuoy } from 'lucide-react';
+import { Button } from '../shared/Button';
 
 interface Props {
   children: ReactNode;
@@ -86,14 +87,16 @@ ComponentStack: ${this.state.errorInfo?.componentStack || 'N/A'}`;
 
             {/* Collapsible Technical Details */}
             <div className="text-left space-y-2">
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                size="sm"
                 onClick={() => this.setState(prev => ({ showDetails: !prev.showDetails }))}
-                className="text-[11px] font-bold text-slate-400 hover:text-slate-200 flex items-center gap-1 cursor-pointer"
+                className="text-[11px] text-slate-400 hover:text-slate-200 h-auto p-0 hover:bg-transparent"
+                rightIcon={this.state.showDetails ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
               >
-                <span>Technical Diagnostics</span>
-                {this.state.showDetails ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-              </button>
+                Technical Diagnostics
+              </Button>
 
               {this.state.showDetails && (
                 <div className="bg-slate-950 border border-slate-800/80 rounded-xl p-3 text-[10px] font-mono text-slate-400 max-h-36 overflow-y-auto space-y-2">
@@ -111,32 +114,34 @@ ComponentStack: ${this.state.errorInfo?.componentStack || 'N/A'}`;
 
             {/* Actions */}
             <div className="flex flex-col sm:flex-row gap-3 pt-2">
-              <button
-                type="button"
+              <Button
+                variant="Primary"
+                size="md"
+                className="flex-1"
                 onClick={this.handleReload}
-                className="flex-1 py-3 px-4 bg-teal-700 hover:bg-teal-800 text-white text-xs font-bold rounded-xl flex items-center justify-center gap-2 transition-all cursor-pointer shadow-lg shadow-teal-700/20"
+                leftIcon={<RefreshCw className="w-4 h-4" />}
               >
-                <RefreshCw className="w-4 h-4" />
-                <span>Reload App</span>
-              </button>
+                Reload App
+              </Button>
 
-              <button
-                type="button"
+              <Button
+                variant="Secondary"
+                size="md"
                 onClick={this.handleReset}
-                className="py-3 px-4 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold rounded-xl flex items-center justify-center gap-2 transition-all cursor-pointer border border-slate-700"
+                leftIcon={<Home className="w-4 h-4" />}
               >
-                <Home className="w-4 h-4" />
-                <span>Patient Portal</span>
-              </button>
+                Patient Portal
+              </Button>
 
-              <button
-                type="button"
+              <Button
+                variant="Secondary"
+                size="icon"
                 onClick={this.handleCopyDiagnostics}
-                className="py-3 px-3 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white rounded-xl transition-all cursor-pointer border border-slate-700 flex items-center justify-center"
                 title="Copy Error Report"
+                aria-label="Copy Error Report"
               >
                 {this.state.copied ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
-              </button>
+              </Button>
             </div>
 
           </div>

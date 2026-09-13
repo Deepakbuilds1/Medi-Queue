@@ -1,6 +1,7 @@
 import React from 'react';
 import { Printer, CheckCircle, Building2, X } from 'lucide-react';
 import { QueueToken } from '../../types';
+import { Button } from '../shared/Button';
 
 interface TokenReceiptModalProps {
   isOpen: boolean;
@@ -33,12 +34,14 @@ export const TokenReceiptModal: React.FC<TokenReceiptModalProps> = ({
             <CheckCircle className="w-5 h-5 text-teal-600" />
             Token Generated
           </div>
-          <button 
+          <Button 
+            variant="ghost"
+            size="icon"
             onClick={onClose}
-            className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1 rounded-lg"
+            aria-label="Close modal"
           >
             <X className="w-5 h-5" />
-          </button>
+          </Button>
         </div>
 
         {/* Printable Ticket Receipt Area */}
@@ -100,21 +103,23 @@ export const TokenReceiptModal: React.FC<TokenReceiptModalProps> = ({
 
         {/* Action Buttons */}
         <div className="bg-slate-50 dark:bg-slate-800/80 px-6 py-4 flex items-center gap-3 border-t border-slate-100 dark:border-slate-700">
-          <button
-            type="button"
+          <Button
+            variant="Secondary"
+            size="md"
+            className="flex-1"
             onClick={handlePrint}
-            className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-600 transition-colors shadow-xs"
+            leftIcon={<Printer className="w-4 h-4" />}
           >
-            <Printer className="w-4 h-4" />
             PRINT TOKEN
-          </button>
-          <button
-            type="button"
+          </Button>
+          <Button
+            variant="Primary"
+            size="md"
+            className="flex-1"
             onClick={onClose}
-            className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold text-white bg-teal-600 hover:bg-teal-700 rounded-xl transition-colors shadow-xs"
           >
             DONE
-          </button>
+          </Button>
         </div>
 
       </div>

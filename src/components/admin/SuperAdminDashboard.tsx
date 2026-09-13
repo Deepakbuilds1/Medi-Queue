@@ -43,6 +43,7 @@ import {
 } from '../../services/clinicService';
 import { SecurityTestSuite } from './SecurityTestSuite';
 import { ClinicBrandingSection } from './ClinicBrandingSection';
+import { Button } from '../shared/Button';
 
 interface SuperAdminDashboardProps {
   onSwitchClinicAndNavigate: (clinicId: string) => void;
@@ -368,20 +369,25 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
         </div>
 
         <div className="flex items-center gap-2">
-          <button
+          <Button
+            type="button"
+            variant="Secondary"
+            size="sm"
             onClick={() => setIsCreateAdminModalOpen(true)}
-            className="bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 hover:text-white px-3 py-2 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
+            className="bg-slate-800 hover:bg-slate-700 border-slate-700 text-slate-200 hover:text-white"
+            leftIcon={<Users className="w-3.5 h-3.5 text-teal-400" />}
           >
-            <Users className="w-3.5 h-3.5 text-teal-400" />
-            <span>New Clinic Admin</span>
-          </button>
-          <button
+            New Clinic Admin
+          </Button>
+          <Button
+            type="button"
+            variant="Primary"
+            size="sm"
             onClick={() => setIsCreateModalOpen(true)}
-            className="bg-teal-700 hover:bg-teal-800 active:bg-teal-900 text-white px-3.5 py-2 rounded-lg text-xs font-medium flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
+            leftIcon={<PlusCircle className="w-3.5 h-3.5" />}
           >
-            <PlusCircle className="w-3.5 h-3.5" />
-            <span>Provision Facility</span>
-          </button>
+            Provision Facility
+          </Button>
         </div>
       </div>
 
@@ -391,59 +397,80 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
             <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
             <span>{notification}</span>
           </div>
-          <button onClick={() => setNotification(null)} className="text-emerald-600 hover:text-emerald-800 font-bold ml-2 cursor-pointer">✕</button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            onClick={() => setNotification(null)}
+            aria-label="Dismiss notification"
+            className="text-emerald-700 hover:text-emerald-900 h-6 w-6"
+          >
+            ✕
+          </Button>
         </div>
       )}
 
       {/* Navigation Tab Bar */}
       <div className="flex border-b border-[#E2E8F0] gap-1 overflow-x-auto">
-        <button
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
           onClick={() => setActiveTab('clinics')}
-          className={`pb-2.5 px-3.5 text-xs font-medium flex items-center gap-2 border-b-2 transition-colors cursor-pointer shrink-0 ${
+          className={`rounded-none border-b-2 pb-2.5 px-3.5 text-xs font-medium shrink-0 ${
             activeTab === 'clinics'
-              ? 'border-teal-700 text-teal-900 font-semibold'
-              : 'border-transparent text-slate-600 hover:text-slate-900'
+              ? 'border-teal-700 text-teal-900 font-semibold hover:bg-transparent'
+              : 'border-transparent text-slate-600 hover:text-slate-900 hover:bg-transparent'
           }`}
+          leftIcon={<Building2 className="w-4 h-4" />}
         >
-          <Building2 className="w-4 h-4" />
-          <span>Facilities ({totalClinicsCount})</span>
-        </button>
+          Facilities ({totalClinicsCount})
+        </Button>
 
-        <button
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
           onClick={() => setActiveTab('admins')}
-          className={`pb-2.5 px-3.5 text-xs font-medium flex items-center gap-2 border-b-2 transition-colors cursor-pointer shrink-0 ${
+          className={`rounded-none border-b-2 pb-2.5 px-3.5 text-xs font-medium shrink-0 ${
             activeTab === 'admins'
-              ? 'border-teal-700 text-teal-900 font-semibold'
-              : 'border-transparent text-slate-600 hover:text-slate-900'
+              ? 'border-teal-700 text-teal-900 font-semibold hover:bg-transparent'
+              : 'border-transparent text-slate-600 hover:text-slate-900 hover:bg-transparent'
           }`}
+          leftIcon={<Users className="w-4 h-4" />}
         >
-          <Users className="w-4 h-4" />
-          <span>Clinic Administrators ({clinicAdmins.length})</span>
-        </button>
+          Clinic Administrators ({clinicAdmins.length})
+        </Button>
 
-        <button
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
           onClick={() => setActiveTab('audit')}
-          className={`pb-2.5 px-3.5 text-xs font-medium flex items-center gap-2 border-b-2 transition-colors cursor-pointer shrink-0 ${
+          className={`rounded-none border-b-2 pb-2.5 px-3.5 text-xs font-medium shrink-0 ${
             activeTab === 'audit'
-              ? 'border-teal-700 text-teal-900 font-semibold'
-              : 'border-transparent text-slate-600 hover:text-slate-900'
+              ? 'border-teal-700 text-teal-900 font-semibold hover:bg-transparent'
+              : 'border-transparent text-slate-600 hover:text-slate-900 hover:bg-transparent'
           }`}
+          leftIcon={<History className="w-4 h-4" />}
         >
-          <History className="w-4 h-4" />
-          <span>Audit Logs ({auditLogs.length})</span>
-        </button>
+          Audit Logs ({auditLogs.length})
+        </Button>
 
-        <button
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
           onClick={() => setActiveTab('security-tests')}
-          className={`pb-2.5 px-3.5 text-xs font-medium flex items-center gap-2 border-b-2 transition-colors cursor-pointer shrink-0 ${
+          className={`rounded-none border-b-2 pb-2.5 px-3.5 text-xs font-medium shrink-0 ${
             activeTab === 'security-tests'
-              ? 'border-teal-700 text-teal-900 font-semibold'
-              : 'border-transparent text-slate-600 hover:text-slate-900'
+              ? 'border-teal-700 text-teal-900 font-semibold hover:bg-transparent'
+              : 'border-transparent text-slate-600 hover:text-slate-900 hover:bg-transparent'
           }`}
+          leftIcon={<ShieldCheck className="w-4 h-4 text-emerald-600" />}
         >
-          <ShieldCheck className="w-4 h-4 text-emerald-600" />
-          <span>Security & Rules Verification</span>
-        </button>
+          Security & Rules Verification
+        </Button>
       </div>
 
       {/* TAB 1: CLINICS MANAGEMENT */}
@@ -494,13 +521,15 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                   </select>
                 </div>
 
-                <button
+                <Button
+                  type="button"
+                  variant="Primary"
+                  size="sm"
                   onClick={() => onSwitchClinicAndNavigate(activeClinicId)}
-                  className="bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white text-xs font-bold px-4 py-2.5 rounded-xl flex items-center gap-2 shadow-md transition-all cursor-pointer shrink-0"
+                  rightIcon={<ArrowRight className="w-4 h-4" />}
                 >
-                  <span>Open Queue Dashboard</span>
-                  <ArrowRight className="w-4 h-4" />
-                </button>
+                  Open Queue Dashboard
+                </Button>
               </div>
             </div>
 
@@ -565,17 +594,15 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
               <Filter className="w-3.5 h-3.5 text-slate-400" />
               <span className="text-xs font-bold text-slate-600 dark:text-slate-300">Status:</span>
               {(['ALL', 'ACTIVE', 'INACTIVE'] as const).map(status => (
-                <button
+                <Button
                   key={status}
+                  type="button"
+                  variant={statusFilter === status ? "Primary" : "Secondary"}
+                  size="sm"
                   onClick={() => setStatusFilter(status)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                    statusFilter === status
-                      ? 'bg-indigo-600 text-white shadow-xs'
-                      : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600'
-                  }`}
                 >
                   {status}
-                </button>
+                </Button>
               ))}
             </div>
           </div>
@@ -654,58 +681,66 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
 
                   <div className="p-4 bg-slate-50 dark:bg-slate-900/40 border-t border-slate-100 dark:border-slate-700/60 flex items-center justify-between gap-2">
                     <div className="flex items-center gap-1.5">
-                      <button
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
                         onClick={() => handleOpenBranding(clinic)}
                         title="Manage Clinic Branding & Logo"
-                        className="p-1.5 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 rounded-lg transition-colors cursor-pointer"
+                        aria-label="Manage Clinic Branding & Logo"
+                        className="text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/50"
                       >
                         <ImageIcon className="w-4 h-4" />
-                      </button>
+                      </Button>
 
-                      <button
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
                         onClick={() => handleOpenEdit(clinic)}
                         title="Edit Clinic Settings"
-                        className="p-1.5 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg transition-colors cursor-pointer"
+                        aria-label="Edit Clinic Settings"
+                        className="text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700"
                       >
                         <Edit3 className="w-4 h-4" />
-                      </button>
+                      </Button>
 
-                      <button
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
                         onClick={() => handleToggleStatus(clinic)}
                         title={isEnabled ? 'Deactivate Clinic' : 'Activate Clinic'}
-                        className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
+                        aria-label={isEnabled ? 'Deactivate Clinic' : 'Activate Clinic'}
+                        className={
                           isEnabled
                             ? 'text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30'
                             : 'text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-950/30'
-                        }`}
+                        }
                       >
                         <Power className="w-4 h-4" />
-                      </button>
+                      </Button>
                     </div>
 
                     <div className="flex items-center gap-2">
-                      <button
+                      <Button
+                        type="button"
+                        variant={isActiveClinic ? "Primary" : "Secondary"}
+                        size="sm"
                         onClick={() => switchClinic(clinic.id)}
-                        className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
-                          isActiveClinic
-                            ? 'bg-emerald-600 text-white'
-                            : 'bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-300 hover:bg-indigo-600 hover:text-white border border-indigo-200 dark:border-indigo-800'
-                        }`}
                       >
-                        <span>{isActiveClinic ? 'Active Context' : 'Switch Context'}</span>
-                      </button>
+                        {isActiveClinic ? 'Active Context' : 'Switch Context'}
+                      </Button>
 
-                      <button
+                      <Button
+                        type="button"
+                        variant="Primary"
+                        size="sm"
                         onClick={() => onSwitchClinicAndNavigate(clinic.id)}
-                        className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
-                          isActiveClinic
-                            ? 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-xs'
-                            : 'bg-slate-200 dark:bg-slate-700 hover:bg-indigo-600 hover:text-white text-slate-800 dark:text-slate-200'
-                        }`}
+                        rightIcon={<ArrowRight className="w-3.5 h-3.5" />}
                       >
-                        <span>Manage Queue</span>
-                        <ArrowRight className="w-3.5 h-3.5" />
-                      </button>
+                        Manage Queue
+                      </Button>
                     </div>
                   </div>
                 </div>
@@ -730,13 +765,15 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
               />
             </div>
 
-            <button
+            <Button
+              type="button"
+              variant="Primary"
+              size="sm"
               onClick={() => setIsCreateAdminModalOpen(true)}
-              className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow-xs cursor-pointer"
+              leftIcon={<Users className="w-4 h-4" />}
             >
-              <Users className="w-4 h-4" />
               + Create Clinic Admin
-            </button>
+            </Button>
           </div>
 
           {/* Admins Table */}
@@ -831,33 +868,45 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                           <div className="flex items-center justify-end gap-1.5">
                             {!isSuper && (
                               <>
-                                <button
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
                                   onClick={() => handleOpenEditAdminClinics(admin)}
                                   title="Assign Clinics"
-                                  className="p-1.5 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 rounded-lg transition-colors cursor-pointer"
+                                  aria-label="Assign Clinics"
+                                  className="text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/50"
                                 >
                                   <Layers className="w-4 h-4" />
-                                </button>
+                                </Button>
 
-                                <button
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
                                   onClick={() => handleSendPasswordReset(admin.email)}
                                   title="Send Password Reset Email"
-                                  className="p-1.5 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors cursor-pointer"
+                                  aria-label="Send Password Reset Email"
+                                  className="text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
                                 >
                                   <KeyRound className="w-4 h-4" />
-                                </button>
+                                </Button>
 
-                                <button
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
                                   onClick={() => handleToggleAdminStatus(admin)}
                                   title={isActiveStatus ? 'Disable Account' : 'Enable Account'}
-                                  className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
+                                  aria-label={isActiveStatus ? 'Disable Account' : 'Enable Account'}
+                                  className={
                                     isActiveStatus
                                       ? 'text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40'
                                       : 'text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-950/40'
-                                  }`}
+                                  }
                                 >
                                   {isActiveStatus ? <UserX className="w-4 h-4" /> : <UserCheck className="w-4 h-4" />}
-                                </button>
+                                </Button>
                               </>
                             )}
                           </div>
@@ -953,7 +1002,16 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                   <p className="text-[11px] text-slate-500">Super Admin provisions email + temporary password</p>
                 </div>
               </div>
-              <button onClick={() => setIsCreateAdminModalOpen(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">✕</button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                onClick={() => setIsCreateAdminModalOpen(false)}
+                aria-label="Close modal"
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+              >
+                ✕
+              </Button>
             </div>
 
             <form onSubmit={handleCreateAdminSubmit} className="space-y-4 text-xs">
@@ -1028,20 +1086,23 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
               </div>
 
               <div className="flex justify-end gap-3 pt-3 border-t border-slate-100 dark:border-slate-700">
-                <button
+                <Button
                   type="button"
+                  variant="Secondary"
+                  size="sm"
                   onClick={() => setIsCreateAdminModalOpen(false)}
-                  className="px-4 py-2 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-xl font-bold cursor-pointer"
                 >
                   Cancel
-                </button>
-                <button
+                </Button>
+                <Button
                   type="submit"
+                  variant="Primary"
+                  size="sm"
                   disabled={submitting || newAdminForm.clinicIds.length === 0}
-                  className="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-bold shadow-md cursor-pointer disabled:opacity-50"
+                  isLoading={submitting}
                 >
                   {submitting ? 'Creating Admin...' : 'Create Admin Account'}
-                </button>
+                </Button>
               </div>
             </form>
           </div>
@@ -1057,7 +1118,16 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                 <h3 className="font-bold text-base">Assign Clinic Access</h3>
                 <p className="text-[11px] text-slate-500">{selectedAdminToEdit.email}</p>
               </div>
-              <button onClick={() => setIsEditAdminClinicsModalOpen(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">✕</button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                onClick={() => setIsEditAdminClinicsModalOpen(false)}
+                aria-label="Close modal"
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+              >
+                ✕
+              </Button>
             </div>
 
             <form onSubmit={handleSaveAdminClinics} className="space-y-4 text-xs">
@@ -1090,20 +1160,23 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
               </div>
 
               <div className="flex justify-end gap-3 pt-3 border-t border-slate-100 dark:border-slate-700">
-                <button
+                <Button
                   type="button"
+                  variant="Secondary"
+                  size="sm"
                   onClick={() => setIsEditAdminClinicsModalOpen(false)}
-                  className="px-4 py-2 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-xl font-bold cursor-pointer"
                 >
                   Cancel
-                </button>
-                <button
+                </Button>
+                <Button
                   type="submit"
+                  variant="Primary"
+                  size="sm"
                   disabled={submitting || editAdminClinics.length === 0}
-                  className="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-bold shadow-md cursor-pointer disabled:opacity-50"
+                  isLoading={submitting}
                 >
                   {submitting ? 'Saving...' : 'Save Permissions'}
-                </button>
+                </Button>
               </div>
             </form>
           </div>
@@ -1121,7 +1194,16 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                 </div>
                 <h3 className="font-bold text-lg">Provision New Clinic Tenant</h3>
               </div>
-              <button onClick={() => setIsCreateModalOpen(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">✕</button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                onClick={() => setIsCreateModalOpen(false)}
+                aria-label="Close modal"
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+              >
+                ✕
+              </Button>
             </div>
 
             <form onSubmit={handleCreateSubmit} className="space-y-4 text-xs">
@@ -1212,20 +1294,23 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
               </div>
 
               <div className="flex justify-end gap-3 pt-3 border-t border-slate-100 dark:border-slate-700">
-                <button
+                <Button
                   type="button"
+                  variant="Secondary"
+                  size="sm"
                   onClick={() => setIsCreateModalOpen(false)}
-                  className="px-4 py-2 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-xl font-bold cursor-pointer"
                 >
                   Cancel
-                </button>
-                <button
+                </Button>
+                <Button
                   type="submit"
+                  variant="Primary"
+                  size="sm"
                   disabled={submitting}
-                  className="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-bold shadow-md cursor-pointer disabled:opacity-50"
+                  isLoading={submitting}
                 >
                   {submitting ? 'Provisioning...' : 'Confirm & Provision'}
-                </button>
+                </Button>
               </div>
             </form>
           </div>
@@ -1243,7 +1328,16 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                 </div>
                 <h3 className="font-bold text-lg">Edit Clinic: {selectedClinicToEdit.name}</h3>
               </div>
-              <button onClick={() => setIsEditModalOpen(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">✕</button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                onClick={() => setIsEditModalOpen(false)}
+                aria-label="Close modal"
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+              >
+                ✕
+              </Button>
             </div>
 
             <form onSubmit={handleEditSubmit} className="space-y-4 text-xs">
@@ -1315,20 +1409,23 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
               </div>
 
               <div className="flex justify-end gap-3 pt-3 border-t border-slate-100 dark:border-slate-700">
-                <button
+                <Button
                   type="button"
+                  variant="Secondary"
+                  size="sm"
                   onClick={() => setIsEditModalOpen(false)}
-                  className="px-4 py-2 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-xl font-bold cursor-pointer"
                 >
                   Cancel
-                </button>
-                <button
+                </Button>
+                <Button
                   type="submit"
+                  variant="Primary"
+                  size="sm"
                   disabled={submitting}
-                  className="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-bold shadow-md cursor-pointer disabled:opacity-50"
+                  isLoading={submitting}
                 >
                   {submitting ? 'Saving...' : 'Save Changes'}
-                </button>
+                </Button>
               </div>
             </form>
           </div>
@@ -1351,12 +1448,16 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                   </span>
                 </div>
               </div>
-              <button 
-                onClick={() => setIsBrandingModalOpen(false)} 
-                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 font-bold p-1 rounded-lg cursor-pointer"
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                onClick={() => setIsBrandingModalOpen(false)}
+                aria-label="Close modal"
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
               >
                 <X className="w-5 h-5" />
-              </button>
+              </Button>
             </div>
 
             <div className="p-4">

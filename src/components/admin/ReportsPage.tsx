@@ -3,6 +3,7 @@ import { BarChart3, Download, FileSpreadsheet, Calendar, CheckCircle2, Clock, Ac
 import { Doctor, QueueToken } from '../../types';
 import { getTokensByDateRange, getTodayDateString } from '../../services/clinicService';
 import { useClinic } from '../../context/ClinicContext';
+import { Button } from '../shared/Button';
 
 interface ReportsPageProps {
   doctors: Doctor[];
@@ -234,27 +235,31 @@ export const ReportsPage: React.FC<ReportsPageProps> = ({ doctors, todayTokens }
 
         {/* Action Buttons */}
         <div className="flex flex-wrap items-center gap-2">
-          <button
+          <Button
             id="download-today-stats-csv-btn"
+            type="button"
+            variant="Primary"
+            size="sm"
             onClick={downloadTodayTokenStatisticsCSV}
-            className="bg-teal-700 hover:bg-teal-800 text-white px-3.5 py-1.5 rounded-lg text-xs font-medium flex items-center gap-2 shadow-xs transition-colors cursor-pointer"
+            leftIcon={<FileSpreadsheet className="w-4 h-4 text-teal-200" />}
           >
-            <FileSpreadsheet className="w-4 h-4 text-teal-200" />
             <span>Export Daily CSV</span>
-            <span className="bg-teal-900/60 text-teal-100 text-[10px] px-1.5 py-0.5 rounded font-mono">
+            <span className="bg-teal-900/60 text-teal-100 text-[10px] px-1.5 py-0.5 rounded font-mono ml-1.5">
               {todayTokens.length} Today
             </span>
-          </button>
+          </Button>
 
           {filter !== 'TODAY' && (
-            <button
+            <Button
+              type="button"
+              variant="Secondary"
+              size="sm"
               onClick={exportFilteredCSV}
               disabled={reportTokens.length === 0}
-              className="bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
+              leftIcon={<Download className="w-3.5 h-3.5" />}
             >
-              <Download className="w-3.5 h-3.5" />
-              <span>Export {filter.replace(/_/g, ' ')} ({reportTokens.length})</span>
-            </button>
+              Export {filter.replace(/_/g, ' ')} ({reportTokens.length})
+            </Button>
           )}
         </div>
       </div>
@@ -267,30 +272,38 @@ export const ReportsPage: React.FC<ReportsPageProps> = ({ doctors, todayTokens }
         </div>
 
         <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-lg text-xs font-medium">
-          <button
+          <Button
+            type="button"
+            variant={filter === 'TODAY' ? 'Primary' : 'ghost'}
+            size="sm"
             onClick={() => setFilter('TODAY')}
-            className={`px-3 py-1 rounded-md transition-colors cursor-pointer ${filter === 'TODAY' ? 'bg-teal-700 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'}`}
           >
             Today
-          </button>
-          <button
+          </Button>
+          <Button
+            type="button"
+            variant={filter === 'YESTERDAY' ? 'Primary' : 'ghost'}
+            size="sm"
             onClick={() => setFilter('YESTERDAY')}
-            className={`px-3 py-1 rounded-md transition-colors cursor-pointer ${filter === 'YESTERDAY' ? 'bg-teal-700 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'}`}
           >
             Yesterday
-          </button>
-          <button
+          </Button>
+          <Button
+            type="button"
+            variant={filter === 'LAST_7_DAYS' ? 'Primary' : 'ghost'}
+            size="sm"
             onClick={() => setFilter('LAST_7_DAYS')}
-            className={`px-3 py-1 rounded-md transition-colors cursor-pointer ${filter === 'LAST_7_DAYS' ? 'bg-teal-700 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'}`}
           >
             Last 7 Days
-          </button>
-          <button
+          </Button>
+          <Button
+            type="button"
+            variant={filter === 'LAST_30_DAYS' ? 'Primary' : 'ghost'}
+            size="sm"
             onClick={() => setFilter('LAST_30_DAYS')}
-            className={`px-3 py-1 rounded-md transition-colors cursor-pointer ${filter === 'LAST_30_DAYS' ? 'bg-teal-700 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'}`}
           >
             Last 30 Days
-          </button>
+          </Button>
         </div>
       </div>
 

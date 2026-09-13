@@ -50,3 +50,78 @@
     background-color: rgba(15, 23, 42, 0.95) !important;
   }
 }
+
+/* MediQueue Clean Professional Splash Screen Animations */
+@keyframes mediqueue-logo-entrance {
+  0% {
+    opacity: 0;
+    transform: perspective(600px) scale(0.96) rotateX(3.5deg) rotateY(-3deg);
+  }
+  100% {
+    opacity: 1;
+    transform: perspective(600px) scale(1) rotateX(0deg) rotateY(0deg);
+  }
+}
+
+@keyframes mediqueue-fade-up {
+  0% {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes mediqueue-dot-pulse {
+  0%, 100% {
+    opacity: 0.3;
+    transform: scale(0.85);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.15);
+  }
+}
+
+.animate-mediqueue-logo {
+  animation: mediqueue-logo-entrance 0.75s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  will-change: transform, opacity;
+  backface-visibility: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+.animate-mediqueue-fade-up {
+  animation: mediqueue-fade-up 0.7s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  will-change: transform, opacity;
+}
+
+.animate-mediqueue-dot-1 {
+  animation: mediqueue-dot-pulse 1.3s ease-in-out infinite 0s;
+}
+
+.animate-mediqueue-dot-2 {
+  animation: mediqueue-dot-pulse 1.3s ease-in-out infinite 0.25s;
+}
+
+.animate-mediqueue-dot-3 {
+  animation: mediqueue-dot-pulse 1.3s ease-in-out infinite 0.5s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-mediqueue-logo {
+    animation: mediqueue-fade-up 0.5s ease-out forwards;
+    transform: none !important;
+  }
+  .animate-mediqueue-fade-up {
+    animation: mediqueue-fade-up 0.5s ease-out forwards;
+    transform: none !important;
+  }
+  .animate-mediqueue-dot-1,
+  .animate-mediqueue-dot-2,
+  .animate-mediqueue-dot-3 {
+    animation: none !important;
+    opacity: 0.8;
+  }
+}

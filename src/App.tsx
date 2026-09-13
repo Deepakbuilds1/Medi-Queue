@@ -17,6 +17,7 @@ import { TokenReceiptModal } from './components/common/TokenReceiptModal';
 import { PatientPortal } from './components/patient/PatientPortal';
 import { PublicDisplay } from './components/display/PublicDisplay';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
+import { SplashScreen } from './components/common/SplashScreen';
 import { LegalPagesModal, LegalDocType } from './components/legal/LegalPagesModal';
 import { CookieConsentBanner } from './components/legal/CookieConsentBanner';
 import { CookiePreferencesModal } from './components/legal/CookiePreferencesModal';
@@ -565,8 +566,13 @@ const MainAppContent: React.FC = () => {
 };
 
 export function App() {
+  const [showSplash, setShowSplash] = useState(true);
+
   return (
     <ErrorBoundary>
+      {showSplash && (
+        <SplashScreen onComplete={() => setShowSplash(false)} />
+      )}
       <AuthProvider>
         <ClinicProvider>
           <MainAppContent />

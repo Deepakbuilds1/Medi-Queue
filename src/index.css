@@ -55,11 +55,11 @@
 @keyframes mediqueue-logo-entrance {
   0% {
     opacity: 0;
-    transform: perspective(600px) scale(0.96) rotateX(3.5deg) rotateY(-3deg);
+    transform: scale(0.96);
   }
   100% {
     opacity: 1;
-    transform: perspective(600px) scale(1) rotateX(0deg) rotateY(0deg);
+    transform: scale(1);
   }
 }
 

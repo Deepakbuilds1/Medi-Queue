@@ -71,26 +71,23 @@ export const SuperAdminLogin: React.FC<SuperAdminLoginProps> = ({
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 flex flex-col justify-center items-center p-4 font-sans antialiased text-slate-100 selection:bg-indigo-500 selection:text-white">
-      {/* Background Decorative Gradient */}
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(99,102,241,0.18),rgba(255,255,255,0))] pointer-events-none" />
-
-      <div className="w-full max-w-md bg-slate-900/95 backdrop-blur-xl rounded-3xl border border-slate-800 shadow-2xl overflow-hidden relative z-10">
+    <div className="min-h-screen bg-[#F8FAFC] flex flex-col justify-center items-center p-4 font-sans antialiased text-[#0F172A]">
+      <div className="w-full max-w-md bg-white rounded-2xl border border-[#E2E8F0] shadow-sm overflow-hidden relative z-10">
         
         {/* Header Badge */}
-        <div className="px-8 pt-8 pb-6 border-b border-slate-800/80 text-center flex flex-col items-center">
-          <div className="w-16 h-16 rounded-2xl bg-indigo-600/20 border border-indigo-500/40 flex items-center justify-center text-indigo-400 mb-4 shadow-lg shadow-indigo-600/20">
-            <ShieldCheck className="w-9 h-9" />
+        <div className="px-8 pt-8 pb-6 border-b border-slate-100 text-center flex flex-col items-center bg-slate-50/50">
+          <div className="w-14 h-14 rounded-2xl bg-teal-50 border border-teal-200/80 flex items-center justify-center text-[#087F73] mb-3.5 shadow-xs">
+            <ShieldCheck className="w-8 h-8" />
           </div>
           
-          <span className="px-2.5 py-0.5 rounded-full bg-indigo-500/10 border border-indigo-500/30 text-indigo-300 text-[10px] font-extrabold uppercase tracking-wider mb-2 flex items-center gap-1">
+          <span className="px-2.5 py-0.5 rounded-full bg-teal-50 border border-teal-200 text-[#087F73] text-[10px] font-bold uppercase tracking-wider mb-2 flex items-center gap-1">
             <Fingerprint className="w-3 h-3" />
             Super Administrator Portal
           </span>
 
-          <h2 className="text-xl font-black text-white tracking-tight">Super Admin Sign In</h2>
-          <p className="text-xs text-slate-400 mt-1 max-w-xs leading-relaxed">
-            Enter your authenticated credentials to access central system governance.
+          <h2 className="text-xl font-bold text-[#0F172A] tracking-tight">Super Admin Sign In</h2>
+          <p className="text-xs text-slate-500 mt-1 max-w-xs leading-relaxed">
+            Central governance, facility provisioning, and cross-clinic security controls.
           </p>
         </div>
 
@@ -99,8 +96,8 @@ export const SuperAdminLogin: React.FC<SuperAdminLoginProps> = ({
           
           {/* Error Alert */}
           {error && (
-            <div role="alert" className="p-3 bg-red-950/60 border border-red-800/80 rounded-2xl flex items-start gap-2.5 text-xs text-red-200 animate-in fade-in">
-              <AlertCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
+            <div role="alert" className="p-3 bg-red-50 border border-red-200 rounded-xl flex items-start gap-2.5 text-xs text-red-700 animate-in fade-in">
+              <AlertCircle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
               <div className="flex-1">
                 <span className="font-semibold">{safeRender(error)}</span>
               </div>
@@ -111,9 +108,9 @@ export const SuperAdminLogin: React.FC<SuperAdminLoginProps> = ({
             
             {/* Email Input */}
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-slate-300 flex items-center justify-between">
+              <label className="text-xs font-bold text-slate-700 flex items-center justify-between">
                 <span>Super Admin Email</span>
-                <span className="text-[10px] text-slate-500 font-normal">Firebase Authentication</span>
+                <span className="text-[10px] text-slate-400 font-normal">Firebase Authentication</span>
               </label>
 
               <div className="relative">
@@ -132,16 +129,16 @@ export const SuperAdminLogin: React.FC<SuperAdminLoginProps> = ({
                   placeholder="admin@example.com"
                   autoComplete="email"
                   autoFocus
-                  className="w-full pl-10 pr-4 py-3 bg-slate-950/70 border border-slate-700/80 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 rounded-xl text-slate-100 placeholder-slate-500 text-sm transition-all disabled:opacity-50"
+                  className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-300 focus:border-[#087F73] focus:ring-2 focus:ring-[#087F73]/20 rounded-xl text-sm text-[#0F172A] placeholder-slate-400 transition-all disabled:opacity-50"
                 />
               </div>
             </div>
 
             {/* Password Input */}
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-slate-300 flex items-center justify-between">
+              <label className="text-xs font-bold text-slate-700 flex items-center justify-between">
                 <span>Password</span>
-                <span className="text-[10px] text-slate-500 font-normal">Secure Authentication</span>
+                <span className="text-[10px] text-slate-400 font-normal">Secure Authentication</span>
               </label>
 
               <div className="relative">
@@ -159,7 +156,7 @@ export const SuperAdminLogin: React.FC<SuperAdminLoginProps> = ({
                   disabled={loading}
                   placeholder="••••••••••••"
                   autoComplete="current-password"
-                  className="w-full pl-10 pr-12 py-3 bg-slate-950/70 border border-slate-700/80 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 rounded-xl text-slate-100 placeholder-slate-500 text-sm transition-all disabled:opacity-50"
+                  className="w-full pl-10 pr-12 py-2.5 bg-slate-50 border border-slate-300 focus:border-[#087F73] focus:ring-2 focus:ring-[#087F73]/20 rounded-xl text-sm text-[#0F172A] placeholder-slate-400 transition-all disabled:opacity-50"
                 />
 
                 <Button
@@ -167,7 +164,7 @@ export const SuperAdminLogin: React.FC<SuperAdminLoginProps> = ({
                   variant="ghost"
                   size="icon"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute inset-y-0 right-0 pr-3.5 text-slate-400 hover:text-slate-200 hover:bg-transparent"
+                  className="absolute inset-y-0 right-0 pr-3.5 text-slate-400 hover:text-slate-600 hover:bg-transparent"
                   aria-label={showPassword ? 'Hide password' : 'Show password'}
                 >
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -191,14 +188,14 @@ export const SuperAdminLogin: React.FC<SuperAdminLoginProps> = ({
           </form>
 
           {/* Navigation Links to Clinic Admin and Patient Portal */}
-          <div className="pt-4 border-t border-slate-800/80 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs">
+          <div className="pt-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs">
             <Button
               type="button"
               variant="ghost"
               size="sm"
               onClick={onNavigateToClinicAdmin}
-              className="text-slate-400 hover:text-indigo-300 py-1"
-              leftIcon={<Building2 className="w-3.5 h-3.5 text-slate-500" />}
+              className="text-slate-600 hover:text-[#087F73] py-1"
+              leftIcon={<Building2 className="w-3.5 h-3.5 text-slate-400" />}
             >
               Clinic Admin Login
             </Button>
@@ -208,8 +205,8 @@ export const SuperAdminLogin: React.FC<SuperAdminLoginProps> = ({
               variant="ghost"
               size="sm"
               onClick={onNavigateToPatientPortal}
-              className="text-slate-400 hover:text-slate-200 py-1"
-              leftIcon={<ArrowLeft className="w-3 h-3" />}
+              className="text-slate-600 hover:text-[#087F73] py-1"
+              leftIcon={<ArrowLeft className="w-3.5 h-3.5 text-slate-400" />}
             >
               Patient Portal
             </Button>
@@ -220,9 +217,9 @@ export const SuperAdminLogin: React.FC<SuperAdminLoginProps> = ({
       </div>
 
       {/* Security Footer Notice */}
-      <div className="mt-6 text-center text-slate-600 text-xs flex items-center gap-1.5">
-        <Lock className="w-3 h-3" />
-        <span>End-to-End Encrypted Session & Strict Server Verification</span>
+      <div className="mt-6 text-center text-slate-500 text-xs flex items-center gap-1.5">
+        <Lock className="w-3 h-3 text-[#087F73]" />
+        <span>End-to-End Encrypted Session & Strict Server Role Verification</span>
       </div>
     </div>
   );

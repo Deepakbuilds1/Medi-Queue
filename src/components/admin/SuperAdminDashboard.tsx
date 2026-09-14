@@ -46,7 +46,7 @@ import { ClinicBrandingSection } from './ClinicBrandingSection';
 import { Button } from '../shared/Button';
 
 interface SuperAdminDashboardProps {
-  onSwitchClinicAndNavigate: (clinicId: string) => void;
+  onSwitchClinicAndNavigate: (clinicId: string, targetRoute?: string) => void;
   currentTokens?: QueueToken[];
   currentDoctors?: Doctor[];
   currentPatients?: Patient[];
@@ -352,30 +352,29 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
   return (
     <div className="space-y-6 max-w-7xl mx-auto animate-in fade-in duration-200">
       
-      {/* Header Banner */}
-      <div className="bg-[#0F172A] text-white p-5 rounded-xl border border-slate-800 shadow-xs flex flex-wrap items-center justify-between gap-4">
-        <div className="space-y-1">
+      {/* Enterprise Super Admin Header Banner */}
+      <div className="bg-white p-5 md:p-6 rounded-xl border border-[#E2E8F0] shadow-xs flex flex-wrap items-center justify-between gap-4">
+        <div className="space-y-1 max-w-2xl">
           <div className="flex items-center gap-2">
-            <span className="px-2 py-0.5 bg-teal-950 text-teal-300 border border-teal-800 rounded text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5">
-              <ShieldCheck className="w-3.5 h-3.5 text-teal-400" />
+            <span className="px-2.5 py-0.5 bg-teal-50 text-[#087F73] border border-teal-200/80 rounded-md text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5">
+              <ShieldCheck className="w-3.5 h-3.5 text-[#087F73]" />
               Super Admin Console
             </span>
-            <span className="text-xs text-slate-400 font-mono">Multi-Facility Infrastructure</span>
+            <span className="text-xs text-slate-500 font-mono">Multi-Facility Governance</span>
           </div>
-          <h1 className="text-xl font-bold tracking-tight text-white">Central Operations & Tenant Management</h1>
-          <p className="text-xs text-slate-300">
-            Orchestrate facilities, provision administrator accounts, manage tenant routing, and audit clinical security logs.
+          <h1 className="text-xl font-bold tracking-tight text-[#0F172A]">Central Operations & Facility Directory</h1>
+          <p className="text-xs text-slate-600 leading-relaxed">
+            Orchestrate healthcare facilities, provision administrator credentials, manage tenant routing, and monitor system-wide security logs.
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2.5">
           <Button
             type="button"
             variant="Secondary"
             size="sm"
             onClick={() => setIsCreateAdminModalOpen(true)}
-            className="bg-slate-800 hover:bg-slate-700 border-slate-700 text-slate-200 hover:text-white"
-            leftIcon={<Users className="w-3.5 h-3.5 text-teal-400" />}
+            leftIcon={<Users className="w-3.5 h-3.5 text-[#087F73]" />}
           >
             New Clinic Admin
           </Button>
@@ -392,7 +391,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
       </div>
 
       {notification && (
-        <div className="bg-emerald-50 border border-emerald-200 p-3 rounded-xl text-emerald-800 text-xs font-medium flex items-center justify-between">
+        <div className="bg-emerald-50 border border-emerald-200 p-3 rounded-xl text-emerald-900 text-xs font-medium flex items-center justify-between shadow-xs">
           <div className="flex items-center gap-2">
             <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
             <span>{notification}</span>
@@ -419,7 +418,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
           onClick={() => setActiveTab('clinics')}
           className={`rounded-none border-b-2 pb-2.5 px-3.5 text-xs font-medium shrink-0 ${
             activeTab === 'clinics'
-              ? 'border-teal-700 text-teal-900 font-semibold hover:bg-transparent'
+              ? 'border-[#087F73] text-[#087F73] font-bold hover:bg-transparent'
               : 'border-transparent text-slate-600 hover:text-slate-900 hover:bg-transparent'
           }`}
           leftIcon={<Building2 className="w-4 h-4" />}
@@ -434,7 +433,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
           onClick={() => setActiveTab('admins')}
           className={`rounded-none border-b-2 pb-2.5 px-3.5 text-xs font-medium shrink-0 ${
             activeTab === 'admins'
-              ? 'border-teal-700 text-teal-900 font-semibold hover:bg-transparent'
+              ? 'border-[#087F73] text-[#087F73] font-bold hover:bg-transparent'
               : 'border-transparent text-slate-600 hover:text-slate-900 hover:bg-transparent'
           }`}
           leftIcon={<Users className="w-4 h-4" />}
@@ -449,7 +448,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
           onClick={() => setActiveTab('audit')}
           className={`rounded-none border-b-2 pb-2.5 px-3.5 text-xs font-medium shrink-0 ${
             activeTab === 'audit'
-              ? 'border-teal-700 text-teal-900 font-semibold hover:bg-transparent'
+              ? 'border-[#087F73] text-[#087F73] font-bold hover:bg-transparent'
               : 'border-transparent text-slate-600 hover:text-slate-900 hover:bg-transparent'
           }`}
           leftIcon={<History className="w-4 h-4" />}
@@ -464,10 +463,10 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
           onClick={() => setActiveTab('security-tests')}
           className={`rounded-none border-b-2 pb-2.5 px-3.5 text-xs font-medium shrink-0 ${
             activeTab === 'security-tests'
-              ? 'border-teal-700 text-teal-900 font-semibold hover:bg-transparent'
+              ? 'border-[#087F73] text-[#087F73] font-bold hover:bg-transparent'
               : 'border-transparent text-slate-600 hover:text-slate-900 hover:bg-transparent'
           }`}
-          leftIcon={<ShieldCheck className="w-4 h-4 text-emerald-600" />}
+          leftIcon={<ShieldCheck className="w-4 h-4 text-[#087F73]" />}
         >
           Security & Rules Verification
         </Button>
@@ -477,27 +476,27 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
       {activeTab === 'clinics' && (
         <div className="space-y-6">
           {/* CURRENT ACTIVE CLINIC PANEL */}
-          <div className="bg-white dark:bg-slate-800 rounded-2xl border-2 border-indigo-500/40 dark:border-indigo-500/30 p-5 md:p-6 shadow-lg shadow-indigo-500/5">
-            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5 pb-5 border-b border-slate-100 dark:border-slate-700">
+          <div className="bg-white rounded-xl border border-[#E2E8F0] p-5 md:p-6 shadow-xs">
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5 pb-5 border-b border-slate-100">
               <div className="space-y-1">
                 <div className="flex items-center gap-2">
                   <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
-                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-[#087F73]">
                     Currently Selected Administrative Context
                   </span>
                 </div>
-                <h2 className="text-xl md:text-2xl font-black text-slate-900 dark:text-white flex items-center gap-2.5">
+                <h2 className="text-xl md:text-2xl font-bold text-[#0F172A] flex items-center gap-2.5">
                   <span>{activeClinic?.name || (activeClinicId ? `Clinic: ${activeClinicId}` : 'Select a Clinic')}</span>
-                  <span className={`text-[10px] uppercase font-extrabold px-2.5 py-0.5 rounded-md ${
+                  <span className={`text-[10px] uppercase font-bold px-2.5 py-0.5 rounded-md ${
                     activeClinic?.status === 'ACTIVE'
-                      ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300'
-                      : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
+                      ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                      : 'bg-slate-100 text-slate-600 border border-slate-200'
                   }`}>
                     {activeClinic?.status || 'ACTIVE'}
                   </span>
                 </h2>
-                <p className="text-xs text-slate-500 dark:text-slate-400 font-mono">
-                  Clinic ID: <span className="text-indigo-600 dark:text-indigo-400 font-bold">{activeClinicId}</span> • Scope: <span className="text-slate-700 dark:text-slate-300">/clinics/{activeClinicId}</span>
+                <p className="text-xs text-slate-500 font-mono">
+                  Clinic ID: <span className="text-[#087F73] font-semibold">{activeClinicId}</span> • Scope: <span className="text-slate-700 font-medium">/clinics/{activeClinicId}</span>
                 </p>
               </div>
 
@@ -511,7 +510,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                     aria-label="Select clinic"
                     value={activeClinicId}
                     onChange={(e) => switchClinic(e.target.value)}
-                    className="w-full sm:w-64 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 text-slate-900 dark:text-white text-xs font-bold py-2.5 px-3 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-hidden cursor-pointer"
+                    className="w-full sm:w-64 bg-slate-50 border border-slate-200 text-slate-900 text-xs font-semibold py-2.5 px-3 rounded-xl focus:ring-2 focus:ring-[#087F73] focus:border-[#087F73] focus:outline-hidden cursor-pointer"
                   >
                     {allClinics.map(c => (
                       <option key={c.id} value={c.id}>
@@ -534,43 +533,43 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
             </div>
 
             {/* Current Clinic Detail Metrics */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-5">
-              <div className="bg-slate-50 dark:bg-slate-900/60 p-3.5 rounded-xl border border-slate-100 dark:border-slate-800">
-                <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 mb-1">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5 pt-5">
+              <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-100">
+                <div className="flex items-center justify-between text-slate-500 mb-1">
                   <span className="text-[10px] font-bold uppercase tracking-wider">Active Doctors</span>
-                  <Stethoscope className="w-4 h-4 text-indigo-500" />
+                  <Stethoscope className="w-4 h-4 text-[#087F73]" />
                 </div>
-                <p className="text-xl md:text-2xl font-black text-slate-900 dark:text-white font-mono">
+                <p className="text-xl md:text-2xl font-bold text-[#0F172A] font-mono">
                   {currentDoctors.length}
                 </p>
               </div>
 
-              <div className="bg-slate-50 dark:bg-slate-900/60 p-3.5 rounded-xl border border-slate-100 dark:border-slate-800">
-                <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 mb-1">
+              <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-100">
+                <div className="flex items-center justify-between text-slate-500 mb-1">
                   <span className="text-[10px] font-bold uppercase tracking-wider">Patients Registered</span>
-                  <Users className="w-4 h-4 text-blue-500" />
+                  <Users className="w-4 h-4 text-slate-600" />
                 </div>
-                <p className="text-xl md:text-2xl font-black text-slate-900 dark:text-white font-mono">
+                <p className="text-xl md:text-2xl font-bold text-[#0F172A] font-mono">
                   {currentPatients.length}
                 </p>
               </div>
 
-              <div className="bg-slate-50 dark:bg-slate-900/60 p-3.5 rounded-xl border border-slate-100 dark:border-slate-800">
-                <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 mb-1">
+              <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-100">
+                <div className="flex items-center justify-between text-slate-500 mb-1">
                   <span className="text-[10px] font-bold uppercase tracking-wider">Waiting Tokens</span>
-                  <Ticket className="w-4 h-4 text-amber-500" />
+                  <Ticket className="w-4 h-4 text-amber-600" />
                 </div>
-                <p className="text-xl md:text-2xl font-black text-amber-600 dark:text-amber-400 font-mono">
+                <p className="text-xl md:text-2xl font-bold text-amber-700 font-mono">
                   {waitingTokensCount}
                 </p>
               </div>
 
-              <div className="bg-slate-50 dark:bg-slate-900/60 p-3.5 rounded-xl border border-slate-100 dark:border-slate-800">
-                <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 mb-1">
+              <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-100">
+                <div className="flex items-center justify-between text-slate-500 mb-1">
                   <span className="text-[10px] font-bold uppercase tracking-wider">In Consultation</span>
-                  <Activity className="w-4 h-4 text-emerald-500" />
+                  <Activity className="w-4 h-4 text-[#087F73]" />
                 </div>
-                <p className="text-xl md:text-2xl font-black text-emerald-600 dark:text-emerald-400 font-mono">
+                <p className="text-xl md:text-2xl font-bold text-[#087F73] font-mono">
                   {inConsultTokensCount}
                 </p>
               </div>
@@ -578,7 +577,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
           </div>
 
           {/* SEARCH AND FILTER BAR */}
-          <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-xs">
+          <div className="bg-white p-4 rounded-xl border border-[#E2E8F0] flex flex-col sm:flex-row items-center justify-between gap-3 shadow-xs">
             <div className="relative w-full sm:w-80">
               <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
               <input
@@ -586,13 +585,13 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                 placeholder="Search by clinic name, ID, or city..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-white placeholder-slate-400 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
+                className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-[#0F172A] placeholder-slate-400 focus:outline-hidden focus:ring-2 focus:ring-[#087F73] focus:border-[#087F73]"
               />
             </div>
 
-            <div className="flex items-center gap-2 w-full sm:w-auto">
+            <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
               <Filter className="w-3.5 h-3.5 text-slate-400" />
-              <span className="text-xs font-bold text-slate-600 dark:text-slate-300">Status:</span>
+              <span className="text-xs font-bold text-slate-600">Status:</span>
               {(['ALL', 'ACTIVE', 'INACTIVE'] as const).map(status => (
                 <Button
                   key={status}
@@ -608,7 +607,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
           </div>
 
           {/* Clinics Directory Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4.5">
             {filteredClinics.map((clinic) => {
               const isActiveClinic = clinic.id === activeClinicId;
               const isEnabled = clinic.status === 'ACTIVE';
@@ -616,10 +615,10 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
               return (
                 <div 
                   key={clinic.id} 
-                  className={`bg-white dark:bg-slate-800 rounded-2xl border transition-all duration-200 overflow-hidden flex flex-col justify-between ${
+                  className={`bg-white rounded-xl border transition-all duration-200 overflow-hidden flex flex-col justify-between shadow-xs ${
                     isActiveClinic 
-                      ? 'border-indigo-500 ring-2 ring-indigo-500/20 shadow-lg' 
-                      : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 shadow-xs'
+                      ? 'border-[#087F73] ring-1 ring-[#087F73]/30 bg-teal-50/10' 
+                      : 'border-[#E2E8F0] hover:border-slate-300'
                   }`}
                 >
                   <div className="p-5 space-y-4">
@@ -628,31 +627,31 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                         <img 
                           src={clinic.logo} 
                           alt={clinic.name} 
-                          className="w-12 h-12 rounded-xl object-cover border border-slate-200 dark:border-slate-700 shadow-xs"
+                          className="w-12 h-12 rounded-xl object-cover border border-[#E2E8F0] shadow-xs"
                         />
                         <div>
                           <div className="flex items-center gap-2">
-                            <h3 className="font-extrabold text-sm text-slate-900 dark:text-white leading-tight">
+                            <h3 className="font-bold text-sm text-[#0F172A] leading-tight">
                               {clinic.name}
                             </h3>
                             {isActiveClinic && (
                               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" title="Active Context" />
                             )}
                           </div>
-                          <span className="text-[11px] font-mono text-slate-400">ID: {clinic.id}</span>
+                          <span className="text-[11px] font-mono text-slate-500">ID: {clinic.id}</span>
                         </div>
                       </div>
 
-                      <span className={`text-[10px] uppercase font-extrabold px-2 py-0.5 rounded-md ${
+                      <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded-md ${
                         isEnabled
-                          ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300'
-                          : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400'
+                          ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                          : 'bg-slate-100 text-slate-600 border border-slate-200'
                       }`}>
                         {clinic.status}
                       </span>
                     </div>
 
-                    <div className="space-y-1.5 text-xs text-slate-600 dark:text-slate-400 border-t border-slate-100 dark:border-slate-700 pt-3">
+                    <div className="space-y-1.5 text-xs text-slate-600 border-t border-slate-100 pt-3">
                       <div className="flex items-center gap-2 truncate">
                         <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                         <span className="truncate">{clinic.address}</span>
@@ -667,79 +666,94 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-2 bg-slate-50 dark:bg-slate-900/60 p-2.5 rounded-xl text-[11px] border border-slate-100 dark:border-slate-800">
+                    <div className="grid grid-cols-2 gap-2 bg-slate-50 p-2.5 rounded-xl text-[11px] border border-slate-100">
                       <div>
-                        <span className="text-slate-400 block font-semibold text-[10px] uppercase">Token Prefix</span>
-                        <span className="font-bold text-slate-800 dark:text-slate-200 font-mono text-xs">{clinic.tokenPrefix}</span>
+                        <span className="text-slate-500 block font-semibold text-[10px] uppercase">Token Prefix</span>
+                        <span className="font-bold text-slate-800 font-mono text-xs">{clinic.tokenPrefix}</span>
                       </div>
                       <div>
-                        <span className="text-slate-400 block font-semibold text-[10px] uppercase">Start Number</span>
-                        <span className="font-bold text-slate-800 dark:text-slate-200 font-mono text-xs">#{clinic.startingTokenNumber}</span>
+                        <span className="text-slate-500 block font-semibold text-[10px] uppercase">Start Number</span>
+                        <span className="font-bold text-slate-800 font-mono text-xs">#{clinic.startingTokenNumber}</span>
                       </div>
                     </div>
                   </div>
 
-                  <div className="p-4 bg-slate-50 dark:bg-slate-900/40 border-t border-slate-100 dark:border-slate-700/60 flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-1.5">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleOpenBranding(clinic)}
-                        title="Manage Clinic Branding & Logo"
-                        aria-label="Manage Clinic Branding & Logo"
-                        className="text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/50"
-                      >
-                        <ImageIcon className="w-4 h-4" />
-                      </Button>
+                  {/* Card Action Footer: Structured 2-Tier Layout */}
+                  <div className="p-3.5 sm:p-4 bg-slate-50/70 border-t border-slate-100 flex flex-col gap-2.5">
+                    {/* Management & Status Utility Bar */}
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-1">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleOpenBranding(clinic)}
+                          title="Manage Clinic Branding & Logo"
+                          aria-label="Manage Clinic Branding & Logo"
+                          className="text-[#087F73] hover:bg-teal-50 text-xs px-2 py-1 h-7.5 rounded-lg font-medium"
+                          leftIcon={<ImageIcon className="w-3.5 h-3.5 text-[#087F73]" />}
+                        >
+                          Logo
+                        </Button>
+
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleOpenEdit(clinic)}
+                          title="Edit Clinic Settings"
+                          aria-label="Edit Clinic Settings"
+                          className="text-slate-600 hover:bg-slate-200/70 text-xs px-2 py-1 h-7.5 rounded-lg font-medium"
+                          leftIcon={<Edit3 className="w-3.5 h-3.5" />}
+                        >
+                          Edit
+                        </Button>
+                      </div>
 
                       <Button
                         type="button"
                         variant="ghost"
-                        size="icon"
-                        onClick={() => handleOpenEdit(clinic)}
-                        title="Edit Clinic Settings"
-                        aria-label="Edit Clinic Settings"
-                        className="text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700"
-                      >
-                        <Edit3 className="w-4 h-4" />
-                      </Button>
-
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
+                        size="sm"
                         onClick={() => handleToggleStatus(clinic)}
                         title={isEnabled ? 'Deactivate Clinic' : 'Activate Clinic'}
                         aria-label={isEnabled ? 'Deactivate Clinic' : 'Activate Clinic'}
-                        className={
+                        className={`text-xs px-2.5 py-1 h-7.5 rounded-lg font-medium ${
                           isEnabled
-                            ? 'text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30'
-                            : 'text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-950/30'
-                        }
+                            ? 'text-slate-500 hover:text-red-600 hover:bg-red-50'
+                            : 'text-emerald-600 hover:bg-emerald-50'
+                        }`}
+                        leftIcon={<Power className="w-3.5 h-3.5" />}
                       >
-                        <Power className="w-4 h-4" />
+                        {isEnabled ? 'Active' : 'Inactive'}
                       </Button>
                     </div>
 
-                    <div className="flex items-center gap-2">
+                    {/* Operational Action Controls: Context Switch & Manage Queue */}
+                    <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-200/80">
                       <Button
                         type="button"
-                        variant={isActiveClinic ? "Primary" : "Secondary"}
+                        variant={isActiveClinic ? "outline" : "Secondary"}
                         size="sm"
                         onClick={() => switchClinic(clinic.id)}
+                        className={`w-full justify-center text-xs font-semibold px-2 ${
+                          isActiveClinic 
+                            ? 'bg-teal-50 text-[#087F73] border-teal-300 shadow-2xs font-bold' 
+                            : 'bg-white hover:bg-slate-100 text-slate-700 border-slate-300'
+                        }`}
+                        leftIcon={isActiveClinic ? <CheckCircle2 className="w-3.5 h-3.5 text-[#087F73] shrink-0" /> : undefined}
                       >
-                        {isActiveClinic ? 'Active Context' : 'Switch Context'}
+                        <span className="truncate">{isActiveClinic ? 'Active Context' : 'Switch Context'}</span>
                       </Button>
 
                       <Button
                         type="button"
                         variant="Primary"
                         size="sm"
-                        onClick={() => onSwitchClinicAndNavigate(clinic.id)}
-                        rightIcon={<ArrowRight className="w-3.5 h-3.5" />}
+                        onClick={() => onSwitchClinicAndNavigate(clinic.id, '/admin/tokens')}
+                        rightIcon={<ArrowRight className="w-3.5 h-3.5 shrink-0" />}
+                        className="w-full justify-center text-xs font-semibold px-2 whitespace-nowrap"
                       >
-                        Manage Queue
+                        <span className="truncate">Manage Queue</span>
                       </Button>
                     </div>
                   </div>
@@ -753,7 +767,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
       {/* TAB 2: CLINIC ADMINS MANAGEMENT */}
       {activeTab === 'admins' && (
         <div className="space-y-6">
-          <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-xs">
+          <div className="bg-white p-4 rounded-xl border border-[#E2E8F0] flex flex-col sm:flex-row items-center justify-between gap-3 shadow-xs">
             <div className="relative w-full sm:w-80">
               <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
               <input
@@ -761,7 +775,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                 placeholder="Search admins by name or email..."
                 value={adminSearchQuery}
                 onChange={(e) => setAdminSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-white placeholder-slate-400 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
+                className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-[#0F172A] placeholder-slate-400 focus:outline-hidden focus:ring-2 focus:ring-[#087F73] focus:border-[#087F73]"
               />
             </div>
 
@@ -777,10 +791,10 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
           </div>
 
           {/* Admins Table */}
-          <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-xs overflow-hidden">
+          <div className="bg-white rounded-xl border border-[#E2E8F0] shadow-xs overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs text-slate-700 dark:text-slate-300">
-                <thead className="bg-slate-50 dark:bg-slate-900/60 border-b border-slate-200 dark:border-slate-700 text-[10px] uppercase font-bold text-slate-500 tracking-wider">
+              <table className="w-full text-left text-xs text-slate-700">
+                <thead className="bg-slate-50 border-b border-[#E2E8F0] text-[10px] uppercase font-bold text-slate-500 tracking-wider">
                   <tr>
                     <th className="py-3.5 px-4">Administrator</th>
                     <th className="py-3.5 px-4">Role</th>
@@ -789,26 +803,26 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                     <th className="py-3.5 px-4 text-right">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-slate-700/60">
+                <tbody className="divide-y divide-slate-100">
                   {filteredAdmins.map((admin) => {
                     const isSuper = admin.role === 'SUPER_ADMIN' || admin.email === 'medi@gmail.com';
                     const assignedList = admin.clinicIds || admin.accessibleClinicIds || (admin.clinicId ? [admin.clinicId] : []);
                     const isActiveStatus = admin.status !== 'inactive' && admin.status !== 'INACTIVE';
 
                     return (
-                      <tr key={admin.uid} className="hover:bg-slate-50/80 dark:hover:bg-slate-750/50 transition-colors">
+                      <tr key={admin.uid} className="hover:bg-slate-50/80 transition-colors">
                         <td className="py-3 px-4">
                           <div className="flex items-center gap-2.5">
                             <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-white text-xs ${
-                              isSuper ? 'bg-indigo-600' : 'bg-slate-700'
+                              isSuper ? 'bg-[#087F73]' : 'bg-slate-700'
                             }`}>
                               {admin.name?.charAt(0) || admin.email.charAt(0).toUpperCase()}
                             </div>
                             <div>
-                              <div className="font-bold text-slate-900 dark:text-white">
+                              <div className="font-bold text-[#0F172A]">
                                 {admin.name || admin.displayName || admin.email.split('@')[0]}
                               </div>
-                              <div className="text-[11px] text-slate-400 font-mono">
+                              <div className="text-[11px] text-slate-500 font-mono">
                                 {admin.email}
                               </div>
                             </div>
@@ -816,10 +830,10 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                         </td>
 
                         <td className="py-3 px-4">
-                          <span className={`px-2 py-0.5 rounded text-[10px] font-extrabold uppercase ${
+                          <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase ${
                             isSuper
-                              ? 'bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 border border-indigo-300 dark:border-indigo-800'
-                              : 'bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300'
+                              ? 'bg-teal-50 text-[#087F73] border border-teal-200/80'
+                              : 'bg-slate-100 text-slate-700 border border-slate-200'
                           }`}>
                             {isSuper ? 'SUPER ADMIN' : 'CLINIC ADMIN'}
                           </span>
@@ -827,8 +841,8 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
 
                         <td className="py-3 px-4">
                           {isSuper ? (
-                            <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
-                              <Sparkles className="w-3 h-3" />
+                            <span className="text-xs font-semibold text-[#087F73] flex items-center gap-1">
+                              <Sparkles className="w-3 h-3 text-[#087F73]" />
                               Global Access (All {allClinics.length} Clinics)
                             </span>
                           ) : (
@@ -839,14 +853,14 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                                   return (
                                     <span 
                                       key={cId}
-                                      className="px-2 py-0.5 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 rounded text-[10px] font-medium border border-slate-200 dark:border-slate-600"
+                                      className="px-2 py-0.5 bg-slate-100 text-slate-700 rounded-md text-[10px] font-medium border border-slate-200"
                                     >
                                       {cDoc?.name || cId}
                                     </span>
                                   );
                                 })
                               ) : (
-                                <span className="text-[11px] text-red-500 font-bold">
+                                <span className="text-[11px] text-red-600 font-semibold">
                                   No clinics assigned
                                 </span>
                               )}
@@ -855,10 +869,10 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                         </td>
 
                         <td className="py-3 px-4">
-                          <span className={`px-2 py-0.5 rounded text-[10px] font-extrabold uppercase ${
+                          <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase ${
                             isActiveStatus
-                              ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300'
-                              : 'bg-red-100 dark:bg-red-950 text-red-700 dark:text-red-300'
+                              ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                              : 'bg-red-50 text-red-700 border border-red-200'
                           }`}>
                             {isActiveStatus ? 'Active' : 'Disabled'}
                           </span>
@@ -875,7 +889,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                                   onClick={() => handleOpenEditAdminClinics(admin)}
                                   title="Assign Clinics"
                                   aria-label="Assign Clinics"
-                                  className="text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/50"
+                                  className="text-[#087F73] hover:bg-teal-50"
                                 >
                                   <Layers className="w-4 h-4" />
                                 </Button>
@@ -887,7 +901,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                                   onClick={() => handleSendPasswordReset(admin.email)}
                                   title="Send Password Reset Email"
                                   aria-label="Send Password Reset Email"
-                                  className="text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
+                                  className="text-slate-600 hover:bg-slate-200"
                                 >
                                   <KeyRound className="w-4 h-4" />
                                 </Button>
@@ -901,8 +915,8 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                                   aria-label={isActiveStatus ? 'Disable Account' : 'Enable Account'}
                                   className={
                                     isActiveStatus
-                                      ? 'text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40'
-                                      : 'text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-950/40'
+                                      ? 'text-slate-400 hover:text-red-600 hover:bg-red-50'
+                                      : 'text-emerald-600 hover:bg-emerald-50'
                                   }
                                 >
                                   {isActiveStatus ? <UserX className="w-4 h-4" /> : <UserCheck className="w-4 h-4" />}
@@ -924,11 +938,11 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
       {/* TAB 3: SYSTEM AUDIT LOGS */}
       {activeTab === 'audit' && (
         <div className="space-y-6">
-          <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-xs overflow-hidden">
-            <div className="p-4 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
+          <div className="bg-white rounded-xl border border-[#E2E8F0] shadow-xs overflow-hidden">
+            <div className="p-4 border-b border-[#E2E8F0] flex items-center justify-between">
               <div>
-                <h3 className="font-bold text-sm text-slate-900 dark:text-white flex items-center gap-2">
-                  <Shield className="w-4 h-4 text-indigo-500" />
+                <h3 className="font-bold text-sm text-[#0F172A] flex items-center gap-2">
+                  <Shield className="w-4 h-4 text-[#087F73]" />
                   Security & Access Event Logs
                 </h3>
                 <p className="text-xs text-slate-500 mt-0.5">Real-time audit log of administrative switches, credential events, and tenant modifications.</p>
@@ -936,8 +950,8 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
             </div>
 
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs text-slate-700 dark:text-slate-300">
-                <thead className="bg-slate-50 dark:bg-slate-900/60 border-b border-slate-200 dark:border-slate-700 text-[10px] uppercase font-bold text-slate-500 tracking-wider">
+              <table className="w-full text-left text-xs text-slate-700">
+                <thead className="bg-slate-50 border-b border-[#E2E8F0] text-[10px] uppercase font-bold text-slate-500 tracking-wider">
                   <tr>
                     <th className="py-3 px-4">Timestamp</th>
                     <th className="py-3 px-4">Action</th>
@@ -946,17 +960,17 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                     <th className="py-3 px-4">Details</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-slate-700/60 font-mono">
+                <tbody className="divide-y divide-slate-100 font-mono">
                   {auditLogs.length > 0 ? (
                     auditLogs.map((log) => (
-                      <tr key={log.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-750/50">
+                      <tr key={log.id} className="hover:bg-slate-50/80">
                         <td className="py-2.5 px-4 text-slate-500 text-[11px]">
                           {new Date(log.timestamp).toLocaleString()}
                         </td>
-                        <td className="py-2.5 px-4 font-sans font-bold text-indigo-600 dark:text-indigo-400">
+                        <td className="py-2.5 px-4 font-sans font-bold text-[#087F73]">
                           {log.action}
                         </td>
-                        <td className="py-2.5 px-4 text-[11px] text-slate-600 dark:text-slate-300 font-sans">
+                        <td className="py-2.5 px-4 text-[11px] text-slate-700 font-sans">
                           {log.actorEmail} ({log.actorRole})
                         </td>
                         <td className="py-2.5 px-4 text-[11px]">
@@ -990,16 +1004,16 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
 
       {/* MODAL: CREATE CLINIC ADMIN */}
       {isCreateAdminModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-xs p-4 overflow-y-auto">
-          <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 max-w-lg w-full border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white space-y-4 shadow-2xl animate-in zoom-in-95">
-            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-700 pb-3">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white font-bold">
-                  <Users className="w-4 h-4" />
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl p-6 max-w-lg w-full border border-[#E2E8F0] text-[#0F172A] space-y-4 shadow-xl animate-in zoom-in-95">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-teal-50 border border-teal-200 text-[#087F73] flex items-center justify-center font-bold">
+                  <Users className="w-4 h-4 text-[#087F73]" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-base">Create Clinic Admin Account</h3>
-                  <p className="text-[11px] text-slate-500">Super Admin provisions email + temporary password</p>
+                  <h3 className="font-bold text-base text-[#0F172A]">Create Clinic Admin Account</h3>
+                  <p className="text-[11px] text-slate-500">Super Admin provisions email + temporary credentials</p>
                 </div>
               </div>
               <Button
@@ -1008,7 +1022,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                 size="icon"
                 onClick={() => setIsCreateAdminModalOpen(false)}
                 aria-label="Close modal"
-                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                className="text-slate-400 hover:text-slate-700"
               >
                 ✕
               </Button>
@@ -1016,32 +1030,32 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
 
             <form onSubmit={handleCreateAdminSubmit} className="space-y-4 text-xs">
               <div className="space-y-1">
-                <label className="font-bold text-slate-700 dark:text-slate-300">Admin Full Name *</label>
+                <label className="font-bold text-slate-700">Admin Full Name *</label>
                 <input
                   type="text"
                   required
                   placeholder="e.g. Dr. John Watson"
                   value={newAdminForm.name}
                   onChange={(e) => setNewAdminForm({ ...newAdminForm, name: e.target.value })}
-                  className="w-full p-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl"
+                  className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-[#0F172A] focus:border-[#087F73] focus:ring-2 focus:ring-[#087F73]/20"
                 />
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <label className="font-bold text-slate-700 dark:text-slate-300">Email Address *</label>
+                  <label className="font-bold text-slate-700">Email Address *</label>
                   <input
                     type="email"
                     required
                     placeholder="john@clinic.com"
                     value={newAdminForm.email}
                     onChange={(e) => setNewAdminForm({ ...newAdminForm, email: e.target.value })}
-                    className="w-full p-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl"
+                    className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-[#0F172A] focus:border-[#087F73] focus:ring-2 focus:ring-[#087F73]/20"
                   />
                 </div>
 
                 <div className="space-y-1">
-                  <label className="font-bold text-slate-700 dark:text-slate-300">Temporary Password *</label>
+                  <label className="font-bold text-slate-700">Temporary Password *</label>
                   <input
                     type="password"
                     required
@@ -1049,17 +1063,17 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                     placeholder="••••••••"
                     value={newAdminForm.password}
                     onChange={(e) => setNewAdminForm({ ...newAdminForm, password: e.target.value })}
-                    className="w-full p-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl font-mono"
+                    className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl font-mono text-[#0F172A] focus:border-[#087F73] focus:ring-2 focus:ring-[#087F73]/20"
                   />
                 </div>
               </div>
 
               <div className="space-y-1.5">
-                <label className="font-bold text-slate-700 dark:text-slate-300 block">
+                <label className="font-bold text-slate-700 block">
                   Assign Authorized Clinic(s) *
                 </label>
                 <p className="text-[11px] text-slate-500">Select one or multiple clinics this administrator can switch between:</p>
-                <div className="max-h-40 overflow-y-auto border border-slate-200 dark:border-slate-700 rounded-xl p-2.5 space-y-2 bg-slate-50 dark:bg-slate-900/60">
+                <div className="max-h-40 overflow-y-auto border border-[#E2E8F0] rounded-xl p-2.5 space-y-2 bg-slate-50">
                   {allClinics.map(c => {
                     const isChecked = newAdminForm.clinicIds.includes(c.id);
                     return (
@@ -1074,9 +1088,9 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                               setNewAdminForm(prev => ({ ...prev, clinicIds: prev.clinicIds.filter(id => id !== c.id) }));
                             }
                           }}
-                          className="rounded text-indigo-600 focus:ring-indigo-500"
+                          className="rounded text-[#087F73] focus:ring-[#087F73]"
                         />
-                        <span className={isChecked ? 'text-indigo-600 dark:text-indigo-400 font-bold' : 'text-slate-700 dark:text-slate-300'}>
+                        <span className={isChecked ? 'text-[#087F73] font-bold' : 'text-slate-700'}>
                           {c.name} ({c.tokenPrefix})
                         </span>
                       </label>
@@ -1085,7 +1099,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                 </div>
               </div>
 
-              <div className="flex justify-end gap-3 pt-3 border-t border-slate-100 dark:border-slate-700">
+              <div className="flex justify-end gap-3 pt-3 border-t border-slate-100">
                 <Button
                   type="button"
                   variant="Secondary"
@@ -1111,11 +1125,11 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
 
       {/* MODAL: EDIT ASSIGNED CLINICS */}
       {isEditAdminClinicsModalOpen && selectedAdminToEdit && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-xs p-4 overflow-y-auto">
-          <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 max-w-md w-full border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white space-y-4 shadow-2xl animate-in zoom-in-95">
-            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-700 pb-3">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl p-6 max-w-md w-full border border-[#E2E8F0] text-[#0F172A] space-y-4 shadow-xl animate-in zoom-in-95">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div>
-                <h3 className="font-bold text-base">Assign Clinic Access</h3>
+                <h3 className="font-bold text-base text-[#0F172A]">Assign Clinic Access</h3>
                 <p className="text-[11px] text-slate-500">{selectedAdminToEdit.email}</p>
               </div>
               <Button
@@ -1124,7 +1138,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                 size="icon"
                 onClick={() => setIsEditAdminClinicsModalOpen(false)}
                 aria-label="Close modal"
-                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                className="text-slate-400 hover:text-slate-700"
               >
                 ✕
               </Button>
@@ -1132,8 +1146,8 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
 
             <form onSubmit={handleSaveAdminClinics} className="space-y-4 text-xs">
               <div className="space-y-2">
-                <label className="font-bold text-slate-700 dark:text-slate-300 block">Select Authorized Clinics:</label>
-                <div className="max-h-52 overflow-y-auto border border-slate-200 dark:border-slate-700 rounded-xl p-2.5 space-y-2 bg-slate-50 dark:bg-slate-900/60">
+                <label className="font-bold text-slate-700 block">Select Authorized Clinics:</label>
+                <div className="max-h-52 overflow-y-auto border border-[#E2E8F0] rounded-xl p-2.5 space-y-2 bg-slate-50">
                   {allClinics.map(c => {
                     const isChecked = editAdminClinics.includes(c.id);
                     return (
@@ -1148,9 +1162,9 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                               setEditAdminClinics(prev => prev.filter(id => id !== c.id));
                             }
                           }}
-                          className="rounded text-indigo-600 focus:ring-indigo-500"
+                          className="rounded text-[#087F73] focus:ring-[#087F73]"
                         />
-                        <span className={isChecked ? 'text-indigo-600 dark:text-indigo-400 font-bold' : 'text-slate-700 dark:text-slate-300'}>
+                        <span className={isChecked ? 'text-[#087F73] font-bold' : 'text-slate-700'}>
                           {c.name} ({c.id})
                         </span>
                       </label>
@@ -1159,7 +1173,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                 </div>
               </div>
 
-              <div className="flex justify-end gap-3 pt-3 border-t border-slate-100 dark:border-slate-700">
+              <div className="flex justify-end gap-3 pt-3 border-t border-slate-100">
                 <Button
                   type="button"
                   variant="Secondary"
@@ -1185,14 +1199,14 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
 
       {/* CREATE NEW CLINIC MODAL */}
       {isCreateModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-xs p-4 overflow-y-auto">
-          <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 max-w-lg w-full border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white space-y-4 shadow-2xl animate-in zoom-in-95">
-            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-700 pb-3">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white font-bold">
-                  <Building2 className="w-4 h-4" />
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl p-6 max-w-lg w-full border border-[#E2E8F0] text-[#0F172A] space-y-4 shadow-xl animate-in zoom-in-95">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-teal-50 border border-teal-200 text-[#087F73] flex items-center justify-center font-bold">
+                  <Building2 className="w-4 h-4 text-[#087F73]" />
                 </div>
-                <h3 className="font-bold text-lg">Provision New Clinic Tenant</h3>
+                <h3 className="font-bold text-lg text-[#0F172A]">Provision New Clinic Facility</h3>
               </div>
               <Button
                 type="button"
@@ -1200,7 +1214,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                 size="icon"
                 onClick={() => setIsCreateModalOpen(false)}
                 aria-label="Close modal"
-                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                className="text-slate-400 hover:text-slate-700"
               >
                 ✕
               </Button>
@@ -1209,83 +1223,83 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
             <form onSubmit={handleCreateSubmit} className="space-y-4 text-xs">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <label className="font-bold text-slate-700 dark:text-slate-300">Clinic Name *</label>
+                  <label className="font-bold text-slate-700">Clinic Name *</label>
                   <input
                     type="text"
                     required
                     placeholder="e.g. Apex Health Center"
                     value={createForm.name}
                     onChange={(e) => handleCreateNameChange(e.target.value)}
-                    className="w-full p-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl"
+                    className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-[#0F172A] focus:border-[#087F73] focus:ring-2 focus:ring-[#087F73]/20"
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="font-bold text-slate-700 dark:text-slate-300">Unique Clinic ID *</label>
+                  <label className="font-bold text-slate-700">Unique Clinic ID *</label>
                   <input
                     type="text"
                     required
                     placeholder="e.g. clinic_apex"
                     value={createForm.id}
                     onChange={(e) => setCreateForm({ ...createForm, id: e.target.value })}
-                    className="w-full p-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl font-mono"
+                    className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl font-mono text-[#0F172A] focus:border-[#087F73] focus:ring-2 focus:ring-[#087F73]/20"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <label className="font-bold text-slate-700 dark:text-slate-300">Token Prefix</label>
+                  <label className="font-bold text-slate-700">Token Prefix</label>
                   <input
                     type="text"
                     maxLength={3}
                     placeholder="e.g. A, AP"
                     value={createForm.tokenPrefix}
                     onChange={(e) => setCreateForm({ ...createForm, tokenPrefix: e.target.value.toUpperCase() })}
-                    className="w-full p-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl font-mono uppercase"
+                    className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl font-mono uppercase text-[#0F172A] focus:border-[#087F73] focus:ring-2 focus:ring-[#087F73]/20"
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="font-bold text-slate-700 dark:text-slate-300">Phone</label>
+                  <label className="font-bold text-slate-700">Phone</label>
                   <input
                     type="text"
                     placeholder="+1 (800) 555-0100"
                     value={createForm.phone}
                     onChange={(e) => setCreateForm({ ...createForm, phone: e.target.value })}
-                    className="w-full p-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl"
+                    className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-[#0F172A] focus:border-[#087F73] focus:ring-2 focus:ring-[#087F73]/20"
                   />
                 </div>
               </div>
 
               <div className="space-y-1">
-                <label className="font-bold text-slate-700 dark:text-slate-300">Address / City</label>
+                <label className="font-bold text-slate-700">Address / City</label>
                 <input
                   type="text"
                   placeholder="e.g. 742 Evergreen Terrace, Springfield"
                   value={createForm.address}
                   onChange={(e) => setCreateForm({ ...createForm, address: e.target.value })}
-                  className="w-full p-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl"
+                  className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-[#0F172A] focus:border-[#087F73] focus:ring-2 focus:ring-[#087F73]/20"
                 />
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <label className="font-bold text-slate-700 dark:text-slate-300">Admin Email</label>
+                  <label className="font-bold text-slate-700">Admin Email</label>
                   <input
                     type="email"
                     placeholder="admin@clinic.com"
                     value={createForm.adminEmail}
                     onChange={(e) => setCreateForm({ ...createForm, adminEmail: e.target.value })}
-                    className="w-full p-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl"
+                    className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-[#0F172A] focus:border-[#087F73] focus:ring-2 focus:ring-[#087F73]/20"
                   />
                 </div>
                 <div className="space-y-1">
-                  <label htmlFor="create-clinic-status" className="font-bold text-slate-700 dark:text-slate-300">Status</label>
+                  <label htmlFor="create-clinic-status" className="font-bold text-slate-700">Status</label>
                   <select
                     id="create-clinic-status"
                     aria-label="Clinic Status"
                     value={createForm.status}
                     onChange={(e) => setCreateForm({ ...createForm, status: e.target.value as any })}
-                    className="w-full p-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl"
+                    className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-[#0F172A] focus:border-[#087F73] focus:ring-2 focus:ring-[#087F73]/20"
                   >
                     <option value="ACTIVE">ACTIVE</option>
                     <option value="INACTIVE">INACTIVE</option>
@@ -1293,7 +1307,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                 </div>
               </div>
 
-              <div className="flex justify-end gap-3 pt-3 border-t border-slate-100 dark:border-slate-700">
+              <div className="flex justify-end gap-3 pt-3 border-t border-slate-100">
                 <Button
                   type="button"
                   variant="Secondary"
@@ -1319,14 +1333,14 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
 
       {/* EDIT CLINIC MODAL */}
       {isEditModalOpen && selectedClinicToEdit && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-xs p-4 overflow-y-auto">
-          <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 max-w-lg w-full border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white space-y-4 shadow-2xl animate-in zoom-in-95">
-            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-700 pb-3">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white font-bold">
-                  <Edit3 className="w-4 h-4" />
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl p-6 max-w-lg w-full border border-[#E2E8F0] text-[#0F172A] space-y-4 shadow-xl animate-in zoom-in-95">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-teal-50 border border-teal-200 text-[#087F73] flex items-center justify-center font-bold">
+                  <Edit3 className="w-4 h-4 text-[#087F73]" />
                 </div>
-                <h3 className="font-bold text-lg">Edit Clinic: {selectedClinicToEdit.name}</h3>
+                <h3 className="font-bold text-lg text-[#0F172A]">Edit Clinic: {selectedClinicToEdit.name}</h3>
               </div>
               <Button
                 type="button"
@@ -1334,7 +1348,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                 size="icon"
                 onClick={() => setIsEditModalOpen(false)}
                 aria-label="Close modal"
-                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                className="text-slate-400 hover:text-slate-700"
               >
                 ✕
               </Button>
@@ -1342,65 +1356,65 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
 
             <form onSubmit={handleEditSubmit} className="space-y-4 text-xs">
               <div className="space-y-1">
-                <label className="font-bold text-slate-700 dark:text-slate-300">Clinic Name</label>
+                <label className="font-bold text-slate-700">Clinic Name</label>
                 <input
                   type="text"
                   value={editForm.name || ''}
                   onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
-                  className="w-full p-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl"
+                  className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-[#0F172A] focus:border-[#087F73] focus:ring-2 focus:ring-[#087F73]/20"
                 />
               </div>
 
               <div className="space-y-1">
-                <label className="font-bold text-slate-700 dark:text-slate-300">Address / City</label>
+                <label className="font-bold text-slate-700">Address / City</label>
                 <input
                   type="text"
                   value={editForm.address || ''}
                   onChange={(e) => setEditForm({ ...editForm, address: e.target.value })}
-                  className="w-full p-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl"
+                  className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-[#0F172A] focus:border-[#087F73] focus:ring-2 focus:ring-[#087F73]/20"
                 />
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <label className="font-bold text-slate-700 dark:text-slate-300">Phone</label>
+                  <label className="font-bold text-slate-700">Phone</label>
                   <input
                     type="text"
                     value={editForm.phone || ''}
                     onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
-                    className="w-full p-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl"
+                    className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-[#0F172A] focus:border-[#087F73] focus:ring-2 focus:ring-[#087F73]/20"
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="font-bold text-slate-700 dark:text-slate-300">Admin Email</label>
+                  <label className="font-bold text-slate-700">Admin Email</label>
                   <input
                     type="email"
                     value={editForm.adminEmail || editForm.email || ''}
                     onChange={(e) => setEditForm({ ...editForm, adminEmail: e.target.value })}
-                    className="w-full p-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl"
+                    className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-[#0F172A] focus:border-[#087F73] focus:ring-2 focus:ring-[#087F73]/20"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <label className="font-bold text-slate-700 dark:text-slate-300">Token Prefix</label>
+                  <label className="font-bold text-slate-700">Token Prefix</label>
                   <input
                     type="text"
                     maxLength={3}
                     value={editForm.tokenPrefix || ''}
                     onChange={(e) => setEditForm({ ...editForm, tokenPrefix: e.target.value.toUpperCase() })}
-                    className="w-full p-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl font-mono uppercase"
+                    className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl font-mono uppercase text-[#0F172A] focus:border-[#087F73] focus:ring-2 focus:ring-[#087F73]/20"
                   />
                 </div>
                 <div className="space-y-1">
-                  <label htmlFor="edit-clinic-status" className="font-bold text-slate-700 dark:text-slate-300">Status</label>
+                  <label htmlFor="edit-clinic-status" className="font-bold text-slate-700">Status</label>
                   <select
                     id="edit-clinic-status"
                     aria-label="Edit Clinic Status"
                     value={editForm.status || 'ACTIVE'}
                     onChange={(e) => setEditForm({ ...editForm, status: e.target.value as any })}
-                    className="w-full p-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl"
+                    className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-[#0F172A] focus:border-[#087F73] focus:ring-2 focus:ring-[#087F73]/20"
                   >
                     <option value="ACTIVE">ACTIVE</option>
                     <option value="INACTIVE">INACTIVE</option>
@@ -1408,7 +1422,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                 </div>
               </div>
 
-              <div className="flex justify-end gap-3 pt-3 border-t border-slate-100 dark:border-slate-700">
+              <div className="flex justify-end gap-3 pt-3 border-t border-slate-100">
                 <Button
                   type="button"
                   variant="Secondary"
@@ -1434,16 +1448,16 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
 
       {/* CLINIC BRANDING / LOGO MODAL */}
       {isBrandingModalOpen && selectedClinicForBranding && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-xs p-4 overflow-y-auto">
-          <div className="bg-white dark:bg-slate-800 rounded-2xl max-w-2xl w-full border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white shadow-2xl animate-in zoom-in-95 overflow-hidden">
-            <div className="flex items-center justify-between p-4 border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/60">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl max-w-2xl w-full border border-[#E2E8F0] text-[#0F172A] shadow-xl animate-in zoom-in-95 overflow-hidden">
+            <div className="flex items-center justify-between p-4 border-b border-slate-100 bg-slate-50">
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white font-bold">
-                  <ImageIcon className="w-4 h-4" />
+                <div className="w-8 h-8 rounded-lg bg-teal-50 border border-teal-200 text-[#087F73] flex items-center justify-center font-bold">
+                  <ImageIcon className="w-4 h-4 text-[#087F73]" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-sm">Clinic Branding Management</h3>
-                  <span className="text-[11px] text-slate-500 dark:text-slate-400 font-mono">
+                  <h3 className="font-bold text-sm text-[#0F172A]">Clinic Branding Management</h3>
+                  <span className="text-[11px] text-slate-500 font-mono">
                     Clinic: {selectedClinicForBranding.name} ({selectedClinicForBranding.id})
                   </span>
                 </div>
@@ -1454,7 +1468,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                 size="icon"
                 onClick={() => setIsBrandingModalOpen(false)}
                 aria-label="Close modal"
-                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                className="text-slate-400 hover:text-slate-700"
               >
                 <X className="w-5 h-5" />
               </Button>

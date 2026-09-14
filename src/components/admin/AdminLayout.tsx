@@ -130,13 +130,13 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
               {clinicLogo ? (
                 <img src={clinicLogo} alt="Clinic Logo" className="w-8 h-8 rounded-lg object-cover border border-slate-200" />
               ) : (
-                <div className="w-8 h-8 bg-teal-700 rounded-lg flex items-center justify-center text-white font-bold text-sm shadow-xs">
+                <div className="w-8 h-8 bg-[#087F73] rounded-lg flex items-center justify-center text-white font-bold text-sm shadow-xs">
                   <Activity className="w-4 h-4 text-white" />
                 </div>
               )}
               <div className="flex flex-col">
                 <span className="text-[#0F172A] font-bold text-base tracking-tight leading-none">MediQueue</span>
-                <span className="text-[11px] text-teal-700 font-medium tracking-normal mt-0.5">Healthcare Operations</span>
+                <span className="text-[11px] text-[#087F73] font-semibold tracking-normal mt-0.5">Healthcare Operations</span>
               </div>
             </div>
             <Button 
@@ -160,7 +160,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
               }`}
             >
               <div className="flex items-center gap-2 truncate">
-                <Building2 className="w-3.5 h-3.5 text-teal-700 shrink-0" />
+                <Building2 className="w-3.5 h-3.5 text-[#087F73] shrink-0" />
                 <div className="truncate">
                   <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 block leading-tight">
                     {isSuperAdmin ? 'Managed Facility' : 'Active Clinic'}
@@ -178,7 +178,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
               <div className="absolute top-full left-0 right-0 mt-1.5 bg-white border border-[#E2E8F0] rounded-lg shadow-lg z-50 overflow-hidden py-1 max-h-56 overflow-y-auto">
                 <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-500 border-b border-slate-100 flex items-center justify-between">
                   <span>{isSuperAdmin ? 'Switch Facility' : 'Assigned Clinics'}</span>
-                  <span className="text-[10px] text-teal-700 font-medium">Active</span>
+                  <span className="text-[10px] text-[#087F73] font-medium">Active</span>
                 </div>
                 {clinics.map(c => (
                   <button
@@ -188,11 +188,11 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
                       setClinicDropdownOpen(false);
                     }}
                     className={`w-full px-3 py-2 text-left text-xs flex items-center justify-between hover:bg-slate-50 transition-colors ${
-                      c.id === activeClinicId ? 'bg-teal-50/70 text-teal-900 font-semibold border-l-2 border-teal-700' : 'text-slate-700'
+                      c.id === activeClinicId ? 'bg-teal-50 text-[#087F73] font-semibold border-l-2 border-[#087F73]' : 'text-slate-700'
                     }`}
                   >
                     <span className="truncate">{c.name}</span>
-                    {c.id === activeClinicId && <Check className="w-3.5 h-3.5 text-teal-700 shrink-0" />}
+                    {c.id === activeClinicId && <Check className="w-3.5 h-3.5 text-[#087F73] shrink-0" />}
                   </button>
                 ))}
                 {isSuperAdmin && (
@@ -202,7 +202,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
                         onRouteChange('/admin/super-admin');
                         setClinicDropdownOpen(false);
                       }}
-                      className="w-full px-3 py-1.5 text-left text-[11px] font-semibold text-teal-700 hover:bg-teal-50 flex items-center gap-1.5"
+                      className="w-full px-3 py-1.5 text-left text-[11px] font-semibold text-[#087F73] hover:bg-teal-50 flex items-center gap-1.5"
                     >
                       <ShieldCheck className="w-3.5 h-3.5" />
                       <span>Manage All Clinics</span>
@@ -248,14 +248,14 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
                   w-full px-3 py-2 rounded-lg flex items-center gap-2.5 text-xs font-medium transition-colors cursor-pointer text-left
                   ${isActive 
                     ? isSuper 
-                      ? 'bg-slate-900 text-white font-semibold' 
-                      : 'bg-teal-50 text-teal-900 font-semibold border-l-2 border-teal-700' 
+                      ? 'bg-slate-800 text-white font-semibold' 
+                      : 'bg-teal-50 text-[#087F73] font-semibold border-l-2 border-[#087F73]' 
                     : isSuper 
                       ? 'text-slate-600 hover:bg-slate-100 hover:text-slate-900' 
                       : 'text-slate-600 hover:bg-slate-100/80 hover:text-[#0F172A]'}
                 `}
               >
-                <Icon className={`w-4 h-4 shrink-0 ${isActive ? (isSuper ? 'text-white' : 'text-teal-700') : 'text-slate-400'}`} />
+                <Icon className={`w-4 h-4 shrink-0 ${isActive ? (isSuper ? 'text-white' : 'text-[#087F73]') : 'text-slate-400'}`} />
                 <span className="truncate">{item.label}</span>
                 {isSuper && (
                   <span className="ml-auto px-1.5 py-0.5 bg-slate-200 text-slate-700 rounded text-[9px] font-bold">
@@ -333,7 +333,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
               title="Account Settings"
             >
               <div className={`w-7 h-7 rounded-full text-white font-semibold flex items-center justify-center text-xs shrink-0 ${
-                isSuperAdmin ? 'bg-slate-900' : 'bg-teal-700'
+                isSuperAdmin ? 'bg-slate-800' : 'bg-[#087F73]'
               }`}>
                 {isSuperAdmin ? 'SA' : (userProfile?.name ? userProfile.name.charAt(0).toUpperCase() : 'A')}
               </div>
@@ -398,7 +398,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
                 <span>{formattedDate}</span>
               </div>
               <div className="flex items-center gap-1.5 font-mono text-slate-700 bg-slate-100 px-2 py-0.5 rounded text-[11px]">
-                <Clock className="w-3 h-3 text-teal-700" />
+                <Clock className="w-3 h-3 text-[#087F73]" />
                 <span>{formattedTime}</span>
               </div>
             </div>
@@ -438,7 +438,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
           <button
             onClick={() => onRouteChange('/admin/dashboard')}
             className={`flex flex-col items-center justify-center w-14 h-12 rounded-md ${
-              currentRoute === '/admin/dashboard' ? 'text-teal-700 font-semibold' : 'text-slate-500'
+              currentRoute === '/admin/dashboard' ? 'text-[#087F73] font-semibold' : 'text-slate-500'
             }`}
           >
             <LayoutDashboard className="w-4 h-4 mb-0.5" />
@@ -448,7 +448,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
           <button
             onClick={() => onRouteChange('/admin/tokens')}
             className={`flex flex-col items-center justify-center w-14 h-12 rounded-md ${
-              currentRoute === '/admin/tokens' ? 'text-teal-700 font-semibold' : 'text-slate-500'
+              currentRoute === '/admin/tokens' ? 'text-[#087F73] font-semibold' : 'text-slate-500'
             }`}
           >
             <Ticket className="w-4 h-4 mb-0.5" />
@@ -457,7 +457,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
 
           <button
             onClick={onOpenPatientRegistration}
-            className="flex flex-col items-center justify-center w-12 h-12 -mt-3 bg-teal-700 text-white rounded-full shadow-md active:bg-teal-800"
+            className="flex flex-col items-center justify-center w-12 h-12 -mt-3 bg-[#087F73] text-white rounded-full shadow-md active:opacity-90"
             title="Register Patient"
           >
             <PlusCircle className="w-6 h-6" />
@@ -466,7 +466,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
           <button
             onClick={() => onRouteChange('/admin/patients')}
             className={`flex flex-col items-center justify-center w-14 h-12 rounded-md ${
-              currentRoute === '/admin/patients' ? 'text-teal-700 font-semibold' : 'text-slate-500'
+              currentRoute === '/admin/patients' ? 'text-[#087F73] font-semibold' : 'text-slate-500'
             }`}
           >
             <Users className="w-4 h-4 mb-0.5" />

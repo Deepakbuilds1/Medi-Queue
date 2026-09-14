@@ -78,7 +78,7 @@ export const PublicDisplay: React.FC<PublicDisplayProps> = ({ settings, onNaviga
               className="w-9 h-9 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl object-cover border-2 border-slate-700 shrink-0" 
             />
           ) : (
-            <div className="w-9 h-9 sm:w-12 sm:h-12 bg-blue-600 rounded-xl sm:rounded-2xl flex items-center justify-center text-white font-black text-base sm:text-xl shadow-lg shrink-0">
+            <div className="w-9 h-9 sm:w-12 sm:h-12 bg-[#087F73] rounded-xl sm:rounded-2xl flex items-center justify-center text-white font-black text-base sm:text-xl shadow-lg shrink-0">
               🏥
             </div>
           )}
@@ -91,7 +91,7 @@ export const PublicDisplay: React.FC<PublicDisplayProps> = ({ settings, onNaviga
               {clinicName}
             </h1>
             <p 
-              className="font-bold text-blue-400 uppercase tracking-widest mt-0.5"
+              className="font-bold text-teal-400 uppercase tracking-widest mt-0.5"
               style={{ fontSize: 'clamp(0.6rem, 2vw, 0.75rem)' }}
             >
               Live TV Queue Display
@@ -103,7 +103,7 @@ export const PublicDisplay: React.FC<PublicDisplayProps> = ({ settings, onNaviga
         <div className="flex flex-wrap items-center justify-between sm:justify-end gap-2 sm:gap-3 shrink-0 pt-2 sm:pt-0 border-t border-slate-800/80 sm:border-t-0 w-full sm:w-auto">
           {clinics.length > 1 && (
             <div className="flex items-center gap-1.5 bg-slate-800 px-2 sm:px-2.5 py-1.5 rounded-xl border border-slate-700 max-w-[150px] sm:max-w-[220px]">
-              <Building2 className="w-3.5 h-3.5 text-blue-400 shrink-0" aria-hidden="true" />
+              <Building2 className="w-3.5 h-3.5 text-teal-400 shrink-0" aria-hidden="true" />
               <select
                 value={activeClinicId}
                 onChange={(e) => switchClinic(e.target.value)}
@@ -123,7 +123,7 @@ export const PublicDisplay: React.FC<PublicDisplayProps> = ({ settings, onNaviga
             onClick={() => playTokenCallSound()}
             className="bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700"
             aria-label="Test chime notification sound"
-            leftIcon={<Volume2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-blue-400 shrink-0" aria-hidden="true" />}
+            leftIcon={<Volume2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-teal-400 shrink-0" aria-hidden="true" />}
           >
             Test Chime
           </Button>
@@ -178,7 +178,7 @@ export const PublicDisplay: React.FC<PublicDisplayProps> = ({ settings, onNaviga
               style={{ minHeight: 'auto' }}
               className={`
               my-auto text-center p-3 sm:p-6 lg:p-8 rounded-2xl sm:rounded-3xl transition-all duration-500 w-full box-border h-auto min-h-[auto]
-              ${highlightingId === activeServing.id ? 'bg-blue-600/30 border-4 border-blue-500 animate-pulse' : 'bg-slate-950/80 border border-slate-800'}
+              ${highlightingId === activeServing.id ? 'bg-teal-950/60 border-4 border-[#087F73] animate-pulse' : 'bg-slate-950/80 border border-slate-800'}
             `}>
               <span 
                 className="font-extrabold uppercase tracking-widest text-slate-400 block mb-1 sm:mb-2"
@@ -202,7 +202,7 @@ export const PublicDisplay: React.FC<PublicDisplayProps> = ({ settings, onNaviga
                   {activeServing.doctorName}
                 </span>
                 <span 
-                  className="font-black text-blue-400 bg-blue-950 px-2.5 sm:px-3 py-1 rounded-lg sm:rounded-xl border border-blue-800 shrink-0"
+                  className="font-black text-teal-300 bg-teal-950/90 px-2.5 sm:px-3 py-1 rounded-lg sm:rounded-xl border border-teal-800/80 shrink-0"
                   style={{ fontSize: 'clamp(0.7rem, 2.4vw, 0.875rem)' }}
                 >
                   {activeServing.roomNumber}

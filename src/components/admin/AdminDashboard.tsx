@@ -177,14 +177,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       {/* Top Filter & Control Toolbar */}
       <div className="bg-white p-3.5 rounded-xl border border-[#E2E8F0] shadow-xs flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2 text-xs font-semibold text-slate-700">
-          <Filter className="w-3.5 h-3.5 text-teal-700" />
+          <Filter className="w-3.5 h-3.5 text-[#087F73]" />
           <span>Physician Filter:</span>
           <select
             id="admin-doctor-filter-select"
             aria-label="Filter queue by doctor"
             value={selectedDoctorFilter}
             onChange={(e) => setSelectedDoctorFilter(e.target.value)}
-            className="bg-slate-50 text-slate-800 px-2.5 py-1 rounded-lg border border-slate-200 text-xs font-medium focus:outline-none focus:border-teal-700"
+            className="bg-slate-50 text-slate-800 px-2.5 py-1 rounded-lg border border-slate-200 text-xs font-medium focus:outline-none focus:border-[#087F73]"
           >
             <option value="ALL">All Clinic Physicians ({doctors.length})</option>
             {doctors.map(d => (
@@ -248,10 +248,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           <div className="flex items-center justify-between mb-1.5">
             <span className="text-[11px] uppercase tracking-wider text-slate-500 font-semibold">In Consultation</span>
             <div className="w-7 h-7 rounded-lg bg-teal-50 flex items-center justify-center">
-              <Activity className="w-4 h-4 text-teal-700" />
+              <Activity className="w-4 h-4 text-[#087F73]" />
             </div>
           </div>
-          <p className="text-2xl lg:text-3xl font-bold text-teal-700 font-mono tracking-tight">{inConsultationCount}</p>
+          <p className="text-2xl lg:text-3xl font-bold text-[#087F73] font-mono tracking-tight">{inConsultationCount}</p>
           <p className="text-[11px] text-slate-500 mt-1">Active with physicians</p>
         </div>
 
@@ -289,7 +289,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           <div>
             <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
               <div className="flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-teal-700 animate-pulse" />
+                <span className="w-2 h-2 rounded-full bg-[#087F73] animate-pulse" />
                 <h2 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
                   Active Consultation Console
                 </h2>
@@ -333,7 +333,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   <div className="p-2.5 bg-slate-50 rounded-lg border border-slate-100">
                     <span className="text-slate-400 block text-[10px] uppercase font-bold">Physician & Room</span>
                     <span className="font-semibold text-slate-800">{activeToken.doctorName}</span>
-                    <span className="text-teal-700 font-semibold ml-2">({activeToken.roomNumber})</span>
+                    <span className="text-[#087F73] font-semibold ml-2">({activeToken.roomNumber})</span>
                   </div>
 
                   {activeToken.reason && (
@@ -437,21 +437,21 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 size="sm"
                 onClick={onNavigateToPatientPortal}
                 rightIcon={<ArrowUpRight className="w-3 h-3" />}
-                className="text-[11px] text-teal-700 hover:text-teal-800 font-semibold p-0 h-auto"
+                className="text-[11px] text-[#087F73] hover:text-teal-800 font-semibold p-0 h-auto"
               >
                 Portal View
               </Button>
             </div>
 
             <div className="bg-slate-50 rounded-lg p-4 border border-slate-200 text-center space-y-3">
-              <div className="w-9 h-9 bg-teal-50 rounded-full flex items-center justify-center mx-auto text-teal-700">
+              <div className="w-9 h-9 bg-teal-50 rounded-full flex items-center justify-center mx-auto text-[#087F73]">
                 <Building2 className="w-4 h-4" />
               </div>
               <p className="text-xs font-semibold text-slate-800 uppercase tracking-tight">{activeClinic?.name || 'Clinic'}</p>
 
               <div className="bg-white rounded-lg p-3 border border-slate-200 shadow-xs">
                 <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">NOW SERVING</p>
-                <p className="text-2xl font-black text-teal-700 font-mono my-0.5">
+                <p className="text-2xl font-black text-[#087F73] font-mono my-0.5">
                   {activeToken ? activeToken.tokenNumber : 'None'}
                 </p>
               </div>
@@ -478,7 +478,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               size="sm"
               onClick={onNavigateToQueuePage}
               rightIcon={<ChevronRight className="w-3.5 h-3.5" />}
-              className="text-xs text-teal-700 hover:text-teal-800 font-semibold mx-auto p-0 h-auto"
+              className="text-xs text-[#087F73] hover:text-teal-800 font-semibold mx-auto p-0 h-auto"
             >
               View Full Queue Management
             </Button>
@@ -499,7 +499,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             size="sm"
             onClick={onNavigateToQueuePage}
             rightIcon={<ChevronRight className="w-4 h-4" />}
-            className="text-xs font-semibold text-teal-700 hover:text-teal-800 p-0 h-auto"
+            className="text-xs font-semibold text-[#087F73] hover:text-teal-800 p-0 h-auto"
           >
             Manage All Tokens
           </Button>
@@ -527,7 +527,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               ) : (
                 filteredTokens.slice(0, 10).map((t) => (
                   <tr key={t.id} className={t.status === 'CALLED' ? 'bg-teal-50/40' : 'hover:bg-slate-50/70 transition-colors'}>
-                    <td className="p-3 font-bold font-mono text-teal-800">{t.tokenNumber}</td>
+                    <td className="p-3 font-bold font-mono text-[#087F73]">{t.tokenNumber}</td>
                     <td className="p-3 font-semibold text-slate-900">{t.patientName}</td>
                     <td className="p-3 text-slate-600">{t.doctorName}</td>
                     <td className="p-3 text-slate-500 text-[11px]">

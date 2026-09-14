@@ -25,22 +25,22 @@ export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
 }
 
 const variantStyles: Record<string, string> = {
-  // Primary Styles
-  primary: 'bg-teal-700 hover:bg-teal-800 active:bg-teal-900 text-white shadow-xs focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-900 border border-transparent disabled:bg-teal-700/60',
-  Primary: 'bg-teal-700 hover:bg-teal-800 active:bg-teal-900 text-white shadow-xs focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-900 border border-transparent disabled:bg-teal-700/60',
+  // Primary Styles (Extracted MediQueue Brand #087F73)
+  primary: 'bg-[#087F73] hover:bg-[#06635A] active:bg-[#054F48] text-white shadow-xs focus-visible:ring-2 focus-visible:ring-[#087F73] focus-visible:ring-offset-2 border border-transparent disabled:bg-[#087F73]/60',
+  Primary: 'bg-[#087F73] hover:bg-[#06635A] active:bg-[#054F48] text-white shadow-xs focus-visible:ring-2 focus-visible:ring-[#087F73] focus-visible:ring-offset-2 border border-transparent disabled:bg-[#087F73]/60',
   
-  // Secondary Styles
-  secondary: 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700/80 active:bg-slate-100 dark:active:bg-slate-700 shadow-xs focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-900 disabled:opacity-50',
-  Secondary: 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700/80 active:bg-slate-100 dark:active:bg-slate-700 shadow-xs focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-900 disabled:opacity-50',
+  // Secondary Styles (Neutral Light Surface)
+  secondary: 'bg-white text-slate-700 border border-[#E2E8F0] hover:bg-slate-50 hover:text-slate-900 active:bg-slate-100 shadow-xs focus-visible:ring-2 focus-visible:ring-[#087F73] focus-visible:ring-offset-2 disabled:opacity-50',
+  Secondary: 'bg-white text-slate-700 border border-[#E2E8F0] hover:bg-slate-50 hover:text-slate-900 active:bg-slate-100 shadow-xs focus-visible:ring-2 focus-visible:ring-[#087F73] focus-visible:ring-offset-2 disabled:opacity-50',
   
   // Destructive Styles
-  destructive: 'bg-red-600 hover:bg-red-700 active:bg-red-800 text-white shadow-xs focus-visible:ring-2 focus-visible:ring-red-600 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-900 border border-transparent disabled:bg-red-600/60',
-  Destructive: 'bg-red-600 hover:bg-red-700 active:bg-red-800 text-white shadow-xs focus-visible:ring-2 focus-visible:ring-red-600 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-900 border border-transparent disabled:bg-red-600/60',
+  destructive: 'bg-red-600 hover:bg-red-700 active:bg-red-800 text-white shadow-xs focus-visible:ring-2 focus-visible:ring-red-600 focus-visible:ring-offset-2 border border-transparent disabled:bg-red-600/60',
+  Destructive: 'bg-red-600 hover:bg-red-700 active:bg-red-800 text-white shadow-xs focus-visible:ring-2 focus-visible:ring-red-600 focus-visible:ring-offset-2 border border-transparent disabled:bg-red-600/60',
   
   // Subtle variants for icons / text links
-  ghost: 'bg-transparent hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white border border-transparent focus-visible:ring-2 focus-visible:ring-teal-600 disabled:opacity-40',
-  outline: 'bg-transparent text-teal-700 dark:text-teal-400 border border-teal-600 dark:border-teal-500 hover:bg-teal-50 dark:hover:bg-teal-950/40 focus-visible:ring-2 focus-visible:ring-teal-600 disabled:opacity-40',
-  link: 'bg-transparent text-teal-700 dark:text-teal-400 hover:underline p-0 h-auto font-medium focus-visible:ring-2 focus-visible:ring-teal-600 disabled:opacity-40'
+  ghost: 'bg-transparent hover:bg-slate-100 text-slate-600 hover:text-slate-900 border border-transparent focus-visible:ring-2 focus-visible:ring-[#087F73] disabled:opacity-40',
+  outline: 'bg-transparent text-[#087F73] border border-[#087F73] hover:bg-teal-50/70 focus-visible:ring-2 focus-visible:ring-[#087F73] disabled:opacity-40',
+  link: 'bg-transparent text-[#087F73] hover:text-[#06635A] hover:underline p-0 h-auto font-medium focus-visible:ring-2 focus-visible:ring-[#087F73] disabled:opacity-40'
 };
 
 const sizeStyles: Record<ButtonSize, string> = {

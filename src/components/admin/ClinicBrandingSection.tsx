@@ -203,28 +203,28 @@ export const ClinicBrandingSection: React.FC<ClinicBrandingSectionProps> = ({
     <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-xs overflow-hidden">
       
       {/* Header Banner */}
-      <div className="p-5 border-b border-slate-100 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-900/40 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div className="p-5 border-b border-[#E2E8F0] bg-slate-50/70 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <div className="p-2.5 bg-indigo-100 dark:bg-indigo-950/80 text-indigo-600 dark:text-indigo-400 rounded-xl">
+          <div className="p-2.5 bg-teal-50 border border-teal-200/80 text-[#087F73] rounded-xl">
             <ImageIcon className="w-5 h-5" />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h3 className="font-black text-sm text-slate-900 dark:text-white">
+              <h3 className="font-bold text-sm text-[#0F172A]">
                 Clinic Branding & Logo
               </h3>
-              <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-md bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300">
+              <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-md bg-teal-50 border border-teal-200 text-[#087F73]">
                 Multi-Tenant Scoped
               </span>
             </div>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              Customize the logo for <span className="font-semibold text-slate-700 dark:text-slate-200">{clinicName}</span>. Appears on Admin dashboards, Patient portal, TV displays, and printed receipts.
+            <p className="text-xs text-slate-500 mt-0.5">
+              Customize the logo for <span className="font-semibold text-slate-700">{clinicName}</span>. Appears on Admin dashboards, Patient portal, TV displays, and printed receipts.
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-1.5 text-xs text-slate-500 bg-white dark:bg-slate-800 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 shrink-0">
-          <ShieldCheck className="w-4 h-4 text-emerald-500" />
+        <div className="flex items-center gap-1.5 text-xs text-slate-500 bg-white px-3 py-1.5 rounded-xl border border-[#E2E8F0] shrink-0">
+          <ShieldCheck className="w-4 h-4 text-[#087F73]" />
           <span className="font-mono text-[11px] font-semibold">{clinicId}</span>
         </div>
       </div>
@@ -235,14 +235,14 @@ export const ClinicBrandingSection: React.FC<ClinicBrandingSectionProps> = ({
         {statusMessage && (
           <div className={`p-4 rounded-xl border text-xs font-semibold flex items-start justify-between gap-3 animate-in fade-in ${
             statusMessage.type === 'success'
-              ? 'bg-emerald-50 dark:bg-emerald-950/60 border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200'
-              : 'bg-red-50 dark:bg-red-950/60 border-red-200 dark:border-red-800 text-red-800 dark:text-red-200'
+              ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+              : 'bg-red-50 border-red-200 text-red-800'
           }`}>
             <div className="flex items-start gap-2.5">
               {statusMessage.type === 'success' ? (
-                <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
               ) : (
-                <AlertCircle className="w-4 h-4 text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
+                <AlertCircle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
               )}
               <span className="leading-relaxed">{statusMessage.text}</span>
             </div>
@@ -251,7 +251,7 @@ export const ClinicBrandingSection: React.FC<ClinicBrandingSectionProps> = ({
               variant="ghost"
               size="icon"
               onClick={() => setStatusMessage(null)}
-              className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+              className="text-slate-400 hover:text-slate-600"
               aria-label="Dismiss message"
             >
               <X className="w-3.5 h-3.5" />
@@ -263,14 +263,14 @@ export const ClinicBrandingSection: React.FC<ClinicBrandingSectionProps> = ({
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
           
           {/* Logo Visual Preview Box */}
-          <div className="lg:col-span-5 flex flex-col items-center justify-center p-6 bg-slate-50 dark:bg-slate-900/60 rounded-2xl border border-slate-200 dark:border-slate-700 text-center space-y-3">
-            <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
+          <div className="lg:col-span-5 flex flex-col items-center justify-center p-6 bg-slate-50 rounded-2xl border border-slate-200 text-center space-y-3">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
               {stagedFile ? 'Preview (Unsaved)' : isMarkedForRemoval ? 'Default Fallback' : 'Current Active Logo'}
             </span>
 
             <div className="relative group">
               {previewUrl ? (
-                <div className="w-28 h-28 rounded-2xl overflow-hidden border-2 border-slate-200 dark:border-slate-700 shadow-md bg-white flex items-center justify-center p-1">
+                <div className="w-28 h-28 rounded-2xl overflow-hidden border-2 border-slate-200 shadow-xs bg-white flex items-center justify-center p-1">
                   <img 
                     src={previewUrl} 
                     alt={`${clinicName} Logo Preview`} 
@@ -278,20 +278,20 @@ export const ClinicBrandingSection: React.FC<ClinicBrandingSectionProps> = ({
                   />
                 </div>
               ) : (
-                <div className="w-28 h-28 rounded-2xl bg-gradient-to-br from-indigo-500 to-blue-600 text-white font-black text-3xl flex items-center justify-center shadow-md border-2 border-slate-200 dark:border-slate-700">
+                <div className="w-28 h-28 rounded-2xl bg-[#087F73] text-white font-bold text-3xl flex items-center justify-center shadow-xs border-2 border-slate-200">
                   {clinicName ? clinicName.charAt(0).toUpperCase() : 'M'}
                 </div>
               )}
 
               {stagedFile && (
-                <span className="absolute -top-2 -right-2 px-2 py-0.5 bg-amber-500 text-white font-extrabold text-[9px] uppercase rounded-full shadow-md animate-pulse">
+                <span className="absolute -top-2 -right-2 px-2 py-0.5 bg-amber-500 text-white font-bold text-[9px] uppercase rounded-full shadow-xs animate-pulse">
                   Staged
                 </span>
               )}
             </div>
 
             <div>
-              <h4 className="font-bold text-xs text-slate-900 dark:text-white">
+              <h4 className="font-bold text-xs text-[#0F172A]">
                 {clinicName}
               </h4>
               <p className="text-[11px] text-slate-400">
@@ -321,20 +321,20 @@ export const ClinicBrandingSection: React.FC<ClinicBrandingSectionProps> = ({
               onClick={() => !isUploading && fileInputRef.current?.click()}
               className={`p-6 border-2 border-dashed rounded-2xl transition-all cursor-pointer flex flex-col items-center justify-center text-center space-y-2.5 ${
                 isDragOver 
-                  ? 'border-indigo-500 bg-indigo-50/70 dark:bg-indigo-950/40 scale-[1.01]' 
-                  : 'border-slate-300 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/30 hover:border-indigo-400 hover:bg-slate-100/60 dark:hover:bg-slate-800/60'
+                  ? 'border-[#087F73] bg-teal-50/70 scale-[1.01]' 
+                  : 'border-slate-300 bg-slate-50/50 hover:border-[#087F73] hover:bg-teal-50/30'
               } ${isUploading ? 'opacity-50 pointer-events-none' : ''}`}
             >
-              <div className="w-10 h-10 rounded-full bg-indigo-100 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 flex items-center justify-center">
+              <div className="w-10 h-10 rounded-full bg-teal-50 border border-teal-200 text-[#087F73] flex items-center justify-center">
                 <UploadCloud className="w-5 h-5" />
               </div>
 
               <div>
-                <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                <span className="text-xs font-bold text-slate-800">
                   Click to browse or drag & drop logo here
                 </span>
                 <p className="text-[11px] text-slate-400 mt-0.5">
-                  Supported formats: <strong className="text-slate-600 dark:text-slate-300">PNG, JPG, JPEG, WEBP</strong> (Max 5MB)
+                  Supported formats: <strong className="text-slate-600">PNG, JPG, JPEG, WEBP</strong> (Max 5MB)
                 </p>
               </div>
             </div>
@@ -348,7 +348,7 @@ export const ClinicBrandingSection: React.FC<ClinicBrandingSectionProps> = ({
                   size="md"
                   onClick={() => fileInputRef.current?.click()}
                   disabled={isUploading}
-                  leftIcon={<FileImage className="w-3.5 h-3.5 text-indigo-500" />}
+                  leftIcon={<FileImage className="w-3.5 h-3.5 text-[#087F73]" />}
                 >
                   {previewUrl ? 'Change Logo' : 'Upload Logo'}
                 </Button>
@@ -395,13 +395,13 @@ export const ClinicBrandingSection: React.FC<ClinicBrandingSectionProps> = ({
             </div>
 
             {/* ImageKit Folder & Storage Hierarchy Info */}
-            <div className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700/80 text-[11px] text-slate-500">
+            <div className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-[11px] text-slate-500">
               <div className="flex items-center gap-1.5 font-mono">
-                <Layers className="w-3.5 h-3.5 text-indigo-500" />
-                <span>ImageKit Folder: <strong className="text-slate-700 dark:text-slate-300">/clinics/{clinicId}/logo/</strong></span>
+                <Layers className="w-3.5 h-3.5 text-[#087F73]" />
+                <span>ImageKit Folder: <strong className="text-slate-700">/clinics/{clinicId}/logo/</strong></span>
               </div>
               <div className="flex items-center gap-1.5">
-                <span className={`w-2 h-2 rounded-full ${ikConfig?.isConfigured ? 'bg-emerald-500' : 'bg-blue-500'}`} />
+                <span className={`w-2 h-2 rounded-full ${ikConfig?.isConfigured ? 'bg-emerald-500' : 'bg-teal-600'}`} />
                 <span className="font-semibold text-[10px] uppercase">
                   {ikConfig?.isConfigured ? 'ImageKit Connected' : 'ImageKit Storage'}
                 </span>
@@ -415,9 +415,9 @@ export const ClinicBrandingSection: React.FC<ClinicBrandingSectionProps> = ({
                   <span>Uploading logo to ImageKit Media Storage...</span>
                   <span>{uploadProgress}%</span>
                 </div>
-                <div className="w-full h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                <div className="w-full h-2 bg-slate-200 rounded-full overflow-hidden">
                   <div 
-                    className="h-full bg-indigo-600 transition-all duration-200 rounded-full"
+                    className="h-full bg-[#087F73] transition-all duration-200 rounded-full"
                     style={{ width: `${uploadProgress}%` }}
                   />
                 </div>

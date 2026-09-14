@@ -469,9 +469,9 @@ const MainAppContent: React.FC = () => {
               currentTokens={tokens}
               currentDoctors={doctors}
               currentPatients={patients}
-              onSwitchClinicAndNavigate={(targetClinicId) => {
+              onSwitchClinicAndNavigate={(targetClinicId, targetRoute = '/admin/tokens') => {
                 switchClinic(targetClinicId);
-                navigate('/admin/dashboard');
+                navigate(targetRoute as AdminRoute);
               }}
             />
           )}

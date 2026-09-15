@@ -67,7 +67,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(({
   const isBusy = isLoading || loading;
   const isDisabled = disabled || isBusy;
 
-  const baseClasses = 'inline-flex items-center justify-center transition-all duration-150 select-none cursor-pointer focus:outline-hidden disabled:cursor-not-allowed disabled:pointer-events-none active:scale-[0.98] disabled:active:scale-100 font-medium whitespace-nowrap';
+  const baseClasses = 'inline-flex items-center justify-center min-w-0 transition-all duration-150 select-none cursor-pointer focus:outline-hidden disabled:cursor-not-allowed disabled:pointer-events-none active:scale-[0.98] disabled:active:scale-100 font-medium whitespace-nowrap';
   const resolvedVariant = variantStyles[variant] || variantStyles.Primary;
   const resolvedSize = sizeStyles[size] || sizeStyles.md;
   const widthClass = fullWidth ? 'w-full' : '';
@@ -88,7 +88,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(({
         <span className="shrink-0 flex items-center">{leftIcon}</span>
       )}
       {children && (
-        <span className="truncate">{children}</span>
+        <span className="truncate min-w-0">{children}</span>
       )}
       {!isBusy && rightIcon && (
         <span className="shrink-0 flex items-center">{rightIcon}</span>

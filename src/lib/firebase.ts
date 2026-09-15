@@ -69,18 +69,22 @@ const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 /**
  * Root-Cause Transport Configuration:
  * 
- * In production web deployments (such as Vercel, Cloud Run, and restrictive proxy/firewall networks),
- * WebChannel HTTP streaming connections can be dropped or buffered by intermediate proxies,
- * emitting:
+ * In production web deployments (such as Vercel, Cloud Run, reverse proxies, and sandboxed environments),
+ * WebChannel HTTP chunked-streaming connections are frequently buffered or prematurely severed by
+ * intermediate proxies and edge routers, emitting:
  *   "Firestore (12.17.0): WebChannelConnection RPC 'Listen' stream transport errored."
  * 
- * Configuring `experimentalAutoDetectLongPolling: true` enables the Firestore WebChannel transport
- * to dynamically detect stream disruptions and fall back smoothly to long-polling mode,
- * maintaining seamless real-time snapshot synchronization without tearing down the client.
+ * Configuring `experimentalForceLongPolling: true` with a robust timeout interval instructs the SDK
+ * to use discrete HTTP POST long-polling requests rather than persistent chunked transfer streams.
+ * Each response completes cleanly, eliminating proxy buffering failures and preventing cyclic
+ * RPC stream transport errors while guaranteeing reliable real-time snapshot synchronization.
  */
 function initializeCentralizedFirestore(): Firestore {
   const settings: FirestoreSettings = {
-    experimentalAutoDetectLongPolling: true,
+    experimentalForceLongPolling: true,
+    experimentalLongPollingOptions: {
+      timeoutSeconds: 25,
+    },
   };
 
   const targetDbId = firebaseConfigJson.firestoreDatabaseId && firebaseConfigJson.firestoreDatabaseId !== '(default)'

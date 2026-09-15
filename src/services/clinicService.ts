@@ -163,6 +163,196 @@ export interface ListenerGuardOptions {
  * automatic retry for transient network errors, clean permission error termination,
  * and clean unsubscription.
  */
+interface ListenerSubscriber<T = any> {
+  id: string;
+  parseSnapshot: (snapshot: any) => T;
+  onData: (data: T) => void;
+  onError?: FirestoreErrorCallback;
+  options?: ListenerGuardOptions;
+  isCancelled: boolean;
+}
+
+interface SharedSubscriptionEntry {
+  key: string;
+  createQuery: () => Query | DocumentReference;
+  unsubFirestore: (() => void) | null;
+  subscribers: Map<string, ListenerSubscriber>;
+  lastSnapshot: any;
+  retryTimer: ReturnType<typeof setTimeout> | null;
+  cleanupTimer: ReturnType<typeof setTimeout> | null;
+  retryAttempt: number;
+  isConnecting: boolean;
+}
+
+const sharedSubscriptions = new Map<string, SharedSubscriptionEntry>();
+
+function attachFirestoreListener(entry: SharedSubscriptionEntry) {
+  if (entry.isConnecting || entry.unsubFirestore) return;
+  entry.isConnecting = true;
+
+  try {
+    const ref = entry.createQuery();
+    entry.unsubFirestore = onSnapshot(
+      ref as any,
+      (snapshot) => {
+        entry.isConnecting = false;
+        entry.lastSnapshot = snapshot;
+
+        if (entry.retryAttempt > 0) {
+          logFirestoreEvent({
+            action: 'reconnected',
+            path: entry.key
+          });
+          entry.retryAttempt = 0;
+        }
+
+        entry.subscribers.forEach((sub) => {
+          if (!sub.isCancelled) {
+            try {
+              const parsed = sub.parseSnapshot(snapshot);
+              sub.onData(parsed);
+            } catch (err) {
+              console.error('[ManagedListener Parse Error]', err);
+            }
+          }
+        });
+      },
+      (error: any) => {
+        entry.isConnecting = false;
+        const classification = classifyFirestoreError(error);
+
+        if (classification.category === 'PERMISSION_DENIED') {
+          logFirestoreEvent({
+            action: 'permission_denied',
+            path: entry.key,
+            code: classification.code,
+            message: classification.userMessage,
+            details: error
+          });
+          if (entry.unsubFirestore) {
+            try { entry.unsubFirestore(); } catch (_) {}
+            entry.unsubFirestore = null;
+          }
+          entry.subscribers.forEach((sub) => {
+            if (!sub.isCancelled && sub.onError) {
+              sub.onError(classification.userMessage);
+            }
+          });
+          return;
+        }
+
+        if (classification.category === 'UNAUTHENTICATED' || classification.category === 'QUERY_PRECONDITION') {
+          logFirestoreEvent({
+            action: 'error',
+            path: entry.key,
+            code: classification.code,
+            message: classification.userMessage,
+            details: error
+          });
+          if (entry.unsubFirestore) {
+            try { entry.unsubFirestore(); } catch (_) {}
+            entry.unsubFirestore = null;
+          }
+          entry.subscribers.forEach((sub) => {
+            if (!sub.isCancelled && sub.onError) {
+              sub.onError(classification.userMessage);
+            }
+          });
+          return;
+        }
+
+        // Transient network interruption
+        logFirestoreEvent({
+          action: 'interrupted',
+          path: entry.key,
+          code: classification.code,
+          message: classification.userMessage,
+          details: error
+        });
+
+        entry.subscribers.forEach((sub) => {
+          if (!sub.isCancelled && sub.onError) {
+            sub.onError(classification.userMessage);
+          }
+        });
+
+        if (entry.unsubFirestore) {
+          try { entry.unsubFirestore(); } catch (_) {}
+          entry.unsubFirestore = null;
+        }
+
+        entry.retryAttempt += 1;
+        const backoffDelay = calculateBackoffDelay(entry.retryAttempt);
+
+        if (!entry.retryTimer && entry.subscribers.size > 0 && entry.retryAttempt <= 4) {
+          logFirestoreEvent({
+            action: 'reconnecting',
+            path: entry.key,
+            code: classification.code,
+            message: `Scheduling reconnect attempt ${entry.retryAttempt} in ${Math.round(backoffDelay / 1000)}s`
+          });
+          entry.retryTimer = setTimeout(() => {
+            entry.retryTimer = null;
+            if (entry.subscribers.size > 0) {
+              attachFirestoreListener(entry);
+            }
+          }, backoffDelay);
+        }
+      }
+    );
+  } catch (err: any) {
+    entry.isConnecting = false;
+    const classification = classifyFirestoreError(err, 'Subscription initialization failed');
+    logFirestoreEvent({
+      action: classification.isTerminal ? 'error' : 'interrupted',
+      path: entry.key,
+      code: classification.code,
+      message: classification.userMessage,
+      details: err
+    });
+    entry.subscribers.forEach((sub) => {
+      if (!sub.isCancelled && sub.onError) {
+        sub.onError(classification.userMessage);
+      }
+    });
+  }
+}
+
+// Global network listener registration (once)
+if (typeof window !== 'undefined') {
+  window.addEventListener('online', () => {
+    sharedSubscriptions.forEach((entry) => {
+      if (entry.subscribers.size > 0 && !entry.unsubFirestore && !entry.isConnecting) {
+        logFirestoreEvent({
+          action: 'connect',
+          path: entry.key,
+          message: 'Network online detected. Re-establishing realtime listener...'
+        });
+        entry.retryAttempt = 0;
+        attachFirestoreListener(entry);
+      }
+    });
+  });
+}
+
+if (typeof document !== 'undefined') {
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      sharedSubscriptions.forEach((entry) => {
+        if (entry.subscribers.size > 0 && !entry.unsubFirestore && !entry.isConnecting) {
+          entry.retryAttempt = 0;
+          attachFirestoreListener(entry);
+        }
+      });
+    }
+  });
+}
+
+/**
+ * Creates a managed real-time Firestore listener with strict authorization guards,
+ * automatic retry for transient network errors, connection deduplication,
+ * and clean unsubscription.
+ */
 function createManagedListener<T>(
   createQuery: () => Query | DocumentReference,
   parseSnapshot: (snapshot: any) => T,
@@ -170,38 +360,8 @@ function createManagedListener<T>(
   onError?: FirestoreErrorCallback,
   options?: ListenerGuardOptions
 ): () => void {
-  let unsub: (() => void) | null = null;
-  let retryTimer: ReturnType<typeof setTimeout> | null = null;
-  let retryAttempt = 0;
+  const subscriberId = `sub_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
   let isCancelled = false;
-
-  const onVisibilityChange = () => {
-    if (typeof document !== 'undefined' && document.visibilityState === 'visible' && !isCancelled) {
-      if (!unsub) {
-        retryAttempt = 0;
-        startListening();
-      }
-    }
-  };
-
-  const onOnline = () => {
-    if (!isCancelled && !unsub) {
-      logFirestoreEvent({
-        action: 'connect',
-        path: options?.path,
-        message: 'Network online detected. Re-establishing realtime listener...'
-      });
-      retryAttempt = 0;
-      startListening();
-    }
-  };
-
-  if (typeof document !== 'undefined') {
-    document.addEventListener('visibilitychange', onVisibilityChange);
-  }
-  if (typeof window !== 'undefined') {
-    window.addEventListener('online', onOnline);
-  }
 
   const superAdminSession = typeof window !== 'undefined'
     ? sessionStorage.getItem('mediqueue_super_admin_session')
@@ -219,19 +379,44 @@ function createManagedListener<T>(
     } catch {}
   }
 
-  let authUnsub: (() => void) | null = null;
+  const listenerKey = options?.path
+    ? `${options.path}${options.filter ? ':' + options.filter : ''}`
+    : `isolated_${subscriberId}`;
 
-  const startListening = async () => {
+  let entry = sharedSubscriptions.get(listenerKey);
+  if (!entry) {
+    entry = {
+      key: listenerKey,
+      createQuery,
+      unsubFirestore: null,
+      subscribers: new Map(),
+      lastSnapshot: null,
+      retryTimer: null,
+      cleanupTimer: null,
+      retryAttempt: 0,
+      isConnecting: false,
+    };
+    sharedSubscriptions.set(listenerKey, entry);
+  }
+
+  // Cancel any pending cleanup if a new subscriber arrives within the grace period
+  if (entry.cleanupTimer) {
+    clearTimeout(entry.cleanupTimer);
+    entry.cleanupTimer = null;
+  }
+
+  const subscriber: ListenerSubscriber<T> = {
+    id: subscriberId,
+    parseSnapshot,
+    onData,
+    onError,
+    options,
+    isCancelled: false,
+  };
+
+  const registerSubscriber = async () => {
     if (isCancelled) return;
 
-    // 1. Remote Firestore listener strictly requires an authenticated Firebase Auth session
-    // for protected collections (users, auditLogs, patients). Unauthenticated queries to protected collections
-    // will be rejected by Firestore security rules with permission-denied.
-    if ((options?.authRequired || options?.requiresAdmin || options?.requiredRole) && !auth.currentUser) {
-      return;
-    }
-
-    // 2. Authoritative Security Check using verifyUserAuthorization
     if (options?.requiresAdmin || options?.requiredRole) {
       try {
         const defaultAdminRoles: UserRole[] = ['SUPER_ADMIN', 'CLINIC_ADMIN', 'admin'];
@@ -256,21 +441,16 @@ function createManagedListener<T>(
               message: deniedReason
             });
           }
-          if (onError) {
-            onError(deniedReason);
-          }
+          if (onError) onError(deniedReason);
           return;
         }
       } catch (authErr: any) {
         if (isCancelled) return;
-        if (onError) {
-          onError(`Security check failed: ${authErr?.message || 'Unauthorized'}`);
-        }
+        if (onError) onError(`Security check failed: ${authErr?.message || 'Unauthorized'}`);
         return;
       }
     }
 
-    // 3. Custom guard check
     if (options?.guard) {
       try {
         const guardPassed = await options.guard();
@@ -282,159 +462,62 @@ function createManagedListener<T>(
 
     if (isCancelled) return;
 
-    try {
-      const ref = createQuery();
-      unsub = onSnapshot(
-        ref as any,
-        (snapshot) => {
-          if (isCancelled) return;
-          if (retryAttempt > 0) {
-            logFirestoreEvent({
-              action: 'reconnected',
-              path: options?.path
-            });
-            retryAttempt = 0;
-          }
-          const data = parseSnapshot(snapshot);
-          onData(data);
-        },
-        (error: any) => {
-          if (isCancelled) return;
-          const classification = classifyFirestoreError(error);
+    entry!.subscribers.set(subscriberId, subscriber);
 
-          if (classification.category === 'PERMISSION_DENIED') {
-            if (!options?.silentPermissionDenied) {
-              logFirestoreEvent({
-                action: 'permission_denied',
-                path: options?.path,
-                code: classification.code,
-                message: classification.userMessage,
-                details: error
-              });
-            }
-            if (unsub) {
-              try { unsub(); } catch (_) {}
-              unsub = null;
-            }
-            if (onError) {
-              onError(classification.userMessage);
-            }
-            return;
-          }
-
-          if (classification.category === 'UNAUTHENTICATED' || classification.category === 'QUERY_PRECONDITION') {
-            logFirestoreEvent({
-              action: 'error',
-              path: options?.path,
-              code: classification.code,
-              message: classification.userMessage,
-              details: error
-            });
-            if (unsub) {
-              try { unsub(); } catch (_) {}
-              unsub = null;
-            }
-            if (onError) {
-              onError(classification.userMessage);
-            }
-            return;
-          }
-
-          // Transient network / WebChannel stream interruption
-          logFirestoreEvent({
-            action: 'interrupted',
-            path: options?.path,
-            code: classification.code,
-            message: classification.userMessage,
-            details: error
-          });
-
-          if (onError) {
-            onError(classification.userMessage);
-          }
-
-          if (unsub) {
-            try { unsub(); } catch (_) {}
-            unsub = null;
-          }
-
-          retryAttempt += 1;
-          const backoffDelay = calculateBackoffDelay(retryAttempt);
-
-          if (!retryTimer && !isCancelled && retryAttempt <= 6) {
-            logFirestoreEvent({
-              action: 'reconnecting',
-              path: options?.path,
-              code: classification.code,
-              message: `Scheduling reconnect attempt ${retryAttempt} in ${Math.round(backoffDelay / 1000)}s`
-            });
-            retryTimer = setTimeout(() => {
-              retryTimer = null;
-              if (!isCancelled && (!options?.authRequired || !!auth.currentUser || !!sessionStorage.getItem('mediqueue_super_admin_session'))) {
-                startListening();
-              }
-            }, backoffDelay);
-          }
-        }
-      );
-    } catch (err: any) {
-      if (isCancelled) return;
-      const classification = classifyFirestoreError(err, 'Subscription initialization failed');
-      logFirestoreEvent({
-        action: classification.isTerminal ? 'error' : 'interrupted',
-        path: options?.path,
-        code: classification.code,
-        message: classification.userMessage,
-        details: err
-      });
-      if (onError) {
-        onError(classification.userMessage);
+    // If we already have a live snapshot for this query, deliver immediately
+    if (entry!.lastSnapshot) {
+      try {
+        const initialData = parseSnapshot(entry!.lastSnapshot);
+        onData(initialData);
+      } catch (err) {
+        console.error('[ManagedListener Initial Snapshot Error]', err);
       }
-      if (classification.isRetryable && !retryTimer && !isCancelled && retryAttempt <= 6) {
-        retryAttempt += 1;
-        const backoffDelay = calculateBackoffDelay(retryAttempt);
-        retryTimer = setTimeout(() => {
-          retryTimer = null;
-          if (!isCancelled && (!options?.authRequired || !!auth.currentUser)) {
-            startListening();
-          }
-        }, backoffDelay);
-      }
+    }
+
+    // Attach underlying Firestore listener if not already active
+    if (!entry!.unsubFirestore && !entry!.isConnecting) {
+      attachFirestoreListener(entry!);
     }
   };
 
-  // If authentication is required for a protected collection and user is not yet signed in to Firebase Auth,
-  // register an auth state listener so the Firestore connection starts smoothly when authenticated,
-  // avoiding premature unauthenticated queries that would be rejected by Firestore security rules.
+  let authUnsub: (() => void) | null = null;
   if ((options?.authRequired || options?.requiresAdmin || options?.requiredRole) && !auth.currentUser) {
     authUnsub = onAuthStateChanged(auth, (firebaseUser) => {
-      if (firebaseUser && !isCancelled && !unsub) {
-        startListening();
+      if (firebaseUser && !isCancelled) {
+        registerSubscriber();
       }
     });
   } else {
-    startListening();
+    registerSubscriber();
   }
 
   return () => {
     isCancelled = true;
+    subscriber.isCancelled = true;
     if (authUnsub) {
       try { authUnsub(); } catch (_) {}
       authUnsub = null;
     }
-    if (typeof document !== 'undefined') {
-      document.removeEventListener('visibilitychange', onVisibilityChange);
-    }
-    if (typeof window !== 'undefined') {
-      window.removeEventListener('online', onOnline);
-    }
-    if (retryTimer) {
-      clearTimeout(retryTimer);
-      retryTimer = null;
-    }
-    if (unsub) {
-      try { unsub(); } catch (_) {}
-      unsub = null;
+    const currentEntry = sharedSubscriptions.get(listenerKey);
+    if (currentEntry) {
+      currentEntry.subscribers.delete(subscriberId);
+      if (currentEntry.subscribers.size === 0) {
+        // 500ms grace period before terminating Firestore stream
+        if (currentEntry.cleanupTimer) clearTimeout(currentEntry.cleanupTimer);
+        currentEntry.cleanupTimer = setTimeout(() => {
+          if (currentEntry.subscribers.size === 0) {
+            if (currentEntry.retryTimer) {
+              clearTimeout(currentEntry.retryTimer);
+              currentEntry.retryTimer = null;
+            }
+            if (currentEntry.unsubFirestore) {
+              try { currentEntry.unsubFirestore(); } catch (_) {}
+              currentEntry.unsubFirestore = null;
+            }
+            sharedSubscriptions.delete(listenerKey);
+          }
+        }, 500);
+      }
     }
   };
 }

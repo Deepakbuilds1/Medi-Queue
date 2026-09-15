@@ -42,12 +42,12 @@ service cloud.firestore {
     // Check if the signed-in user belongs to or has access to the clinicId
     function isUserInClinic(clinicId) {
       return isSuperAdmin() || (
-        request.auth.token.clinicId == clinicId ||
+        (request.auth.token != null && 'clinicId' in request.auth.token && request.auth.token.clinicId == clinicId) ||
         (
           hasUserDoc() && (
-            getUserData().clinicId == clinicId ||
-            ('clinicIds' in getUserData() && clinicId in getUserData().clinicIds) ||
-            ('accessibleClinicIds' in getUserData() && clinicId in getUserData().accessibleClinicIds)
+            ('clinicId' in getUserData() && getUserData().clinicId == clinicId) ||
+            ('clinicIds' in getUserData() && getUserData().clinicIds is list && clinicId in getUserData().clinicIds) ||
+            ('accessibleClinicIds' in getUserData() && getUserData().accessibleClinicIds is list && clinicId in getUserData().accessibleClinicIds)
           )
         )
       );
@@ -57,9 +57,10 @@ service cloud.firestore {
     function isClinicStaff(clinicId) {
       return isSuperAdmin() || (
         isUserInClinic(clinicId) && (
-          request.auth.token.role in ['CLINIC_ADMIN', 'clinic_admin', 'admin', 'DOCTOR', 'RECEPTIONIST'] ||
+          (request.auth.token != null && 'role' in request.auth.token && request.auth.token.role in ['CLINIC_ADMIN', 'clinic_admin', 'admin', 'DOCTOR', 'RECEPTIONIST']) ||
           (
             hasUserDoc() &&
+            'role' in getUserData() &&
             getUserData().role in ['SUPER_ADMIN', 'CLINIC_ADMIN', 'clinic_admin', 'admin', 'DOCTOR', 'RECEPTIONIST']
           )
         )
@@ -70,10 +71,11 @@ service cloud.firestore {
     function isClinicAdmin(clinicId) {
       return isSuperAdmin() || (
         isUserInClinic(clinicId) && (
-          request.auth.token.role in ['CLINIC_ADMIN', 'clinic_admin', 'admin'] ||
-          request.auth.token.admin == true ||
+          (request.auth.token != null && 'role' in request.auth.token && request.auth.token.role in ['CLINIC_ADMIN', 'clinic_admin', 'admin']) ||
+          (request.auth.token != null && 'admin' in request.auth.token && request.auth.token.admin == true) ||
           (
             hasUserDoc() &&
+            'role' in getUserData() &&
             getUserData().role in ['SUPER_ADMIN', 'CLINIC_ADMIN', 'clinic_admin', 'admin']
           )
         )
@@ -123,8 +125,8 @@ service cloud.firestore {
         // Clinic staff can read all patients; Patients can only read their own record
         allow read: if isClinicStaff(clinicId) || (
           isSignedIn() && (
-            (resource.data.userId == request.auth.uid) ||
-            (request.auth.uid == patientId)
+            (request.auth.uid == patientId) ||
+            (resource != null && 'userId' in resource.data && resource.data.userId == request.auth.uid)
           )
         );
         
@@ -134,8 +136,8 @@ service cloud.firestore {
         // Clinic staff or the patient owner can update their info
         allow update: if isClinicStaff(clinicId) || (
           isSignedIn() && (
-            (resource.data.userId == request.auth.uid) ||
-            (request.auth.uid == patientId)
+            (request.auth.uid == patientId) ||
+            (resource != null && 'userId' in resource.data && resource.data.userId == request.auth.uid)
           )
         );
         
@@ -169,7 +171,7 @@ service cloud.firestore {
       // 2. Super Admin can read all user profiles
       // 3. Clinic Staff can read profiles of patients or staff assigned to their clinic
       allow read: if isOwner(userId) || isSuperAdmin() || (
-        isSignedIn() && resource.data.clinicId != null && isClinicStaff(resource.data.clinicId)
+        isSignedIn() && resource != null && 'clinicId' in resource.data && resource.data.clinicId != null && isClinicStaff(resource.data.clinicId)
       );
 
       // Super Admin can create any profile;
@@ -189,7 +191,7 @@ service cloud.firestore {
         (!('clinicIds' in request.resource.data) || request.resource.data.clinicIds == resource.data.clinicIds) &&
         (!('accessibleClinicIds' in request.resource.data) || request.resource.data.accessibleClinicIds == resource.data.accessibleClinicIds)
       ) || (
-        isSignedIn() && resource.data.clinicId != null && isClinicAdmin(resource.data.clinicId) &&
+        isSignedIn() && resource != null && 'clinicId' in resource.data && resource.data.clinicId != null && isClinicAdmin(resource.data.clinicId) &&
         request.resource.data.role in ['CLINIC_ADMIN', 'admin', 'DOCTOR', 'RECEPTIONIST', 'PATIENT', 'patient']
       );
 
@@ -203,7 +205,7 @@ service cloud.firestore {
     match /auditLogs/{logId} {
       // Super Admin has authorized global access; Clinic staff can only read logs scoped to their authorized clinic
       allow read: if isSuperAdmin() || (
-        isSignedIn() && resource.data.clinicId != null && isClinicStaff(resource.data.clinicId)
+        isSignedIn() && resource != null && 'clinicId' in resource.data && resource.data.clinicId != null && isClinicStaff(resource.data.clinicId)
       );
       // Only authenticated users or Super Admin can create audit records
       allow create: if isSuperAdmin() || isSignedIn();

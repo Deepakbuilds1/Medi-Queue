@@ -141,4 +141,31 @@ describe('Firestore Transport & Error Classification', () => {
       expect(found?.role).toBe('CLINIC_ADMIN');
     });
   });
+
+  describe('Realtime Listener Multiplexing & Deduplication', () => {
+    it('returns an unsubscription function cleanly', async () => {
+      const { subscribeClinics } = await import('../../src/services/clinicService');
+      const callback = vi.fn();
+      const unsub = subscribeClinics(callback);
+      expect(typeof unsub).toBe('function');
+      expect(() => unsub()).not.toThrow();
+    });
+
+    it('safely handles multiple subscribers to the same clinic target', async () => {
+      const { subscribeClinic } = await import('../../src/services/clinicService');
+      const cb1 = vi.fn();
+      const cb2 = vi.fn();
+
+      const unsub1 = subscribeClinic('clinic_demo', cb1);
+      const unsub2 = subscribeClinic('clinic_demo', cb2);
+
+      expect(typeof unsub1).toBe('function');
+      expect(typeof unsub2).toBe('function');
+
+      expect(() => {
+        unsub1();
+        unsub2();
+      }).not.toThrow();
+    });
+  });
 });

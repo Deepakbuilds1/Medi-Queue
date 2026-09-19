@@ -3,13 +3,13 @@ import crypto from 'crypto';
 import { handleCors } from '../_lib/cors.ts';
 import { getImageKit, verifyImageKitAuthorization } from '../../src/server/imagekitHelper.ts';
 
-export default function handler(req: Request, res: Response) {
+export default async function handler(req: Request, res: Response) {
   if (handleCors(req, res)) return;
 
   const clinicId = (req.query?.clinicId as string) || '';
   const folderType = (req.query?.folderType as string) || 'media';
 
-  const authCheck = verifyImageKitAuthorization(req, clinicId, folderType);
+  const authCheck = await verifyImageKitAuthorization(req, clinicId, folderType);
   if (!authCheck.authorized) {
     return res.status(403).json({
       error: authCheck.reason || 'Forbidden: Unauthorized ImageKit access.',

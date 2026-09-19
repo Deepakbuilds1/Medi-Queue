@@ -159,7 +159,9 @@ service cloud.firestore {
 
       // --- Counters Subcollection: /clinics/{clinicId}/counters/{counterId} ---
       match /counters/{counterId} {
-        allow read, write: if true;
+        allow read: if true;
+        allow create, update: if request.resource.data.lastNumber is number && request.resource.data.lastNumber >= 0;
+        allow delete: if isClinicAdmin(clinicId);
       }
     }
 

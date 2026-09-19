@@ -18,7 +18,7 @@ export default async function handler(req: Request, res: Response) {
   const cleanClinicId = (clinicId || '').trim();
   const cleanFolderType = (folderType || 'media').trim();
 
-  const authCheck = verifyImageKitAuthorization(req, cleanClinicId, cleanFolderType);
+  const authCheck = await verifyImageKitAuthorization(req, cleanClinicId, cleanFolderType);
   if (!authCheck.authorized) {
     return res.status(403).json({
       error: authCheck.reason || 'Forbidden: Unauthorized to delete media for this clinic.',

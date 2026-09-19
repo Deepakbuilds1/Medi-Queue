@@ -296,20 +296,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             } else {
               let token = currentStored || `super_admin_firebase_${currentUser.uid}`;
               try {
-                fetch('/api/super-admin/auth', {
-                  method: 'POST',
-                  credentials: 'include',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ email: currentUser.email || 'medi@gmail.com' }),
-                })
-                  .then(r => r.json())
-                  .then(d => {
-                    if (d?.success && d?.sessionToken) {
-                      sessionStorage.setItem(SUPER_ADMIN_SESSION_KEY, d.sessionToken);
-                      setSuperAdminSessionToken(d.sessionToken);
-                    }
+                currentUser.getIdToken().then((idToken) => {
+                  if (!idToken) return;
+                  fetch('/api/super-admin/auth', {
+                    method: 'POST',
+                    credentials: 'include',
+                    headers: {
+                      'Content-Type': 'application/json',
+                      'Authorization': `Bearer ${idToken}`,
+                    },
+                    body: JSON.stringify({
+                      email: currentUser.email || 'medi@gmail.com',
+                      idToken,
+                    }),
                   })
-                  .catch(() => {});
+                    .then(r => r.json())
+                    .then(d => {
+                      if (d?.success && d?.sessionToken) {
+                        sessionStorage.setItem(SUPER_ADMIN_SESSION_KEY, d.sessionToken);
+                        setSuperAdminSessionToken(d.sessionToken);
+                      }
+                    })
+                    .catch(() => {});
+                }).catch(() => {});
               } catch (_) {}
               sessionStorage.setItem(SUPER_ADMIN_SESSION_KEY, token);
               setSuperAdminSessionToken(token);

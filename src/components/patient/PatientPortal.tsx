@@ -7,6 +7,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useClinic } from '../../context/ClinicContext';
 import { PatientAuthModal } from './PatientAuthModal';
 import { BookTokenSection } from './BookTokenSection';
+import { FullWaitingListModal } from '../common/FullWaitingListModal';
 import { LegalDocType } from '../legal/LegalPagesModal';
 import { Button } from '../shared/Button';
 
@@ -52,6 +53,7 @@ export const PatientPortal: React.FC<PatientPortalProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [authModalMode, setAuthModalMode] = useState<'signin' | 'signup'>('signin');
+  const [isWaitingListModalOpen, setIsWaitingListModalOpen] = useState(false);
 
   // User's booked tokens from Firebase
   const [userTokens, setUserTokens] = useState<QueueToken[]>([]);
@@ -621,24 +623,57 @@ export const PatientPortal: React.FC<PatientPortalProps> = ({
             </div>
 
             {/* Up Next */}
-            <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
-              <span className="text-xs font-bold text-slate-700 uppercase tracking-widest block mb-2">
-                UP NEXT (WAITING)
-              </span>
-              {publicQueue.upNext.length === 0 ? (
-                <p className="text-base text-slate-700 italic">No waiting patients.</p>
-              ) : (
-                <div className="flex flex-wrap gap-2">
-                  {publicQueue.upNext.slice(0, 6).map(t => (
-                    <span 
-                      key={t.id}
-                      className="px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-mono font-bold text-slate-900 shadow-xs"
-                    >
-                      {t.tokenNumber}
-                    </span>
-                  ))}
+            <div className="bg-slate-50 rounded-xl p-4 border border-slate-200 flex flex-col justify-between">
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-bold text-slate-700 uppercase tracking-widest block">
+                    UP NEXT (WAITING)
+                  </span>
+                  <span className="text-[11px] font-bold font-mono text-amber-800 bg-amber-100/90 px-2 py-0.5 rounded-md border border-amber-200">
+                    {publicQueue.upNext.length === 0 ? '0 Waiting' : `${publicQueue.upNext.length} Waiting`}
+                  </span>
                 </div>
-              )}
+
+                {publicQueue.upNext.length === 0 ? (
+                  <p className="text-base text-slate-700 italic py-1">No patients waiting.</p>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    {publicQueue.upNext.slice(0, 6).map((t, idx) => (
+                      <span 
+                        key={t.id}
+                        className="px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-mono font-bold text-slate-900 shadow-xs flex items-center gap-1.5"
+                      >
+                        <span className="text-[10px] text-slate-600 font-sans font-medium">{idx + 1}</span>
+                        <span>{t.tokenNumber}</span>
+                        {t.patientName && (
+                          <span className="text-[10px] text-slate-600 font-sans font-medium max-w-[75px] truncate">
+                            {t.patientName}
+                          </span>
+                        )}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Divider & Waiting List Action Footer */}
+              <div className="mt-3 pt-2.5 border-t border-slate-200 flex items-center justify-between gap-2">
+                <span className="text-xs font-medium text-slate-600">
+                  {publicQueue.upNext.length === 0 
+                    ? '0 Waiting' 
+                    : `${publicQueue.upNext.length} ${publicQueue.upNext.length === 1 ? 'patient waiting' : 'patients waiting'}`}
+                </span>
+                <button
+                  type="button"
+                  id="view-all-waiting-tokens-btn"
+                  onClick={() => setIsWaitingListModalOpen(true)}
+                  className="inline-flex items-center gap-1 text-xs font-semibold text-teal-700 hover:text-teal-800 active:text-teal-900 transition-colors focus:outline-hidden focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:ring-offset-1 rounded-sm py-0.5 px-1 -mr-1 cursor-pointer"
+                  aria-label="View all waiting tokens in the live queue"
+                >
+                  <span>View All</span>
+                  <span aria-hidden="true">&rarr;</span>
+                </button>
+              </div>
             </div>
           </div>
 
@@ -653,6 +688,16 @@ export const PatientPortal: React.FC<PatientPortalProps> = ({
         onClose={() => setIsAuthModalOpen(false)}
         onOpenForgotPassword={onOpenForgotPassword}
         onOpenLegalDoc={onOpenLegalDoc}
+      />
+
+      {/* Full Waiting List Modal */}
+      <FullWaitingListModal
+        isOpen={isWaitingListModalOpen}
+        onClose={() => setIsWaitingListModalOpen(false)}
+        waitingTokens={publicQueue.upNext}
+        clinicName={activeClinic?.name || settings?.clinicName}
+        theme="light"
+        userTokenId={userTokens.find(t => t.status === 'WAITING')?.id}
       />
 
       {/* Production Footer with Verified Legal, Emergency & Support Links */}

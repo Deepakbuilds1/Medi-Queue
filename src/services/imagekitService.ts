@@ -97,6 +97,12 @@ async function buildAuthHeaders(customRole?: UserRole, customClinicId?: string):
   // 2. Firebase Auth Current User context
   const currentUser = auth.currentUser;
   if (currentUser) {
+    try {
+      const idToken = await currentUser.getIdToken();
+      if (idToken) {
+        headers['Authorization'] = `Bearer ${idToken}`;
+      }
+    } catch (_) {}
     headers['x-user-uid'] = currentUser.uid;
     if (currentUser.email) {
       headers['x-user-email'] = currentUser.email;

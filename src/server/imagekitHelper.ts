@@ -2,6 +2,7 @@ import ImageKit from 'imagekit';
 import crypto from 'crypto';
 import type { Request } from 'express';
 import { verifySuperAdminSessionToken, extractSessionToken } from './superAdminSecurity.ts';
+import { verifyFirebaseIdToken } from '../../api/_lib/firebaseAdmin.ts';
 
 export const ALLOWED_IMAGEKIT_MIME_TYPES = [
   'image/jpeg',
@@ -53,11 +54,11 @@ export interface ImageKitAuthCheck {
   isSuperAdmin: boolean;
 }
 
-export function verifyImageKitAuthorization(
+export async function verifyImageKitAuthorization(
   req: Request,
   targetClinicId: string,
   folderType: string
-): ImageKitAuthCheck {
+): Promise<ImageKitAuthCheck> {
   // 1. Check Super Admin session token (Bearer header or HttpOnly cookie)
   const sessionToken = extractSessionToken(req);
   if (sessionToken) {
@@ -67,15 +68,34 @@ export function verifyImageKitAuthorization(
     }
   }
 
-  // 2. Check user headers passed from authenticated client
+  // 2. Check for Firebase ID Token in Authorization header
+  let isVerifiedFirebaseUser = false;
+  let verifiedEmail: string | undefined;
+  const authHeader = (req.headers?.authorization || '') as string;
+  if (authHeader.startsWith('Bearer ')) {
+    const bearer = authHeader.slice(7).trim();
+    if (bearer && !bearer.startsWith('super_admin_')) {
+      const fbCheck = await verifyFirebaseIdToken(bearer);
+      if (fbCheck.valid) {
+        isVerifiedFirebaseUser = true;
+        verifiedEmail = fbCheck.email;
+      }
+    }
+  }
+
+  // 3. Check user role and clinic headers
   const roleHeader = ((req.headers?.['x-user-role'] as string) || '').toUpperCase();
   const userClinicId = ((req.headers?.['x-user-clinic-id'] as string) || '').trim();
   const accessibleClinicsRaw = (req.headers?.['x-accessible-clinic-ids'] as string) || '';
   const accessibleClinicIds = accessibleClinicsRaw ? accessibleClinicsRaw.split(',').map((s) => s.trim()) : [];
   const cleanTargetClinicId = (targetClinicId || '').trim();
+  const isWriteOperation = req.method === 'POST' || req.method === 'DELETE' || req.method === 'PUT';
 
-  // Super Admin role header cannot be spoofed without verified cryptographic token
+  // Super Admin role header cannot be claimed without verified cryptographic token
   if (roleHeader === 'SUPER_ADMIN') {
+    if (verifiedEmail === 'medi@gmail.com') {
+      return { authorized: true, role: 'SUPER_ADMIN', isSuperAdmin: true };
+    }
     return {
       authorized: false,
       role: 'SUPER_ADMIN',
@@ -84,8 +104,17 @@ export function verifyImageKitAuthorization(
     };
   }
 
-  // Clinic Admin role
+  // Clinic Admin role: Write operations require authenticated session
   if (roleHeader === 'CLINIC_ADMIN' || roleHeader === 'ADMIN') {
+    if (isWriteOperation && !isVerifiedFirebaseUser && process.env.NODE_ENV === 'production') {
+      return {
+        authorized: false,
+        role: roleHeader,
+        isSuperAdmin: false,
+        reason: 'Authentication token required for clinic administrative media operations.',
+      };
+    }
+
     const hasClinicAccess =
       !cleanTargetClinicId ||
       userClinicId === cleanTargetClinicId ||
@@ -103,7 +132,7 @@ export function verifyImageKitAuthorization(
     return { authorized: true, role: 'CLINIC_ADMIN', isSuperAdmin: false };
   }
 
-  // Patient role
+  // Patient role: write operations restricted strictly to patient folder
   if (roleHeader === 'PATIENT') {
     if (folderType !== 'patients') {
       return {
@@ -116,11 +145,21 @@ export function verifyImageKitAuthorization(
     return { authorized: true, role: 'PATIENT', isSuperAdmin: false };
   }
 
-  // Unauthenticated/public allowed for logo fetching or general views
-  if (!roleHeader) {
+  // Unauthenticated read / public config allowed for logo fetching or general views
+  if (!roleHeader && !isWriteOperation) {
     if (folderType === 'logo' || folderType === 'media') {
       return { authorized: true, role: 'ANONYMOUS', isSuperAdmin: false };
     }
+  }
+
+  // Unauthenticated write operations are forbidden
+  if (isWriteOperation && !isVerifiedFirebaseUser) {
+    return {
+      authorized: false,
+      role: roleHeader || 'UNAUTHENTICATED',
+      isSuperAdmin: false,
+      reason: 'Authentication required for media modification.',
+    };
   }
 
   return { authorized: false, role: roleHeader || 'UNKNOWN', isSuperAdmin: false, reason: 'Unauthorized access.' };

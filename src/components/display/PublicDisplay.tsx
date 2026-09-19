@@ -5,6 +5,7 @@ import { subscribePublicQueue } from '../../services/clinicService';
 import { playTokenCallSound, unlockAudioContext } from '../../lib/sound';
 import { useClinic } from '../../context/ClinicContext';
 import { Button } from '../shared/Button';
+import { FullWaitingListModal } from '../common/FullWaitingListModal';
 
 interface PublicDisplayProps {
   settings: ClinicSettings | null;
@@ -24,6 +25,7 @@ export const PublicDisplay: React.FC<PublicDisplayProps> = ({ settings, onNaviga
   const isInitialMountRef = useRef<boolean>(true);
   const [highlightingId, setHighlightingId] = useState<string | null>(null);
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [isWaitingListModalOpen, setIsWaitingListModalOpen] = useState(false);
 
   useEffect(() => {
     const clockTimer = setInterval(() => setCurrentTime(new Date()), 1000);
@@ -367,6 +369,28 @@ export const PublicDisplay: React.FC<PublicDisplayProps> = ({ settings, onNaviga
                 ))
               )}
             </div>
+
+            {/* View All Action Footer */}
+            <div className="mt-2.5 pt-2.5 border-t border-slate-800 flex items-center justify-between gap-2 shrink-0">
+              <span 
+                className="font-medium text-slate-400"
+                style={{ fontSize: 'clamp(0.65rem, 2.2vw, 0.75rem)' }}
+              >
+                {publicQueue.upNext.length === 0 
+                  ? '0 Waiting' 
+                  : `${publicQueue.upNext.length} ${publicQueue.upNext.length === 1 ? 'patient waiting' : 'patients waiting'}`}
+              </span>
+              <button
+                type="button"
+                id="public-display-view-all-btn"
+                onClick={() => setIsWaitingListModalOpen(true)}
+                className="inline-flex items-center gap-1 text-xs font-semibold text-teal-400 hover:text-teal-300 active:text-teal-200 transition-colors py-1 px-2.5 rounded-lg hover:bg-slate-800/80 cursor-pointer focus:outline-hidden focus-visible:ring-2 focus-visible:ring-teal-500"
+                aria-label="View complete waiting list"
+              >
+                <span>View All</span>
+                <span aria-hidden="true">&rarr;</span>
+              </button>
+            </div>
           </div>
 
           <div className="mt-3 sm:mt-4 pt-3 sm:pt-4 border-t border-slate-800/80 text-center shrink-0">
@@ -380,6 +404,15 @@ export const PublicDisplay: React.FC<PublicDisplayProps> = ({ settings, onNaviga
         </div>
 
       </main>
+
+      {/* Full Waiting List Modal (Dark Theme for Public Display) */}
+      <FullWaitingListModal
+        isOpen={isWaitingListModalOpen}
+        onClose={() => setIsWaitingListModalOpen(false)}
+        waitingTokens={publicQueue.upNext}
+        clinicName={clinicName}
+        theme="dark"
+      />
 
     </div>
   );

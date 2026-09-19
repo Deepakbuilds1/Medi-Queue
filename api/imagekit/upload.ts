@@ -36,7 +36,7 @@ export default async function handler(req: Request, res: Response) {
   const cleanFolderType = validFolders.includes(folderType) ? folderType : 'media';
   const cleanClinicId = clinicId.trim();
 
-  const authCheck = verifyImageKitAuthorization(req, cleanClinicId, cleanFolderType);
+  const authCheck = await verifyImageKitAuthorization(req, cleanClinicId, cleanFolderType);
   if (!authCheck.authorized) {
     return res.status(403).json({
       error: authCheck.reason || 'Forbidden: Multi-tenant media isolation violation.',

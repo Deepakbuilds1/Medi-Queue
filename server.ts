@@ -280,11 +280,11 @@ app.get('/api/imagekit/config', (_req: Request, res: Response) => {
 });
 
 // 6. ImageKit Client-Side Upload Authentication Parameters
-app.get('/api/imagekit/auth', (req: Request, res: Response) => {
+app.get('/api/imagekit/auth', async (req: Request, res: Response) => {
   const clinicId = (req.query.clinicId as string) || '';
   const folderType = (req.query.folderType as string) || 'media';
 
-  const authCheck = verifyImageKitAuthorization(req, clinicId, folderType);
+  const authCheck = await verifyImageKitAuthorization(req, clinicId, folderType);
   if (!authCheck.authorized) {
     return res.status(403).json({
       error: authCheck.reason || 'Forbidden: Unauthorized ImageKit access.',
@@ -342,7 +342,7 @@ app.post('/api/imagekit/upload', async (req: Request, res: Response) => {
   const cleanClinicId = clinicId.trim();
 
   // Multi-tenant authorization guard
-  const authCheck = verifyImageKitAuthorization(req, cleanClinicId, cleanFolderType);
+  const authCheck = await verifyImageKitAuthorization(req, cleanClinicId, cleanFolderType);
   if (!authCheck.authorized) {
     return res.status(403).json({
       error: authCheck.reason || 'Forbidden: Multi-tenant media isolation violation.',
@@ -432,7 +432,7 @@ app.post('/api/imagekit/delete', async (req: Request, res: Response) => {
   const cleanFolderType = (folderType || 'media').trim();
 
   // Multi-tenant authorization guard
-  const authCheck = verifyImageKitAuthorization(req, cleanClinicId, cleanFolderType);
+  const authCheck = await verifyImageKitAuthorization(req, cleanClinicId, cleanFolderType);
   if (!authCheck.authorized) {
     return res.status(403).json({
       error: authCheck.reason || 'Forbidden: Unauthorized to delete media for this clinic.',

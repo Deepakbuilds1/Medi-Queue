@@ -1,7 +1,7 @@
 import ImageKit from 'imagekit';
 import crypto from 'crypto';
 import type { Request } from 'express';
-import { verifySuperAdminSessionToken } from './superAdminSecurity.ts';
+import { verifySuperAdminSessionToken, extractSessionToken } from './superAdminSecurity.ts';
 
 export const ALLOWED_IMAGEKIT_MIME_TYPES = [
   'image/jpeg',
@@ -58,12 +58,10 @@ export function verifyImageKitAuthorization(
   targetClinicId: string,
   folderType: string
 ): ImageKitAuthCheck {
-  const authHeader = req.headers?.authorization;
-  const clientToken = authHeader && authHeader.startsWith('Bearer ') ? authHeader.split(' ')[1] : null;
-
-  // 1. Check Super Admin session token
-  if (clientToken) {
-    const verified = verifySuperAdminSessionToken(clientToken);
+  // 1. Check Super Admin session token (Bearer header or HttpOnly cookie)
+  const sessionToken = extractSessionToken(req);
+  if (sessionToken) {
+    const verified = verifySuperAdminSessionToken(sessionToken);
     if (verified.valid) {
       return { authorized: true, role: 'SUPER_ADMIN', isSuperAdmin: true };
     }
@@ -76,9 +74,14 @@ export function verifyImageKitAuthorization(
   const accessibleClinicIds = accessibleClinicsRaw ? accessibleClinicsRaw.split(',').map((s) => s.trim()) : [];
   const cleanTargetClinicId = (targetClinicId || '').trim();
 
-  // Super Admin role header
+  // Super Admin role header cannot be spoofed without verified cryptographic token
   if (roleHeader === 'SUPER_ADMIN') {
-    return { authorized: true, role: 'SUPER_ADMIN', isSuperAdmin: true };
+    return {
+      authorized: false,
+      role: 'SUPER_ADMIN',
+      isSuperAdmin: false,
+      reason: 'Super Administrator media operations require a verified cryptographic session token.',
+    };
   }
 
   // Clinic Admin role

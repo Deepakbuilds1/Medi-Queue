@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Ticket, 
   Search, 
@@ -22,15 +22,61 @@ import { Button } from '../shared/Button';
 interface TokenQueuePageProps {
   tokens: QueueToken[];
   doctors: Doctor[];
+  loading?: boolean;
 }
 
-export const TokenQueuePage: React.FC<TokenQueuePageProps> = ({ tokens, doctors }) => {
+export const TokenQueuePage: React.FC<TokenQueuePageProps> = ({ tokens, doctors, loading = false }) => {
   const { activeClinicId, activeClinic } = useClinic();
   const [searchTerm, setSearchTerm] = useState('');
   const [doctorFilter, setDoctorFilter] = useState('ALL');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [loadingId, setLoadingId] = useState<string | null>(null);
+
+  // Optimistic overrides map (tokenId -> partial QueueToken)
+  const [optimisticOverrides, setOptimisticOverrides] = useState<Record<string, Partial<QueueToken>>>({});
+  // Optimistically deleted token IDs
+  const [optimisticDeletedIds, setOptimisticDeletedIds] = useState<Set<string>>(new Set());
+
+  // Merge server tokens with optimistic overrides and deletions
+  const effectiveTokens = useMemo(() => {
+    return tokens
+      .filter(t => !optimisticDeletedIds.has(t.id))
+      .map(t => {
+        const override = optimisticOverrides[t.id];
+        return override ? { ...t, ...override } : t;
+      });
+  }, [tokens, optimisticOverrides, optimisticDeletedIds]);
+
+  // Clean up optimistic overrides once the real-time listener delivers the updated status
+  useEffect(() => {
+    setOptimisticOverrides(prev => {
+      const remaining: Record<string, Partial<QueueToken>> = {};
+      let changed = false;
+      for (const [id, override] of Object.entries(prev)) {
+        const liveToken = tokens.find(t => t.id === id);
+        if (!liveToken || liveToken.status === override.status) {
+          changed = true;
+        } else {
+          remaining[id] = override;
+        }
+      }
+      return changed ? remaining : prev;
+    });
+
+    setOptimisticDeletedIds(prev => {
+      if (prev.size === 0) return prev;
+      const next = new Set(prev);
+      let changed = false;
+      for (const id of prev) {
+        if (!tokens.some(t => t.id === id)) {
+          next.delete(id);
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [tokens]);
 
   const [confirmModal, setConfirmModal] = useState<{
     isOpen: boolean;
@@ -46,7 +92,7 @@ export const TokenQueuePage: React.FC<TokenQueuePageProps> = ({ tokens, doctors 
     action: () => {}
   });
 
-  const filteredTokens = tokens.filter((t) => {
+  const filteredTokens = effectiveTokens.filter((t) => {
     const matchesSearch = 
       t.tokenNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
       t.patientName.toLowerCase().includes(searchTerm.toLowerCase());
@@ -59,13 +105,32 @@ export const TokenQueuePage: React.FC<TokenQueuePageProps> = ({ tokens, doctors 
     if (loadingId) return;
     setLoadingId(tokenId);
     setErrorMessage(null);
+
+    // Optimistically update status
+    const nowIso = new Date().toISOString();
+    const updatePayload: Partial<QueueToken> = { status };
+    if (status === 'CALLED') {
+      updatePayload.calledAt = nowIso;
+      playTokenCallSound();
+    } else if (status === 'COMPLETED' || status === 'CANCELLED') {
+      updatePayload.completedAt = nowIso;
+    }
+
+    setOptimisticOverrides(prev => ({
+      ...prev,
+      [tokenId]: updatePayload
+    }));
+
     try {
-      if (status === 'CALLED') {
-        playTokenCallSound();
-      }
       await updateTokenStatus(activeClinicId, tokenId, status);
     } catch (err: any) {
       console.error('Status change error:', err);
+      // Rollback on failure
+      setOptimisticOverrides(prev => {
+        const next = { ...prev };
+        delete next[tokenId];
+        return next;
+      });
       setErrorMessage(err.message || 'Queue changed. Please refresh and try again.');
     } finally {
       setLoadingId(null);
@@ -82,10 +147,24 @@ export const TokenQueuePage: React.FC<TokenQueuePageProps> = ({ tokens, doctors 
         if (loadingId) return;
         setLoadingId(token.id);
         setErrorMessage(null);
+
+        // Optimistically mark as CANCELLED
+        const nowIso = new Date().toISOString();
+        setOptimisticOverrides(prev => ({
+          ...prev,
+          [token.id]: { status: 'CANCELLED', completedAt: nowIso }
+        }));
+
         try {
           await updateTokenStatus(activeClinicId, token.id, 'CANCELLED');
         } catch (err: any) {
           console.error('Cancel error:', err);
+          // Rollback on failure
+          setOptimisticOverrides(prev => {
+            const next = { ...prev };
+            delete next[token.id];
+            return next;
+          });
           setErrorMessage(err.message || 'Queue changed. Please refresh and try again.');
         } finally {
           setLoadingId(null);
@@ -104,10 +183,23 @@ export const TokenQueuePage: React.FC<TokenQueuePageProps> = ({ tokens, doctors 
         if (loadingId) return;
         setLoadingId(token.id);
         setErrorMessage(null);
+
+        // Optimistically mark as SKIPPED
+        setOptimisticOverrides(prev => ({
+          ...prev,
+          [token.id]: { status: 'SKIPPED' }
+        }));
+
         try {
           await updateTokenStatus(activeClinicId, token.id, 'SKIPPED');
         } catch (err: any) {
           console.error('Skip error:', err);
+          // Rollback on failure
+          setOptimisticOverrides(prev => {
+            const next = { ...prev };
+            delete next[token.id];
+            return next;
+          });
           setErrorMessage(err.message || 'Queue changed. Please refresh and try again.');
         } finally {
           setLoadingId(null);
@@ -126,10 +218,20 @@ export const TokenQueuePage: React.FC<TokenQueuePageProps> = ({ tokens, doctors 
         if (loadingId) return;
         setLoadingId(token.id);
         setErrorMessage(null);
+
+        // Optimistically remove token from view
+        setOptimisticDeletedIds(prev => new Set(prev).add(token.id));
+
         try {
           await deleteToken(activeClinicId, token.id);
         } catch (err: any) {
           console.error('Delete error:', err);
+          // Rollback on failure
+          setOptimisticDeletedIds(prev => {
+            const next = new Set(prev);
+            next.delete(token.id);
+            return next;
+          });
           setErrorMessage(err.message || 'Failed to delete token. Please try again.');
         } finally {
           setLoadingId(null);
@@ -261,8 +363,51 @@ export const TokenQueuePage: React.FC<TokenQueuePageProps> = ({ tokens, doctors 
                 <th className="p-3.5 text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="text-xs divide-y divide-slate-100 font-medium text-slate-800">
-              {filteredTokens.length === 0 ? (
+            <tbody id="token-queue-table-body" className="text-xs divide-y divide-slate-100 font-medium text-slate-800">
+              {loading ? (
+                Array.from({ length: 6 }).map((_, index) => (
+                  <tr
+                    key={`token-skeleton-row-${index}`}
+                    id={`token-skeleton-row-${index}`}
+                    className="animate-pulse"
+                  >
+                    {/* Token Number */}
+                    <td className="p-3.5">
+                      <div
+                        id={`token-skeleton-badge-${index}`}
+                        className={`h-7 bg-slate-200/80 rounded-md ${index % 2 === 0 ? 'w-16' : 'w-14'}`}
+                      />
+                    </td>
+
+                    {/* Patient */}
+                    <td className="p-3.5">
+                      <div className={`h-4 bg-slate-200/80 rounded mb-1.5 ${index % 3 === 0 ? 'w-36' : index % 2 === 0 ? 'w-28' : 'w-32'}`} />
+                      <div className={`h-3 bg-slate-100 rounded ${index % 2 === 0 ? 'w-44' : 'w-36'}`} />
+                    </td>
+
+                    {/* Doctor */}
+                    <td className="p-3.5">
+                      <div className={`h-4 bg-slate-200/80 rounded mb-1 ${index % 2 === 0 ? 'w-28' : 'w-32'}`} />
+                      <div className="h-3 w-16 bg-slate-100 rounded" />
+                    </td>
+
+                    {/* Reg Time */}
+                    <td className="p-3.5">
+                      <div className="h-3.5 w-14 bg-slate-200/80 rounded" />
+                    </td>
+
+                    {/* Status */}
+                    <td className="p-3.5">
+                      <div className={`h-5 bg-slate-200/80 rounded-full ${index % 2 === 0 ? 'w-20' : 'w-24'}`} />
+                    </td>
+
+                    {/* Action Controls */}
+                    <td className="p-3.5 text-right">
+                      <div className="inline-block h-7 w-20 bg-slate-200/80 rounded-lg" />
+                    </td>
+                  </tr>
+                ))
+              ) : filteredTokens.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="p-10 text-center text-slate-400">
                     No tokens match the current filter criteria for this clinic.

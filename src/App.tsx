@@ -56,6 +56,8 @@ const MainAppContent: React.FC = () => {
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [patients, setPatients] = useState<Patient[]>([]);
   const [tokens, setTokens] = useState<QueueToken[]>([]);
+  const [tokensLoading, setTokensLoading] = useState<boolean>(true);
+  const [patientsLoading, setPatientsLoading] = useState<boolean>(true);
 
   // Connection Error Banner State
   const [connectionError, setConnectionError] = useState<string | null>(null);
@@ -94,6 +96,8 @@ const MainAppContent: React.FC = () => {
     setDoctors([]);
     setPatients([]);
     setTokens([]);
+    setTokensLoading(true);
+    setPatientsLoading(true);
     setConnectionError(null);
 
     // Public subscriptions for basic clinic configuration (scoped to validated activeClinicId)
@@ -146,18 +150,34 @@ const MainAppContent: React.FC = () => {
     if (canSubscribePatientDirectory) {
       unsubPatients = subscribePatients(
         trimmedClinicId,
-        (p) => setPatients(p),
-        (err) => setConnectionError(getErrorMessage(err, 'Connection notice: unable to sync patients directory'))
+        (p) => {
+          setPatients(p);
+          setPatientsLoading(false);
+        },
+        (err) => {
+          setPatientsLoading(false);
+          setConnectionError(getErrorMessage(err, 'Connection notice: unable to sync patients directory'));
+        }
       );
+    } else {
+      setPatientsLoading(false);
     }
 
     // Queue token listener for authorized users or active queue view
     if ((user || isSuperAdmin) && isAuthComplete && auth.currentUser) {
       unsubTokens = subscribeTodayTokens(
         trimmedClinicId,
-        (t) => setTokens(t),
-        (err) => setConnectionError(getErrorMessage(err, 'Connection notice: unable to sync today queue'))
+        (t) => {
+          setTokens(t);
+          setTokensLoading(false);
+        },
+        (err) => {
+          setTokensLoading(false);
+          setConnectionError(getErrorMessage(err, 'Connection notice: unable to sync today queue'));
+        }
       );
+    } else {
+      setTokensLoading(false);
     }
 
     return () => {
@@ -435,6 +455,9 @@ const MainAppContent: React.FC = () => {
     adminRoute = '/admin/dashboard';
   }
 
+  const isQueueLoading = clinicLoading || authLoading || tokensLoading;
+  const isPatientsTableLoading = clinicLoading || authLoading || patientsLoading;
+
   return (
     <AdminRouteGuard
       onNavigateToPatientPortal={() => navigate('/patient')}
@@ -491,6 +514,7 @@ const MainAppContent: React.FC = () => {
             <TokenQueuePage
               tokens={tokens}
               doctors={doctors}
+              loading={isQueueLoading}
             />
           )}
 
@@ -498,6 +522,7 @@ const MainAppContent: React.FC = () => {
             <PatientListPage
               patients={patients}
               tokens={tokens}
+              loading={isPatientsTableLoading}
             />
           )}
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { UserPlus, Stethoscope, Phone, User, Calendar, FileText, X } from 'lucide-react';
 import { Doctor, QueueToken } from '../../types';
 import { generateToken } from '../../services/clinicService';
@@ -28,6 +28,7 @@ export const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> =
   
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const isSubmittingRef = useRef<boolean>(false);
 
   useEffect(() => {
     if (doctors.length > 0 && (!doctorId || !doctors.find(d => d.id === doctorId))) {
@@ -39,6 +40,7 @@ export const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> =
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (loading || isSubmittingRef.current) return;
     setError(null);
 
     if (!name.trim()) {
@@ -54,6 +56,7 @@ export const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> =
       return;
     }
 
+    isSubmittingRef.current = true;
     setLoading(true);
     try {
       const token = await generateToken({
@@ -79,6 +82,7 @@ export const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> =
       setError(errObj.message || 'Failed to generate token.');
     } finally {
       setLoading(false);
+      isSubmittingRef.current = false;
     }
   };
 

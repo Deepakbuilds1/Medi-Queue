@@ -1,6 +1,26 @@
 // Web Audio API Synthesizer for Clinic Token Calling Chimes
 let audioCtx: AudioContext | null = null;
 
+export function isAudioContextSuspended(): boolean {
+  return !!audioCtx && audioCtx.state === 'suspended';
+}
+
+export async function unlockAudioContext(): Promise<boolean> {
+  try {
+    const AudioContextClass = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+    if (!audioCtx) {
+      audioCtx = new AudioContextClass();
+    }
+    if (audioCtx.state === 'suspended') {
+      await audioCtx.resume();
+    }
+    return audioCtx.state === 'running';
+  } catch (err) {
+    console.warn('Could not unlock audio context:', err);
+    return false;
+  }
+}
+
 export function playTokenCallSound() {
   try {
     const AudioContextClass = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
@@ -8,7 +28,7 @@ export function playTokenCallSound() {
       audioCtx = new AudioContextClass();
     }
     if (audioCtx.state === 'suspended') {
-      audioCtx.resume();
+      audioCtx.resume().catch(() => {});
     }
 
     const now = audioCtx.currentTime;

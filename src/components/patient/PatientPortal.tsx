@@ -407,7 +407,11 @@ export const PatientPortal: React.FC<PatientPortalProps> = ({
         {/* TAB 1: BOOK TOKEN */}
         {activeTab === 'book' && (
           <BookTokenSection
-            onTokenGenerated={(_token) => {
+            onTokenGenerated={(token) => {
+              setUserTokens(prev => {
+                if (prev.some(t => t.id === token.id)) return prev;
+                return [token, ...prev];
+              });
               setActiveTab('my-tokens');
             }}
           />

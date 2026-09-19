@@ -13,6 +13,7 @@ import {
   signSuperAdminSessionToken,
   verifySuperAdminSessionToken,
   validateSuperAdminConfig,
+  verifySuperAdminCredentials,
   setSessionCookie,
   clearSessionCookie,
   extractSessionToken,
@@ -34,6 +35,14 @@ const PORT = 3000;
 // Middleware for parsing JSON requests with 10mb limit for base64 image uploads
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// Standard production security headers
+app.use((_req: Request, res: Response, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('X-XSS-Protection', '1; mode=block');
+  next();
+});
 
 // Apply CORS middleware to API routes
 app.use('/api', (req: Request, res: Response, next) => {
@@ -68,7 +77,7 @@ app.get('/api/health', handleHealthCheck);
 app.get('/health', handleHealthCheck);
 
 // 2. Super Admin Login Handler (Server-Side Session Issuance)
-const handleSuperAdminLogin = (req: Request, res: Response) => {
+const handleSuperAdminLogin = async (req: Request, res: Response) => {
   // Verify server environment configuration (fail safe: return 503 instead of 500)
   const configCheck = validateSuperAdminConfig();
   if (!configCheck.isConfigured) {
@@ -96,7 +105,13 @@ const handleSuperAdminLogin = (req: Request, res: Response) => {
     });
   }
 
-  const { email, password } = req.body || {};
+  const { email, password, credential, idToken: bodyToken } = req.body || {};
+
+  const authHeader = req.headers['authorization'] || req.headers['Authorization'];
+  const bearerToken = typeof authHeader === 'string' && authHeader.startsWith('Bearer ')
+    ? authHeader.slice(7).trim()
+    : null;
+  const idToken = (bodyToken || bearerToken || '').trim();
 
   // 2. Validate input credentials
   if (!email || typeof email !== 'string' || !email.trim()) {
@@ -135,7 +150,39 @@ const handleSuperAdminLogin = (req: Request, res: Response) => {
     });
   }
 
-  // 3. Successful Authentication: Reset failed attempts & issue signed session token
+  // 3. Verify cryptographic credential proof (Firebase ID token or password/secret)
+  const credCheck = await verifySuperAdminCredentials({
+    email: cleanEmail,
+    password,
+    credential,
+    idToken,
+  });
+
+  if (!credCheck.valid) {
+    const failedResult = recordFailedAttempt(clientIp, rateLimitStatus.record);
+
+    if (failedResult.isLocked) {
+      console.warn(`[SECURITY AUDIT] Super Admin lockout triggered for IP: ${clientIp}`);
+      return res.status(429).json({
+        success: false,
+        code: 'RATE_LIMITED',
+        message: 'Too many failed attempts. Super Admin access has been temporarily locked for 15 minutes.',
+        error: 'Too many failed attempts. Super Admin access has been temporarily locked for 15 minutes.',
+        locked: true,
+        remainingSeconds: failedResult.remainingSeconds,
+      });
+    }
+
+    return res.status(401).json({
+      success: false,
+      code: 'INVALID_CREDENTIALS',
+      message: credCheck.error || 'Invalid Super Admin credentials.',
+      error: credCheck.error || 'Invalid Super Admin credentials.',
+      remainingAttempts: failedResult.remainingAttempts,
+    });
+  }
+
+  // 4. Successful Authentication: Reset failed attempts & issue signed session token
   clearFailedAttempts(clientIp);
 
   const { token, expiresIn, payload } = signSuperAdminSessionToken({
@@ -207,6 +254,7 @@ const handleSuperAdminSessionCheck = (req: Request, res: Response) => {
 };
 
 app.get('/api/super-admin/session', handleSuperAdminSessionCheck);
+app.post('/api/super-admin/session', handleSuperAdminSessionCheck);
 app.post('/api/super-admin/verify-session', handleSuperAdminSessionCheck);
 app.get('/api/super-admin/verify-session', handleSuperAdminSessionCheck);
 
@@ -484,9 +532,27 @@ async function startServer() {
     });
   }
 
-  httpServer.listen(PORT, '0.0.0.0', () => {
+  const server = httpServer.listen(PORT, '0.0.0.0', () => {
     console.log(`MediQueue server running on http://0.0.0.0:${PORT}`);
   });
+
+  // Graceful shutdown handling for container and cloud orchestration (Cloud Run, Kubernetes, Docker)
+  const gracefulShutdown = (signal: string) => {
+    console.log(`[Lifecycle] Received ${signal}. Draining in-flight requests and shutting down gracefully...`);
+    server.close(() => {
+      console.log('[Lifecycle] HTTP server connections closed cleanly.');
+      process.exit(0);
+    });
+
+    // Enforce shutdown after 10-second timeout if keep-alive connections do not drain
+    setTimeout(() => {
+      console.error('[Lifecycle] Forced shutdown after connection drain timeout.');
+      process.exit(1);
+    }, 10000).unref();
+  };
+
+  process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+  process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 }
 
 // Only start the standalone server when executed directly

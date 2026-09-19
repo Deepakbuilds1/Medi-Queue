@@ -117,9 +117,11 @@ export const getTodayDateString = (): string => {
   return `${year}-${month}-${day}`;
 };
 
+import { getStoredSuperAdminToken as getStoredSuperAdminTokenFromStorage } from '../utils/tokenStorage';
+
 export function getStoredSuperAdminToken(): string | null {
   if (typeof window === 'undefined') return null;
-  return sessionStorage.getItem('mediqueue_super_admin_session') || 
+  return getStoredSuperAdminTokenFromStorage() || 
          localStorage.getItem('mediqueue_super_admin_session');
 }
 
@@ -2276,47 +2278,128 @@ export async function generateToken(params: {
     if (!patientRecordId) patientRecordId = `pat-${Date.now()}`;
   }
 
-  // 4. Calculate daily doctor-specific sequential token number within clinic
+  // 4. Calculate daily doctor-specific sequential token number within clinic atomically
   const todayStr = getTodayDateString();
-  const q = query(
-    collection(db, 'clinics', clinicId, 'tokens'),
-    where('queueDate', '==', todayStr),
-    where('doctorId', '==', doctorId)
-  );
-  const existingSnap = await getDocs(q);
-  const nextCount = existingSnap.size + 1;
-  const prefix = doctor.tokenPrefix || clinicData?.tokenPrefix || 'A';
-  const tokenNumber = `${prefix}-${String(nextCount).padStart(3, '0')}`;
+  const counterDocId = `token_seq_${todayStr}_${doctorId}`;
+  const counterRef = doc(db, 'clinics', clinicId, 'counters', counterDocId);
+  const tokenCol = collection(db, 'clinics', clinicId, 'tokens');
+  const newTokenRef = doc(tokenCol);
 
-  const now = new Date().toISOString();
-  const tokenData = {
-    clinicId,
-    clinicName,
-    tokenNumber,
-    patientId: patientRecordId,
-    userId: userId || auth.currentUser?.uid || '',
-    patientName,
-    patientAge: Number(age),
-    patientGender: gender,
-    patientPhone: phone,
-    reason: reason || 'General Consultation',
-    doctorId: doctor.id,
-    doctorName: doctor.name,
-    roomNumber: doctor.roomNumber,
-    status: 'WAITING' as TokenStatus,
-    createdAt: now,
-    calledAt: null,
-    completedAt: null,
-    queueDate: todayStr
-  };
+  // Scan existing tokens once as seed fallback in case counter does not yet exist or was cleared
+  let fallbackHighestCount = 0;
+  try {
+    const q = query(
+      tokenCol,
+      where('queueDate', '==', todayStr),
+      where('doctorId', '==', doctorId)
+    );
+    const existingSnap = await getDocs(q);
+    fallbackHighestCount = existingSnap.size;
+    existingSnap.forEach(d => {
+      const data = d.data();
+      if (data?.tokenNumber) {
+        const parts = String(data.tokenNumber).split('-');
+        if (parts.length > 1) {
+          const num = parseInt(parts[parts.length - 1], 10);
+          if (!isNaN(num) && num > fallbackHighestCount) {
+            fallbackHighestCount = num;
+          }
+        }
+      }
+    });
+  } catch (scanErr) {
+    console.warn('Initial token scan notice:', scanErr);
+  }
 
-  // Write token to Firestore clinic subcollection
-  const tokenRef = await addDoc(collection(db, 'clinics', clinicId, 'tokens'), tokenData);
+  let tokenDataResult: QueueToken;
 
-  return {
-    id: tokenRef.id,
-    ...tokenData
-  };
+  try {
+    tokenDataResult = await runTransaction(db, async (transaction) => {
+      const counterDoc = await transaction.get(counterRef);
+      let nextCount = 1;
+      if (counterDoc.exists()) {
+        const counterVal = Number(counterDoc.data()?.lastNumber) || 0;
+        nextCount = counterVal + 1;
+      } else {
+        nextCount = fallbackHighestCount + 1;
+      }
+
+      const prefix = doctor.tokenPrefix || clinicData?.tokenPrefix || 'A';
+      const tokenNumber = `${prefix}-${String(nextCount).padStart(3, '0')}`;
+      const now = new Date().toISOString();
+
+      const tokenData = {
+        clinicId,
+        clinicName,
+        tokenNumber,
+        patientId: patientRecordId,
+        userId: userId || auth.currentUser?.uid || '',
+        patientName,
+        patientAge: Number(age),
+        patientGender: gender,
+        patientPhone: phone,
+        reason: reason || 'General Consultation',
+        doctorId: doctor.id,
+        doctorName: doctor.name,
+        roomNumber: doctor.roomNumber,
+        status: 'WAITING' as TokenStatus,
+        createdAt: now,
+        calledAt: null,
+        completedAt: null,
+        queueDate: todayStr
+      };
+
+      transaction.set(counterRef, {
+        lastNumber: nextCount,
+        updatedAt: now,
+        queueDate: todayStr,
+        doctorId: doctor.id,
+        clinicId
+      }, { merge: true });
+
+      transaction.set(newTokenRef, tokenData);
+
+      return {
+        id: newTokenRef.id,
+        ...tokenData
+      };
+    });
+  } catch (txErr) {
+    console.warn('Atomic counter transaction fallback triggered:', txErr);
+    // Non-transactional fallback if offline or restricted by environment
+    const nextCount = fallbackHighestCount + 1;
+    const prefix = doctor.tokenPrefix || clinicData?.tokenPrefix || 'A';
+    const tokenNumber = `${prefix}-${String(nextCount).padStart(3, '0')}`;
+    const now = new Date().toISOString();
+    const tokenData = {
+      clinicId,
+      clinicName,
+      tokenNumber,
+      patientId: patientRecordId,
+      userId: userId || auth.currentUser?.uid || '',
+      patientName,
+      patientAge: Number(age),
+      patientGender: gender,
+      patientPhone: phone,
+      reason: reason || 'General Consultation',
+      doctorId: doctor.id,
+      doctorName: doctor.name,
+      roomNumber: doctor.roomNumber,
+      status: 'WAITING' as TokenStatus,
+      createdAt: now,
+      calledAt: null,
+      completedAt: null,
+      queueDate: todayStr
+    };
+
+    const tokenRef = await addDoc(tokenCol, tokenData);
+    tokenDataResult = {
+      id: tokenRef.id,
+      ...tokenData
+    };
+  }
+
+  return tokenDataResult;
 }
 
 // -------------------------------------------------------------
@@ -2615,13 +2698,12 @@ export function subscribePublicQueue(
 
       // 1. UP NEXT (WAITING): sorted by createdAt ascending
       const upNext = todayTokens
-        .filter(t => t.status === 'WAITING' && t.tokenNumber.toUpperCase() !== 'A-024')
+        .filter(t => t.status === 'WAITING')
         .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
 
       // 2. NOW SERVING: Show ONLY the currently active/called token (at most ONE per doctor)
       const activeTokens = todayTokens.filter(t => 
-        (t.status === 'CALLED' || t.status === 'IN CONSULTATION') &&
-        t.tokenNumber.toUpperCase() !== 'A-024'
+        t.status === 'CALLED' || t.status === 'IN CONSULTATION'
       );
 
       const latestPerDoctor = new Map<string, QueueToken>();

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Volume2, Building2, Monitor, ArrowLeft } from 'lucide-react';
 import { ClinicSettings, QueueToken } from '../../types';
 import { subscribePublicQueue } from '../../services/clinicService';
-import { playTokenCallSound } from '../../lib/sound';
+import { playTokenCallSound, unlockAudioContext } from '../../lib/sound';
 import { useClinic } from '../../context/ClinicContext';
 import { Button } from '../shared/Button';
 
@@ -19,7 +19,9 @@ export const PublicDisplay: React.FC<PublicDisplayProps> = ({ settings, onNaviga
     upNext: QueueToken[];
   }>({ nowServing: [], upNext: [] });
 
-  const lastCalledIdRef = useRef<string | null>(null);
+  // Multi-doctor active token tracking map: doctorId -> tokenId
+  const doctorActiveTokenMapRef = useRef<Map<string, string>>(new Map());
+  const isInitialMountRef = useRef<boolean>(true);
   const [highlightingId, setHighlightingId] = useState<string | null>(null);
   const [currentTime, setCurrentTime] = useState(new Date());
 
@@ -28,19 +30,63 @@ export const PublicDisplay: React.FC<PublicDisplayProps> = ({ settings, onNaviga
     return () => clearInterval(clockTimer);
   }, []);
 
+  // Unlock AudioContext on first user interaction anywhere on the screen
   useEffect(() => {
+    const handleUserInteraction = () => {
+      unlockAudioContext();
+    };
+    window.addEventListener('click', handleUserInteraction, { once: true });
+    window.addEventListener('keydown', handleUserInteraction, { once: true });
+    window.addEventListener('touchstart', handleUserInteraction, { once: true });
+    return () => {
+      window.removeEventListener('click', handleUserInteraction);
+      window.removeEventListener('keydown', handleUserInteraction);
+      window.removeEventListener('touchstart', handleUserInteraction);
+    };
+  }, []);
+
+  useEffect(() => {
+    isInitialMountRef.current = true;
+    doctorActiveTokenMapRef.current.clear();
+
     const unsubscribe = subscribePublicQueue(activeClinicId, (data) => {
       setPublicQueue(data);
 
-      // Check if a new token was called
-      if (data.nowServing.length > 0) {
-        const topServing = data.nowServing[0];
-        if (lastCalledIdRef.current && lastCalledIdRef.current !== topServing.id) {
+      if (isInitialMountRef.current) {
+        // Record current serving tokens on initial load without chiming
+        const initialMap = new Map<string, string>();
+        for (const token of data.nowServing) {
+          const docKey = token.doctorId || token.id;
+          initialMap.set(docKey, token.id);
+        }
+        doctorActiveTokenMapRef.current = initialMap;
+        isInitialMountRef.current = false;
+      } else {
+        // Multi-doctor check: detect if ANY doctor called a new token
+        let newlyCalledToken: QueueToken | null = null;
+        for (const token of data.nowServing) {
+          const docKey = token.doctorId || token.id;
+          const previousTokenId = doctorActiveTokenMapRef.current.get(docKey);
+          if (previousTokenId !== token.id) {
+            newlyCalledToken = token;
+            break;
+          }
+        }
+
+        // Update tracking map with the latest active tokens
+        const updatedMap = new Map<string, string>();
+        for (const token of data.nowServing) {
+          const docKey = token.doctorId || token.id;
+          updatedMap.set(docKey, token.id);
+        }
+        doctorActiveTokenMapRef.current = updatedMap;
+
+        // Play chime and trigger highlight if a new patient token was called
+        if (newlyCalledToken) {
           playTokenCallSound();
-          setHighlightingId(topServing.id);
+          setHighlightingId(newlyCalledToken.id);
           setTimeout(() => setHighlightingId(null), 5000);
         }
-        lastCalledIdRef.current = topServing.id;
       }
     });
 

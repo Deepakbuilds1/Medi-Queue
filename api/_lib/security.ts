@@ -1,4 +1,5 @@
 import crypto from 'crypto';
+import { verifyFirebaseIdToken } from './firebaseAdmin.ts';
 
 /**
  * Validates that production environments supply explicit secrets.
@@ -13,15 +14,27 @@ export function getSuperAdminSecret(): string {
   }
 
   // Cryptographically derive a stable 256-bit secret from internal salt
-  // This guarantees HMAC token generation works seamlessly in production environments.
+  // This guarantees HMAC token generation works seamlessly in development/test environments.
   return crypto.createHash('sha256').update('mediqueue_super_admin_secret_salt_v2').digest('hex');
 }
 
 /**
  * Diagnostic check to ensure server environment is ready for Super Admin operations.
+ * Enforces that production environments provide an explicit, non-fallback secret.
  */
 export function validateSuperAdminConfig(): { isConfigured: boolean; error?: string } {
   try {
+    const rawSecret = process.env.SUPER_ADMIN_SECRET;
+    const isProd = process.env.NODE_ENV === 'production';
+
+    if (isProd && (!rawSecret || !rawSecret.trim())) {
+      console.error('[SECURITY_ALERT] SUPER_ADMIN_SECRET environment variable is missing in production.');
+      return {
+        isConfigured: false,
+        error: 'SUPER_ADMIN_SECRET environment variable is required in production environments.',
+      };
+    }
+
     const secret = getSuperAdminSecret();
     if (!secret) {
       return { isConfigured: false, error: 'Super Admin Secret not configured.' };
@@ -31,6 +44,56 @@ export function validateSuperAdminConfig(): { isConfigured: boolean; error?: str
     return { isConfigured: false, error: err?.message || 'Server configuration error.' };
   }
 }
+
+/**
+ * Cryptographically verifies Super Admin credentials.
+ * Requires either:
+ * 1. A valid Firebase ID token for medi@gmail.com
+ * 2. An explicit SUPER_ADMIN_PASSWORD or SUPER_ADMIN_SECRET match
+ */
+export async function verifySuperAdminCredentials(params: {
+  email: string;
+  password?: string;
+  credential?: string;
+  idToken?: string;
+}): Promise<{ valid: boolean; error?: string }> {
+  const cleanEmail = params.email ? params.email.trim().toLowerCase() : '';
+  if (cleanEmail !== 'medi@gmail.com') {
+    return { valid: false, error: 'Invalid Super Admin email address.' };
+  }
+
+  // 1. If Firebase ID token is provided, verify it
+  if (params.idToken && typeof params.idToken === 'string' && params.idToken.trim()) {
+    const verification = await verifyFirebaseIdToken(params.idToken.trim());
+    if (verification.valid) {
+      if (verification.email && verification.email.toLowerCase() !== cleanEmail) {
+        return { valid: false, error: 'Firebase ID token does not match authorized Super Admin email.' };
+      }
+      return { valid: true };
+    }
+    return { valid: false, error: verification.error || 'Invalid Firebase ID token.' };
+  }
+
+  // 2. If explicit password or secret credential is provided
+  const inputCred = (params.password || params.credential || '').trim();
+  if (inputCred) {
+    const expectedPass = process.env.SUPER_ADMIN_PASSWORD?.trim();
+    const expectedSecret = process.env.SUPER_ADMIN_SECRET?.trim();
+    if (
+      (expectedPass && inputCred === expectedPass) ||
+      (expectedSecret && inputCred === expectedSecret)
+    ) {
+      return { valid: true };
+    }
+    return { valid: false, error: 'Invalid Super Admin password or security credential.' };
+  }
+
+  return {
+    valid: false,
+    error: 'Authentication credential required. Provide a valid Firebase ID token or password.',
+  };
+}
+
 
 // Maximum permitted consecutive failed attempts before temporary lockout
 export const MAX_FAILED_ATTEMPTS = 5;

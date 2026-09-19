@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import {
   signSuperAdminSessionToken,
   verifySuperAdminSessionToken,
+  validateSuperAdminConfig,
   checkRateLimit,
   recordFailedAttempt,
   clearFailedAttempts,
@@ -77,6 +78,32 @@ describe('Super Admin Security & Token Verification Core', () => {
     const clearedStatus = checkRateLimit(testIp);
     expect(clearedStatus.isLocked).toBe(false);
   });
+
+  it('validateSuperAdminConfig enforces explicit secret in production environment', () => {
+    const origEnv = process.env.NODE_ENV;
+    const origSecret = process.env.SUPER_ADMIN_SECRET;
+
+    try {
+      process.env.NODE_ENV = 'production';
+      delete process.env.SUPER_ADMIN_SECRET;
+
+      const prodConfig = validateSuperAdminConfig();
+      expect(prodConfig.isConfigured).toBe(false);
+      expect(prodConfig.error).toContain('SUPER_ADMIN_SECRET');
+
+      // When configured:
+      process.env.SUPER_ADMIN_SECRET = 'a_very_secure_random_production_secret_key_123';
+      const validConfig = validateSuperAdminConfig();
+      expect(validConfig.isConfigured).toBe(true);
+    } finally {
+      process.env.NODE_ENV = origEnv;
+      if (origSecret) {
+        process.env.SUPER_ADMIN_SECRET = origSecret;
+      } else {
+        delete process.env.SUPER_ADMIN_SECRET;
+      }
+    }
+  });
 });
 
 describe('Vercel Serverless Function Endpoints (/api)', () => {
@@ -88,6 +115,12 @@ describe('Vercel Serverless Function Endpoints (/api)', () => {
   app.post('/api/super-admin/verify-session', (req, res) => verifySessionHandler(req as any, res as any));
   app.get('/api/super-admin/session', (req, res) => sessionHandler(req as any, res as any));
   app.post('/api/super-admin/logout', (req, res) => logoutHandler(req as any, res as any));
+
+  const mockValidIdToken = `header.${Buffer.from(JSON.stringify({
+    email: 'medi@gmail.com',
+    user_id: 'super_admin_test_uid',
+    exp: Math.floor(Date.now() / 1000) + 3600,
+  })).toString('base64url')}.mockSignature`;
 
   it('GET /api/health returns 200 with ok status', async () => {
     const res = await request(app).get('/api/health');
@@ -112,10 +145,20 @@ describe('Vercel Serverless Function Endpoints (/api)', () => {
     expect(jsonBody.status).toBe('ok');
   });
 
+  it('POST /api/super-admin/auth rejects unauthenticated request missing credentials with 401', async () => {
+    const res = await request(app)
+      .post('/api/super-admin/auth')
+      .send({ email: 'medi@gmail.com' }); // Missing idToken and password
+
+    expect(res.status).toBe(401);
+    expect(res.body.success).toBe(false);
+    expect(res.body.code).toBe('INVALID_CREDENTIALS');
+  });
+
   it('POST /api/super-admin/auth authenticates valid credentials and sets Set-Cookie', async () => {
     const res = await request(app)
       .post('/api/super-admin/auth')
-      .send({ email: 'medi@gmail.com' });
+      .send({ email: 'medi@gmail.com', idToken: mockValidIdToken });
 
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
@@ -133,7 +176,7 @@ describe('Vercel Serverless Function Endpoints (/api)', () => {
   it('POST /api/super-admin/login also works identically for backward compatibility', async () => {
     const res = await request(app)
       .post('/api/super-admin/login')
-      .send({ email: 'medi@gmail.com' });
+      .send({ email: 'medi@gmail.com', idToken: mockValidIdToken });
 
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
@@ -143,7 +186,7 @@ describe('Vercel Serverless Function Endpoints (/api)', () => {
   it('GET /api/super-admin/session validates session via cookie or token', async () => {
     const loginRes = await request(app)
       .post('/api/super-admin/auth')
-      .send({ email: 'medi@gmail.com' });
+      .send({ email: 'medi@gmail.com', idToken: mockValidIdToken });
 
     const cookie = loginRes.headers['set-cookie'];
 
@@ -165,7 +208,7 @@ describe('Vercel Serverless Function Endpoints (/api)', () => {
   it('POST /api/super-admin/verify-session validates token via Authorization header', async () => {
     const loginRes = await request(app)
       .post('/api/super-admin/auth')
-      .send({ email: 'medi@gmail.com' });
+      .send({ email: 'medi@gmail.com', idToken: mockValidIdToken });
 
     const verifyRes = await request(app)
       .post('/api/super-admin/verify-session')
@@ -223,7 +266,7 @@ describe('Vercel Serverless Function Endpoints (/api)', () => {
     const rawReq = {
       headers: { 'content-type': 'application/json' },
       method: 'POST',
-      body: { email: 'medi@gmail.com' },
+      body: { email: 'medi@gmail.com', idToken: mockValidIdToken },
     };
 
     const rawRes = {

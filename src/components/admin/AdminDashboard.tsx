@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Users, 
   Clock, 
@@ -43,6 +43,35 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [selectedDoctorFilter, setSelectedDoctorFilter] = useState<string>('ALL');
   const [loadingAction, setLoadingAction] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  // Optimistic token overrides map (tokenId -> partial QueueToken)
+  const [optimisticOverrides, setOptimisticOverrides] = useState<Record<string, Partial<QueueToken>>>({});
+
+  // Merge server tokens with optimistic overrides
+  const effectiveTokens = useMemo(() => {
+    if (Object.keys(optimisticOverrides).length === 0) return tokens;
+    return tokens.map(t => {
+      const override = optimisticOverrides[t.id];
+      return override ? { ...t, ...override } : t;
+    });
+  }, [tokens, optimisticOverrides]);
+
+  // Clean up optimistic overrides once the real-time listener delivers the updated status
+  useEffect(() => {
+    setOptimisticOverrides(prev => {
+      const remaining: Record<string, Partial<QueueToken>> = {};
+      let changed = false;
+      for (const [id, override] of Object.entries(prev)) {
+        const liveToken = tokens.find(t => t.id === id);
+        // If live token has caught up to the optimistic status, remove the override
+        if (!liveToken || liveToken.status === override.status) {
+          changed = true;
+        } else {
+          remaining[id] = override;
+        }
+      }
+      return changed ? remaining : prev;
+    });
+  }, [tokens]);
 
   // Confirm modal state
   const [confirmModal, setConfirmModal] = useState<{
@@ -57,10 +86,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     action: () => {}
   });
 
-  // Filter tokens by doctor
+  // Filter tokens by doctor using effective tokens
   const filteredTokens = selectedDoctorFilter === 'ALL'
-    ? tokens
-    : tokens.filter(t => t.doctorId === selectedDoctorFilter);
+    ? effectiveTokens
+    : effectiveTokens.filter(t => t.doctorId === selectedDoctorFilter);
 
   // Calculate Metrics
   const totalToday = filteredTokens.length;
@@ -77,16 +106,63 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     if (loadingAction) return;
     setLoadingAction(true);
     setActionError(null);
+
+    // Identify next waiting candidate to call optimistically
+    const nextCandidate = filteredTokens
+      .filter(t => t.status === 'WAITING')
+      .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())[0];
+
+    // Find any currently active tokens for this doctor that will auto-complete
+    const currentlyActive = filteredTokens.filter(
+      t => (t.status === 'CALLED' || t.status === 'IN CONSULTATION') &&
+           (!nextCandidate?.doctorId || t.doctorId === nextCandidate.doctorId)
+    );
+
+    const rollbackOverrides: Record<string, Partial<QueueToken>> = {};
+    if (nextCandidate) {
+      const nowIso = new Date().toISOString();
+      const newOverrides: Record<string, Partial<QueueToken>> = {
+        [nextCandidate.id]: { status: 'CALLED', calledAt: nowIso }
+      };
+      currentlyActive.forEach(act => {
+        newOverrides[act.id] = { status: 'COMPLETED', completedAt: nowIso };
+      });
+
+      // Apply optimistic update immediately
+      setOptimisticOverrides(prev => ({ ...prev, ...newOverrides }));
+      playTokenCallSound();
+    }
+
     try {
       const doctorIdToCall = selectedDoctorFilter === 'ALL' ? undefined : selectedDoctorFilter;
       const called = await callNextToken(activeClinicId, doctorIdToCall);
       if (called) {
-        playTokenCallSound();
+        if (!nextCandidate) {
+          playTokenCallSound();
+        }
       } else {
+        // Rollback if no candidate was actually waiting on the server
+        if (nextCandidate) {
+          setOptimisticOverrides(prev => {
+            const next = { ...prev };
+            delete next[nextCandidate.id];
+            currentlyActive.forEach(act => delete next[act.id]);
+            return next;
+          });
+        }
         setActionError('No patients currently waiting in queue.');
       }
     } catch (err: any) {
       console.error('Call next error:', err);
+      // Rollback optimistic state on failure
+      if (nextCandidate) {
+        setOptimisticOverrides(prev => {
+          const next = { ...prev };
+          delete next[nextCandidate.id];
+          currentlyActive.forEach(act => delete next[act.id]);
+          return next;
+        });
+      }
       setActionError(err.message || 'Queue changed. Please refresh and try again.');
     } finally {
       setLoadingAction(false);
@@ -97,11 +173,26 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     if (loadingAction) return;
     setLoadingAction(true);
     setActionError(null);
+
+    // Optimistically update status to CALLED and play sound immediately
+    const prevStatus = token.status;
+    const nowIso = new Date().toISOString();
+    setOptimisticOverrides(prev => ({
+      ...prev,
+      [token.id]: { status: 'CALLED', calledAt: nowIso }
+    }));
+    playTokenCallSound();
+
     try {
       await updateTokenStatus(activeClinicId, token.id, 'CALLED');
-      playTokenCallSound();
     } catch (err: any) {
-      console.error(err);
+      console.error('Recall error:', err);
+      // Rollback on failure
+      setOptimisticOverrides(prev => {
+        const next = { ...prev };
+        delete next[token.id];
+        return next;
+      });
       setActionError(err.message || 'Queue changed. Please refresh and try again.');
     } finally {
       setLoadingAction(false);
@@ -117,9 +208,22 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         if (loadingAction) return;
         setLoadingAction(true);
         setActionError(null);
+
+        // Optimistically set to SKIPPED
+        setOptimisticOverrides(prev => ({
+          ...prev,
+          [token.id]: { status: 'SKIPPED' }
+        }));
+
         try {
           await updateTokenStatus(activeClinicId, token.id, 'SKIPPED');
         } catch (err: any) {
+          // Rollback on failure
+          setOptimisticOverrides(prev => {
+            const next = { ...prev };
+            delete next[token.id];
+            return next;
+          });
           setActionError(err.message || 'Queue changed. Please refresh and try again.');
         } finally {
           setLoadingAction(false);
@@ -132,9 +236,22 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     if (loadingAction) return;
     setLoadingAction(true);
     setActionError(null);
+
+    // Optimistically set to IN CONSULTATION
+    setOptimisticOverrides(prev => ({
+      ...prev,
+      [token.id]: { status: 'IN CONSULTATION' }
+    }));
+
     try {
       await updateTokenStatus(activeClinicId, token.id, 'IN CONSULTATION');
     } catch (err: any) {
+      // Rollback on failure
+      setOptimisticOverrides(prev => {
+        const next = { ...prev };
+        delete next[token.id];
+        return next;
+      });
       setActionError(err.message || 'Queue changed. Please refresh and try again.');
     } finally {
       setLoadingAction(false);
@@ -145,9 +262,23 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     if (loadingAction) return;
     setLoadingAction(true);
     setActionError(null);
+
+    // Optimistically set to COMPLETED with completedAt timestamp
+    const nowIso = new Date().toISOString();
+    setOptimisticOverrides(prev => ({
+      ...prev,
+      [token.id]: { status: 'COMPLETED', completedAt: nowIso }
+    }));
+
     try {
       await updateTokenStatus(activeClinicId, token.id, 'COMPLETED');
     } catch (err: any) {
+      // Rollback on failure
+      setOptimisticOverrides(prev => {
+        const next = { ...prev };
+        delete next[token.id];
+        return next;
+      });
       setActionError(err.message || 'Queue changed. Please refresh and try again.');
     } finally {
       setLoadingAction(false);
@@ -540,19 +671,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           type="button"
                           variant="Primary"
                           size="sm"
-                          onClick={async () => {
-                            if (loadingAction) return;
-                            setLoadingAction(true);
-                            setActionError(null);
-                            try {
-                              await updateTokenStatus(activeClinicId, t.id, 'CALLED');
-                              playTokenCallSound();
-                            } catch (err: any) {
-                              setActionError(err.message || 'Unable to call patient');
-                            } finally {
-                              setLoadingAction(false);
-                            }
-                          }}
+                          onClick={() => handleRecall(t)}
                           className="text-[11px] py-1 px-2.5 h-auto"
                         >
                           Call

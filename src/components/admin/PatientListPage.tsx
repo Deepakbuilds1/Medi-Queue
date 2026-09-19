@@ -8,9 +8,10 @@ import { Button } from '../shared/Button';
 interface PatientListPageProps {
   patients: Patient[];
   tokens: QueueToken[];
+  loading?: boolean;
 }
 
-export const PatientListPage: React.FC<PatientListPageProps> = ({ patients, tokens }) => {
+export const PatientListPage: React.FC<PatientListPageProps> = ({ patients, tokens, loading = false }) => {
   const { activeClinicId, activeClinic } = useClinic();
   const [searchTerm, setSearchTerm] = useState('');
   
@@ -109,8 +110,55 @@ export const PatientListPage: React.FC<PatientListPageProps> = ({ patients, toke
                 <th className="p-3.5 text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="text-xs divide-y divide-slate-100 font-medium text-slate-800">
-              {filteredPatients.length === 0 ? (
+            <tbody id="patient-list-table-body" className="text-xs divide-y divide-slate-100 font-medium text-slate-800">
+              {loading ? (
+                Array.from({ length: 6 }).map((_, index) => (
+                  <tr
+                    key={`patient-skeleton-row-${index}`}
+                    id={`patient-skeleton-row-${index}`}
+                    className="animate-pulse"
+                  >
+                    {/* Patient ID */}
+                    <td className="p-3.5">
+                      <div
+                        id={`patient-skeleton-id-${index}`}
+                        className="h-4 w-20 bg-slate-200/80 rounded font-mono"
+                      />
+                    </td>
+
+                    {/* Name */}
+                    <td className="p-3.5">
+                      <div className={`h-4 bg-slate-200/80 rounded ${index % 3 === 0 ? 'w-36' : index % 2 === 0 ? 'w-28' : 'w-32'}`} />
+                    </td>
+
+                    {/* Demographics */}
+                    <td className="p-3.5">
+                      <div className={`h-3.5 bg-slate-200/80 rounded ${index % 2 === 0 ? 'w-24' : 'w-20'}`} />
+                    </td>
+
+                    {/* Phone Number */}
+                    <td className="p-3.5">
+                      <div className="h-3.5 w-28 bg-slate-200/80 rounded font-mono" />
+                    </td>
+
+                    {/* Last Visit */}
+                    <td className="p-3.5">
+                      <div className="h-3.5 w-20 bg-slate-200/80 rounded" />
+                    </td>
+
+                    {/* Visits */}
+                    <td className="p-3.5">
+                      <div className="h-5 w-8 bg-slate-200/80 rounded" />
+                    </td>
+
+                    {/* Actions */}
+                    <td className="p-3.5 text-right space-x-1.5">
+                      <div className="inline-block h-7 w-18 bg-slate-200/80 rounded-lg" />
+                      <div className="inline-block h-7 w-14 bg-slate-200/80 rounded-lg" />
+                    </td>
+                  </tr>
+                ))
+              ) : filteredPatients.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="p-10 text-center text-slate-400">
                     No patient records found matching your search.

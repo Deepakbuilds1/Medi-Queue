@@ -19,183 +19,19 @@ import { formatFirestoreError } from '../utils/errorUtils';
 /**
  * Centralized Firebase Authentication error details and user-friendly mapping.
  */
-export interface AuthErrorDetails {
-  code: string;
-  userMessage: string;
-  isNetworkError: boolean;
-  isCredentialError: boolean;
-}
+export {
+  type AuthErrorDetails,
+  parseAuthError,
+  logAuthError,
+  handleAuthError,
+} from '../services/authErrorHandler';
 
-/**
- * Maps raw Firebase authentication error codes to clean, safe, user-friendly messages.
- * Prevents account enumeration and never exposes raw stack traces or internal secrets.
- */
-export function parseAuthError(error: unknown, defaultFallback = 'Authentication failed. Please try again.'): AuthErrorDetails {
-  if (!error) {
-    return {
-      code: 'unknown',
-      userMessage: defaultFallback,
-      isNetworkError: false,
-      isCredentialError: false,
-    };
-  }
-
-  let code = 'unknown';
-  let rawMessage = '';
-
-  if (typeof error === 'object' && error !== null) {
-    const errObj = error as { code?: string; message?: string };
-    if (typeof errObj.code === 'string') {
-      code = errObj.code;
-    }
-    if (typeof errObj.message === 'string') {
-      rawMessage = errObj.message;
-    }
-  } else if (typeof error === 'string') {
-    rawMessage = error;
-    if (error.includes('auth/')) {
-      const match = error.match(/auth\/[a-z0-9-]+/i);
-      if (match) {
-        code = match[0];
-      }
-    }
-  }
-
-  // Handle specific Firebase error codes
-  switch (code) {
-    case 'auth/invalid-credential':
-    case 'auth/wrong-password':
-    case 'auth/user-not-found':
-      return {
-        code,
-        userMessage: 'Invalid email or password. Please check your credentials and try again.',
-        isNetworkError: false,
-        isCredentialError: true,
-      };
-
-    case 'auth/user-disabled':
-      return {
-        code,
-        userMessage: 'This account has been disabled. Please contact clinic support or the administrator.',
-        isNetworkError: false,
-        isCredentialError: true,
-      };
-
-    case 'auth/too-many-requests':
-      return {
-        code,
-        userMessage: 'Too many unsuccessful attempts. Access is temporarily delayed. Please wait a moment or reset your password.',
-        isNetworkError: false,
-        isCredentialError: false,
-      };
-
-    case 'auth/network-request-failed':
-      return {
-        code,
-        userMessage: 'Network connectivity error. Please check your internet connection and try again.',
-        isNetworkError: true,
-        isCredentialError: false,
-      };
-
-    case 'auth/email-already-in-use':
-      return {
-        code,
-        userMessage: 'An account with this email already exists. Please sign in instead.',
-        isNetworkError: false,
-        isCredentialError: false,
-      };
-
-    case 'auth/weak-password':
-      return {
-        code,
-        userMessage: 'Password must be at least 6 characters in length.',
-        isNetworkError: false,
-        isCredentialError: false,
-      };
-
-    case 'auth/invalid-email':
-      return {
-        code,
-        userMessage: 'Please enter a valid email address.',
-        isNetworkError: false,
-        isCredentialError: false,
-      };
-
-    case 'auth/operation-not-allowed':
-      return {
-        code,
-        userMessage: 'Email/Password authentication is disabled in the Firebase project console.',
-        isNetworkError: false,
-        isCredentialError: false,
-      };
-
-    case 'auth/invalid-api-key':
-    case 'auth/api-key-not-valid':
-      return {
-        code,
-        userMessage: 'Firebase configuration error: The configured API key is invalid.',
-        isNetworkError: false,
-        isCredentialError: false,
-      };
-
-    case 'auth/requires-recent-login':
-      return {
-        code,
-        userMessage: 'This operation requires recent authentication. Please sign in again.',
-        isNetworkError: false,
-        isCredentialError: false,
-      };
-
-    case 'auth/popup-closed-by-user':
-    case 'auth/cancelled-popup-request':
-      return {
-        code,
-        userMessage: 'Authentication was cancelled.',
-        isNetworkError: false,
-        isCredentialError: false,
-      };
-
-    default:
-      if (rawMessage && !rawMessage.includes('Firebase: Error') && !rawMessage.includes('auth/')) {
-        return {
-          code,
-          userMessage: rawMessage,
-          isNetworkError: false,
-          isCredentialError: false,
-        };
-      }
-
-      return {
-        code,
-        userMessage: defaultFallback,
-        isNetworkError: false,
-        isCredentialError: false,
-      };
-  }
-}
-
-/**
- * Diagnostic logger for authentication events. Logs Firebase error codes for developer debugging
- * without logging raw passwords or sensitive credentials.
- */
-export function logAuthError(context: string, error: unknown): void {
-  const parsed = parseAuthError(error);
-  if (process.env.NODE_ENV !== 'production') {
-    console.warn(`[Auth Diagnostic] ${context}: ${parsed.code} - ${parsed.userMessage}`);
-  }
-}
-
-/**
- * Centralized authentication error handler that logs diagnostic code safely and returns user-friendly details.
- */
-export function handleAuthError(
-  error: unknown, 
-  contextLabel: string = 'Authentication', 
-  defaultFallback = 'Authentication failed. Please try again.'
-): AuthErrorDetails {
-  logAuthError(contextLabel, error);
-  return parseAuthError(error, defaultFallback);
-}
+import {
+  type AuthErrorDetails,
+  parseAuthError,
+  logAuthError,
+  handleAuthError,
+} from '../services/authErrorHandler';
 
 const SUPER_ADMIN_SESSION_KEY = 'mediqueue_super_admin_session';
 
@@ -382,13 +218,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             }
             return;
           } else if (!isCancelled) {
-            sessionStorage.removeItem(SUPER_ADMIN_SESSION_KEY);
-            setSuperAdminSessionToken(null);
+            // Only remove stored token if user is not actively authenticated as Super Admin in Firebase
+            if (!auth.currentUser || auth.currentUser.email?.toLowerCase() !== 'medi@gmail.com') {
+              sessionStorage.removeItem(SUPER_ADMIN_SESSION_KEY);
+              setSuperAdminSessionToken(null);
+            }
           }
         } catch {
           if (!isCancelled) {
-            sessionStorage.removeItem(SUPER_ADMIN_SESSION_KEY);
-            setSuperAdminSessionToken(null);
+            if (!auth.currentUser || auth.currentUser.email?.toLowerCase() !== 'medi@gmail.com') {
+              sessionStorage.removeItem(SUPER_ADMIN_SESSION_KEY);
+              setSuperAdminSessionToken(null);
+            }
           }
         }
       }
@@ -449,9 +290,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }
 
           if (profile?.role === 'SUPER_ADMIN') {
-            const token = `super_admin_firebase_${currentUser.uid}`;
-            sessionStorage.setItem(SUPER_ADMIN_SESSION_KEY, token);
-            setSuperAdminSessionToken(token);
+            const currentStored = sessionStorage.getItem(SUPER_ADMIN_SESSION_KEY);
+            if (currentStored && currentStored.includes('.')) {
+              setSuperAdminSessionToken(currentStored);
+            } else {
+              let token = currentStored || `super_admin_firebase_${currentUser.uid}`;
+              try {
+                fetch('/api/super-admin/auth', {
+                  method: 'POST',
+                  credentials: 'include',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ email: currentUser.email || 'medi@gmail.com' }),
+                })
+                  .then(r => r.json())
+                  .then(d => {
+                    if (d?.success && d?.sessionToken) {
+                      sessionStorage.setItem(SUPER_ADMIN_SESSION_KEY, d.sessionToken);
+                      setSuperAdminSessionToken(d.sessionToken);
+                    }
+                  })
+                  .catch(() => {});
+              } catch (_) {}
+              sessionStorage.setItem(SUPER_ADMIN_SESSION_KEY, token);
+              setSuperAdminSessionToken(token);
+            }
           }
 
           if (!profile) {
@@ -619,7 +481,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     // Step 5: Establish Super Admin session
-    const token = `super_admin_firebase_${cred.user.uid}`;
+    let token = `super_admin_firebase_${cred.user.uid}`;
+    try {
+      const idToken = await cred.user.getIdToken();
+      const authRes = await fetch('/api/super-admin/auth', {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${idToken}`,
+        },
+        body: JSON.stringify({
+          email: cred.user.email || 'medi@gmail.com',
+          idToken,
+        }),
+      });
+      const authData = await authRes.json().catch(() => null);
+      if (authData?.success && authData?.sessionToken) {
+        token = authData.sessionToken;
+      }
+    } catch (_) {}
+
     sessionStorage.setItem(SUPER_ADMIN_SESSION_KEY, token);
     setSuperAdminSessionToken(token);
     setUser(cred.user);
@@ -795,15 +677,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
-    const saved = await saveUserProfile(fullProfile);
+
+    let saved: UserProfile;
+    try {
+      saved = await saveUserProfile(fullProfile) as UserProfile;
+    } catch (saveErr) {
+      console.error('[AuthContext] Failed to save patient profile after auth user creation. Cleaning up orphan auth account...', saveErr);
+      try {
+        await cred.user.delete();
+      } catch (delErr) {
+        console.warn('[AuthContext] Could not rollback orphan auth user:', delErr);
+      }
+      throw saveErr;
+    }
+
     if (fullProfile.clinicId) {
       try {
         localStorage.setItem('mediqueue_active_clinic_id', fullProfile.clinicId);
       } catch (_) {}
     }
     setUser(cred.user);
-    setUserProfile(saved as UserProfile);
-    return saved as UserProfile;
+    setUserProfile(saved);
+    return saved;
   };
 
   const signInPatient = async (email: string, pass: string): Promise<UserProfile> => {
@@ -819,14 +714,41 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const cred = await signInWithEmailAndPassword(auth, cleanEmail, pass);
     
     // Step 2: Fetch application user profile by Firebase UID
-    const profile = await getUserProfile(cred.user.uid, true);
+    let profile = await getUserProfile(cred.user.uid, true);
     
-    // Step 3: Handle missing profile
+    // Step 3: Handle missing profile - Attempt graceful self-healing for authenticated patient
     if (!profile) {
-      await firebaseSignOut(auth);
-      setUser(null);
-      setUserProfile(null);
-      throw new Error('Your account profile is incomplete. Please contact the administrator.');
+      console.warn('[AuthContext] Missing user profile for authenticated user:', cred.user.uid, 'Attempting self-healing...');
+      try {
+        let defaultClinicId = '';
+        try {
+          defaultClinicId = localStorage.getItem('mediqueue_active_clinic_id') || '';
+        } catch (_) {}
+
+        const fallbackProfile: UserProfile = {
+          uid: cred.user.uid,
+          email: cleanEmail,
+          name: cred.user.displayName || cleanEmail.split('@')[0] || 'Patient',
+          phone: cred.user.phoneNumber || '',
+          role: 'PATIENT',
+          clinicId: defaultClinicId,
+          clinicName: '',
+          clinicIds: defaultClinicId ? [defaultClinicId] : [],
+          accessibleClinicIds: defaultClinicId ? [defaultClinicId] : [],
+          activeClinicId: defaultClinicId,
+          status: 'active',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        };
+        profile = await saveUserProfile(fallbackProfile) as UserProfile;
+        console.log('[AuthContext] Successfully self-healed patient profile for user:', cred.user.uid);
+      } catch (healErr) {
+        console.error('[AuthContext] Self-healing failed:', healErr);
+        await firebaseSignOut(auth);
+        setUser(null);
+        setUserProfile(null);
+        throw new Error('Your account profile could not be loaded. Please contact support or register again.');
+      }
     }
 
     // Step 4: Handle inactive / disabled accounts
@@ -845,12 +767,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       throw new Error('This account is registered as clinic staff. Please sign in via the Staff / Admin Portal.');
     }
 
-    // Step 6: Verify registered clinic exists on profile
+    // Step 6: Verify registered clinic exists on profile (with fallback)
     if (!profile.clinicId) {
-      await firebaseSignOut(auth);
-      setUser(null);
-      setUserProfile(null);
-      throw new Error('Your account is not associated with any clinic branch. Please contact support.');
+      const fallbackClinic = profile.clinicIds?.[0] || localStorage.getItem('mediqueue_active_clinic_id');
+      if (fallbackClinic) {
+        profile.clinicId = fallbackClinic;
+      } else {
+        await firebaseSignOut(auth);
+        setUser(null);
+        setUserProfile(null);
+        throw new Error('Your account is not associated with any clinic branch. Please contact support.');
+      }
     }
 
     // Step 7: Synchronize active clinic session

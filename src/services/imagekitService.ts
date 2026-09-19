@@ -1,6 +1,6 @@
 import { ImageKitFolderType, ImageKitMediaMetadata, UserRole } from '../types';
 import { auth } from '../lib/firebase';
-import { getStoredSuperAdminToken } from './clinicService';
+import { getStoredSuperAdminToken } from '../utils/tokenStorage';
 
 export const ALLOWED_IMAGE_MIME_TYPES = [
   'image/jpeg',

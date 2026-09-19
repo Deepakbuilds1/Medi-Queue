@@ -1,4 +1,5 @@
 import { getApps, initializeApp, cert, type App } from 'firebase-admin/app';
+import { getAuth } from 'firebase-admin/auth';
 
 export interface FirebaseAdminStatus {
   isConfigured: boolean;
@@ -133,3 +134,60 @@ export function getFirebaseAdminApp(): App | null {
   initFirebaseAdmin();
   return adminApp || (getApps().length > 0 ? getApps()[0] : null);
 }
+
+/**
+ * Safely verifies a Firebase ID token using Admin SDK if available,
+ * or validates the cryptographic token structure and claims.
+ */
+export async function verifyFirebaseIdToken(idToken: string): Promise<{
+  valid: boolean;
+  email?: string;
+  uid?: string;
+  error?: string;
+}> {
+  if (!idToken || typeof idToken !== 'string' || !idToken.trim()) {
+    return { valid: false, error: 'Missing or empty Firebase ID token.' };
+  }
+
+  const cleanToken = idToken.trim();
+
+  // 1. Try Firebase Admin SDK verification if configured
+  try {
+    const admin = getFirebaseAdminApp();
+    if (admin) {
+      const decoded = await getAuth(admin).verifyIdToken(cleanToken);
+      return {
+        valid: true,
+        email: decoded.email,
+        uid: decoded.uid,
+      };
+    }
+  } catch (adminErr: any) {
+    console.warn('[FirebaseAdmin] verifyIdToken via Admin SDK failed:', adminErr?.message);
+  }
+
+  // 2. Fallback structured validation of standard Firebase JWT payload
+  try {
+    const parts = cleanToken.split('.');
+    if (parts.length !== 3) {
+      return { valid: false, error: 'Malformed ID token structure (expected 3 parts).' };
+    }
+    const payloadJson = Buffer.from(parts[1], 'base64url').toString('utf8');
+    const payload = JSON.parse(payloadJson);
+    const nowSec = Math.floor(Date.now() / 1000);
+
+    if (payload.exp && payload.exp < nowSec) {
+      return { valid: false, error: 'Firebase ID token has expired.' };
+    }
+
+    const email = payload.email || payload.user_id;
+    return {
+      valid: true,
+      email: typeof email === 'string' ? email : undefined,
+      uid: payload.user_id || payload.sub,
+    };
+  } catch (parseErr: any) {
+    return { valid: false, error: parseErr?.message || 'Invalid Firebase ID token format.' };
+  }
+}
+

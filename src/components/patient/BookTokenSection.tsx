@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { PlusCircle, CheckCircle2, AlertCircle, Sparkles, User, LogIn, Building2 } from 'lucide-react';
 import { Doctor, QueueToken } from '../../types';
 import { subscribeDoctors, generateToken } from '../../services/clinicService';
@@ -27,7 +27,10 @@ export const BookTokenSection: React.FC<BookTokenSectionProps> = ({ onTokenGener
 
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [optimisticToken, setOptimisticToken] = useState<QueueToken | null>(null);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
+  const [pendingSubmit, setPendingSubmit] = useState<boolean>(false);
+  const isSubmittingRef = useRef<boolean>(false);
 
   useEffect(() => {
     setSelectedDoctorId('');
@@ -44,15 +47,83 @@ export const BookTokenSection: React.FC<BookTokenSectionProps> = ({ onTokenGener
   // Sync state when userProfile loads or changes
   useEffect(() => {
     if (userProfile) {
-      setName(userProfile.name || '');
-      setPhone(userProfile.phone || '');
-      setAge(userProfile.age || 30);
+      if (!name) setName(userProfile.name || '');
+      if (!phone) setPhone(userProfile.phone || '');
+      if (userProfile.age) setAge(userProfile.age);
       setGender(userProfile.gender || 'Male');
     }
   }, [userProfile]);
 
+  // Automatically execute booking if pending after successful sign-in
+  useEffect(() => {
+    if (pendingSubmit && user) {
+      setPendingSubmit(false);
+      const patientName = name.trim() || userProfile?.name || 'Patient';
+      const patientPhone = phone.trim() || userProfile?.phone || '';
+      if (selectedDoctorId && patientName && patientPhone && age) {
+        if (isSubmittingRef.current) return;
+        isSubmittingRef.current = true;
+        setLoading(true);
+        setError(null);
+
+        const targetDoc = doctors.find(d => d.id === selectedDoctorId);
+        const prefix = targetDoc?.tokenPrefix || activeClinic?.tokenPrefix || 'A';
+        const optimisticTempToken: QueueToken = {
+          id: `opt-${Date.now()}`,
+          clinicId: activeClinicId,
+          clinicName: activeClinic?.name || '',
+          tokenNumber: `${prefix}-...`,
+          patientId: user.uid,
+          userId: user.uid,
+          patientName,
+          patientAge: Number(age),
+          patientGender: gender,
+          patientPhone: patientPhone,
+          reason: reason.trim() || 'General Consultation',
+          doctorId: selectedDoctorId,
+          doctorName: targetDoc?.name || 'Doctor',
+          roomNumber: targetDoc?.roomNumber || 'Room 1',
+          status: 'WAITING',
+          createdAt: new Date().toISOString(),
+          calledAt: null,
+          completedAt: null,
+          queueDate: new Date().toISOString().split('T')[0]
+        };
+
+        setOptimisticToken(optimisticTempToken);
+
+        generateToken({
+          clinicId: activeClinicId,
+          patientName,
+          phone: patientPhone,
+          age: Number(age),
+          gender,
+          reason: reason.trim() || 'General Consultation',
+          doctorId: selectedDoctorId,
+          userId: user.uid,
+        })
+          .then((newToken) => {
+            setOptimisticToken(null);
+            onTokenGenerated(newToken);
+            setReason('');
+          })
+          .catch((err: any) => {
+            console.error('Token generation error:', err);
+            // Rollback optimistic token on error
+            setOptimisticToken(null);
+            setError(err.message || 'Failed to generate queue token. Please try again.');
+          })
+          .finally(() => {
+            setLoading(false);
+            isSubmittingRef.current = false;
+          });
+      }
+    }
+  }, [pendingSubmit, user, userProfile, selectedDoctorId, name, phone, age, gender, reason, activeClinicId, doctors, activeClinic]);
+
   const handleBookToken = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (loading || isSubmittingRef.current) return;
     setError(null);
 
     if (!selectedDoctorId) {
@@ -62,6 +133,7 @@ export const BookTokenSection: React.FC<BookTokenSectionProps> = ({ onTokenGener
 
     // Require Auth or prompt user
     if (!user) {
+      setPendingSubmit(true);
       setIsAuthModalOpen(true);
       return;
     }
@@ -71,7 +143,36 @@ export const BookTokenSection: React.FC<BookTokenSectionProps> = ({ onTokenGener
       return;
     }
 
+    isSubmittingRef.current = true;
     setLoading(true);
+
+    const targetDoc = doctors.find(d => d.id === selectedDoctorId);
+    const prefix = targetDoc?.tokenPrefix || activeClinic?.tokenPrefix || 'A';
+    const optimisticTempToken: QueueToken = {
+      id: `opt-${Date.now()}`,
+      clinicId: activeClinicId,
+      clinicName: activeClinic?.name || '',
+      tokenNumber: `${prefix}-...`,
+      patientId: user.uid,
+      userId: user.uid,
+      patientName: name.trim(),
+      patientAge: Number(age),
+      patientGender: gender,
+      patientPhone: phone.trim(),
+      reason: reason.trim() || 'General Consultation',
+      doctorId: selectedDoctorId,
+      doctorName: targetDoc?.name || 'Doctor',
+      roomNumber: targetDoc?.roomNumber || 'Room 1',
+      status: 'WAITING',
+      createdAt: new Date().toISOString(),
+      calledAt: null,
+      completedAt: null,
+      queueDate: new Date().toISOString().split('T')[0]
+    };
+
+    // Optimistically render pending token preview
+    setOptimisticToken(optimisticTempToken);
+
     try {
       const newToken = await generateToken({
         clinicId: activeClinicId,
@@ -84,13 +185,17 @@ export const BookTokenSection: React.FC<BookTokenSectionProps> = ({ onTokenGener
         userId: user.uid,
       });
 
+      setOptimisticToken(null);
       onTokenGenerated(newToken);
       setReason('');
     } catch (err: any) {
       console.error('Token generation error:', err);
+      // Rollback optimistic token on error
+      setOptimisticToken(null);
       setError(err.message || 'Failed to generate queue token. Please try again.');
     } finally {
       setLoading(false);
+      isSubmittingRef.current = false;
     }
   };
 
@@ -153,6 +258,23 @@ export const BookTokenSection: React.FC<BookTokenSectionProps> = ({ onTokenGener
           </Button>
         )}
       </div>
+
+      {optimisticToken && (
+        <div className="p-4 bg-teal-50/70 border border-teal-200 rounded-xl space-y-2 animate-pulse">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="font-mono font-black text-2xl text-teal-800">{optimisticToken.tokenNumber}</span>
+              <span className="px-2 py-0.5 rounded-full text-[10px] uppercase font-bold bg-teal-100 text-teal-800 border border-teal-300">
+                Reserving Token...
+              </span>
+            </div>
+            <span className="text-[11px] text-teal-600 font-medium">Securing queue spot</span>
+          </div>
+          <p className="text-xs text-teal-800">
+            Reserving appointment for <strong className="font-semibold">{optimisticToken.patientName}</strong> with <strong className="font-semibold">{optimisticToken.doctorName}</strong>.
+          </p>
+        </div>
+      )}
 
       {error && (
         <div className="p-3 bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl font-medium flex items-center gap-2">
@@ -295,7 +417,7 @@ export const BookTokenSection: React.FC<BookTokenSectionProps> = ({ onTokenGener
           variant="Primary"
           size="lg"
           fullWidth
-          disabled={!selectedDoctorId}
+          disabled={!selectedDoctorId || loading}
           isLoading={loading}
           leftIcon={<Sparkles className="w-4 h-4 text-amber-300" />}
           className="shadow-lg shadow-teal-700/20"
@@ -315,7 +437,8 @@ export const BookTokenSection: React.FC<BookTokenSectionProps> = ({ onTokenGener
         isOpen={isAuthModalOpen}
         onClose={() => setIsAuthModalOpen(false)}
         onSuccess={() => {
-          // Retry generating token if doc was selected
+          setIsAuthModalOpen(false);
+          setPendingSubmit(true);
         }}
       />
 

@@ -6,6 +6,7 @@ import {
   clearFailedAttempts,
   signSuperAdminSessionToken,
   validateSuperAdminConfig,
+  verifySuperAdminCredentials,
   setSessionCookie,
   getClientIp,
   getJsonBody,
@@ -74,9 +75,15 @@ export async function handleSuperAdminAuth(req: Request | any, res: Response | a
       });
     }
 
-    // 5. Safely parse JSON body
+    // 5. Safely parse JSON body and Authorization header
     const body = await getJsonBody(req);
-    const { email } = body || {};
+    const { email, password, credential, idToken: bodyToken } = body || {};
+
+    const authHeader = req.headers['authorization'] || req.headers['Authorization'];
+    const bearerToken = typeof authHeader === 'string' && authHeader.startsWith('Bearer ')
+      ? authHeader.slice(7).trim()
+      : null;
+    const idToken = (bodyToken || bearerToken || '').trim();
 
     if (!email || typeof email !== 'string' || !email.trim()) {
       console.warn('[AUTH_INVALID_INPUT]', { clientIp, reason: 'Email is required' });
@@ -93,7 +100,7 @@ export async function handleSuperAdminAuth(req: Request | any, res: Response | a
     console.log('[SuperAdminAuth] authentication verification started');
 
     if (cleanEmail !== 'medi@gmail.com') {
-      console.warn('[SuperAdminAuth] authentication failed');
+      console.warn('[SuperAdminAuth] authentication failed: unauthorized email');
       const failedResult = recordFailedAttempt(clientIp, rateLimitStatus.record);
 
       if (failedResult.isLocked) {
@@ -112,6 +119,38 @@ export async function handleSuperAdminAuth(req: Request | any, res: Response | a
         code: 'INVALID_CREDENTIALS',
         message: 'Invalid Super Admin credentials.',
         error: 'Invalid Super Admin credentials.',
+        remainingAttempts: failedResult.remainingAttempts,
+      });
+    }
+
+    // Verify cryptographic credential proof (Firebase ID token or password/secret)
+    const credCheck = await verifySuperAdminCredentials({
+      email: cleanEmail,
+      password,
+      credential,
+      idToken,
+    });
+
+    if (!credCheck.valid) {
+      console.warn('[SuperAdminAuth] authentication failed: invalid or missing credentials', credCheck.error);
+      const failedResult = recordFailedAttempt(clientIp, rateLimitStatus.record);
+
+      if (failedResult.isLocked) {
+        return sendJsonResponse(res, 429, {
+          success: false,
+          code: 'RATE_LIMITED',
+          message: 'Too many failed attempts. Super Admin access has been temporarily locked for 15 minutes.',
+          error: 'Too many failed attempts. Super Admin access has been temporarily locked for 15 minutes.',
+          locked: true,
+          remainingSeconds: failedResult.remainingSeconds,
+        });
+      }
+
+      return sendJsonResponse(res, 401, {
+        success: false,
+        code: 'INVALID_CREDENTIALS',
+        message: credCheck.error || 'Invalid Super Admin credentials.',
+        error: credCheck.error || 'Invalid Super Admin credentials.',
         remainingAttempts: failedResult.remainingAttempts,
       });
     }

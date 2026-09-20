@@ -143,81 +143,93 @@ export const DoctorManagementPage: React.FC<DoctorManagementPageProps> = ({ doct
       </div>
 
       {/* Doctor Cards Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {doctors.map((doc) => {
-          const isActive = doc.status === 'ACTIVE';
-          return (
-            <div 
-              key={doc.id}
-              className={`
-                bg-white rounded-xl p-4 border transition-colors shadow-xs flex flex-col justify-between space-y-3.5
-                ${isActive ? 'border-[#E2E8F0]' : 'border-slate-200 opacity-60 bg-slate-50/50'}
-              `}
-            >
-              <div className="space-y-3">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-3">
-                    {doc.avatarUrl ? (
-                      <div className="w-10 h-10 rounded-lg overflow-hidden border border-slate-200 shadow-xs bg-slate-100 shrink-0">
-                        <img 
-                          src={doc.avatarUrl} 
-                          alt={doc.name} 
-                          className="w-full h-full object-cover" 
-                          referrerPolicy="no-referrer"
-                        />
+      {doctors.length === 0 ? (
+        <div className="bg-white rounded-xl p-8 border border-[#E2E8F0] text-center shadow-xs space-y-2.5">
+          <div className="w-10 h-10 bg-slate-100 text-slate-400 rounded-full flex items-center justify-center mx-auto">
+            <Stethoscope className="w-5 h-5" />
+          </div>
+          <p className="text-sm font-semibold text-slate-800">No physicians registered yet</p>
+          <p className="text-xs text-slate-500 max-w-sm mx-auto">
+            Click "Add Physician" to register doctors, assign consultation rooms, and configure token prefix routing.
+          </p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {doctors.map((doc) => {
+            const isActive = doc.status === 'ACTIVE';
+            return (
+              <div 
+                key={doc.id}
+                className={`
+                  bg-white rounded-xl p-4 border transition-colors shadow-xs flex flex-col justify-between space-y-3.5
+                  ${isActive ? 'border-[#E2E8F0]' : 'border-slate-200 opacity-60 bg-slate-50/50'}
+                `}
+              >
+                <div className="space-y-3">
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-3">
+                      {doc.avatarUrl ? (
+                        <div className="w-10 h-10 rounded-lg overflow-hidden border border-slate-200 shadow-xs bg-slate-100 shrink-0">
+                          <img 
+                            src={doc.avatarUrl} 
+                            alt={doc.name} 
+                            className="w-full h-full object-cover" 
+                            referrerPolicy="no-referrer"
+                          />
+                        </div>
+                      ) : (
+                        <div className="w-10 h-10 bg-teal-50 text-teal-700 font-bold rounded-lg flex items-center justify-center text-sm border border-teal-100 shrink-0">
+                          {doc.tokenPrefix}
+                        </div>
+                      )}
+                      <div>
+                        <h3 className="font-semibold text-sm text-slate-900">{doc.name}</h3>
+                        <p className="text-xs text-slate-500">{doc.specialization}</p>
                       </div>
-                    ) : (
-                      <div className="w-10 h-10 bg-teal-50 text-teal-700 font-bold rounded-lg flex items-center justify-center text-sm border border-teal-100 shrink-0">
-                        {doc.tokenPrefix}
-                      </div>
-                    )}
-                    <div>
-                      <h3 className="font-semibold text-sm text-slate-900">{doc.name}</h3>
-                      <p className="text-xs text-slate-500">{doc.specialization}</p>
+                    </div>
+                    
+                    <span className={`px-2 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider ${isActive ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-slate-100 text-slate-600 border border-slate-200'}`}>
+                      {doc.status}
+                    </span>
+                  </div>
+
+                  <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-100 space-y-1 text-xs">
+                    <div className="flex justify-between text-slate-600">
+                      <span className="text-slate-400">Assigned Room:</span>
+                      <span className="font-semibold text-slate-900">{doc.roomNumber}</span>
+                    </div>
+                    <div className="flex justify-between text-slate-600">
+                      <span className="text-slate-400">Token Prefix:</span>
+                      <span className="font-mono font-bold text-teal-800">"{doc.tokenPrefix}-"</span>
                     </div>
                   </div>
-                  
-                  <span className={`px-2 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider ${isActive ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-slate-100 text-slate-600 border border-slate-200'}`}>
-                    {doc.status}
-                  </span>
                 </div>
 
-                <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-100 space-y-1 text-xs">
-                  <div className="flex justify-between text-slate-600">
-                    <span className="text-slate-400">Assigned Room:</span>
-                    <span className="font-semibold text-slate-900">{doc.roomNumber}</span>
-                  </div>
-                  <div className="flex justify-between text-slate-600">
-                    <span className="text-slate-400">Token Prefix:</span>
-                    <span className="font-mono font-bold text-teal-800">"{doc.tokenPrefix}-"</span>
-                  </div>
+                <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
+                  <Button
+                    variant={isActive ? "Destructive" : "Secondary"}
+                    size="sm"
+                    onClick={() => handleToggleStatus(doc)}
+                    leftIcon={isActive ? <UserX className="w-3 h-3" /> : <UserCheck className="w-3 h-3" />}
+                  >
+                    {isActive ? 'Deactivate' : 'Activate'}
+                  </Button>
+
+                  <Button
+                    variant="Secondary"
+                    size="sm"
+                    onClick={() => handleOpenEdit(doc)}
+                    leftIcon={<Edit className="w-3 h-3" />}
+                  >
+                    Edit
+                  </Button>
                 </div>
+
               </div>
-
-              <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
-                <Button
-                  variant={isActive ? "Destructive" : "Secondary"}
-                  size="sm"
-                  onClick={() => handleToggleStatus(doc)}
-                  leftIcon={isActive ? <UserX className="w-3 h-3" /> : <UserCheck className="w-3 h-3" />}
-                >
-                  {isActive ? 'Deactivate' : 'Activate'}
-                </Button>
-
-                <Button
-                  variant="Secondary"
-                  size="sm"
-                  onClick={() => handleOpenEdit(doc)}
-                  leftIcon={<Edit className="w-3 h-3" />}
-                >
-                  Edit
-                </Button>
-              </div>
-
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      )}
 
       {/* Add / Edit Doctor Modal */}
       {(showAddModal || editingDoctor) && (

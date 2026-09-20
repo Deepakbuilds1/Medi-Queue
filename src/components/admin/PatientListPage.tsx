@@ -160,8 +160,12 @@ export const PatientListPage: React.FC<PatientListPageProps> = ({ patients, toke
                 ))
               ) : filteredPatients.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="p-10 text-center text-slate-400">
-                    No patient records found matching your search.
+                  <td colSpan={7} className="p-10 text-center text-slate-500">
+                    {searchTerm.trim() ? (
+                      <p>No patient records found matching <span className="font-semibold text-slate-700">"{searchTerm}"</span>.</p>
+                    ) : (
+                      <p>No registered patients found yet. Patients are added automatically upon queue registration or check-in.</p>
+                    )}
                   </td>
                 </tr>
               ) : (

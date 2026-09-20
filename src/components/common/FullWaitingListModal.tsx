@@ -138,7 +138,7 @@ export const FullWaitingListModal: React.FC<FullWaitingListModalProps> = ({
               id="waiting-list-search-input"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Search token number or patient..."
+              placeholder={privacyMode ? 'Search token number...' : 'Search token number or patient...'}
               className={`w-full pl-9 pr-3 py-1.5 rounded-lg text-xs transition-colors focus:outline-hidden ${
                 isDark
                   ? 'bg-slate-950 border border-slate-800 text-slate-100 placeholder:text-slate-500 focus:border-teal-500'

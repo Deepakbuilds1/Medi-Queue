@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Bell, Monitor, Ticket, PlusCircle, User, LogOut, Settings as SettingsIcon, HelpCircle, ShieldCheck, FileText, AlertTriangle, Cookie, Accessibility, Activity } from 'lucide-react';
 import { ClinicSettings, QueueToken } from '../../types';
-import { lookupTokenByNumber, subscribePublicQueue, subscribeUserTokens } from '../../services/clinicService';
+import { lookupTokenByNumber, subscribeUserTokens } from '../../services/clinicService';
 import { playTokenCallSound } from '../../lib/sound';
 import { useAuth } from '../../context/AuthContext';
 import { useClinic } from '../../context/ClinicContext';
+import { useQueueData } from '../../hooks/useQueueData';
 import { PatientAuthModal } from './PatientAuthModal';
 import { BookTokenSection } from './BookTokenSection';
 import { FullWaitingListModal } from '../common/FullWaitingListModal';
@@ -58,19 +59,8 @@ export const PatientPortal: React.FC<PatientPortalProps> = ({
   // User's booked tokens from Firebase
   const [userTokens, setUserTokens] = useState<QueueToken[]>([]);
 
-  // Live Public Queue Data
-  const [publicQueue, setPublicQueue] = useState<{
-    nowServing: QueueToken[];
-    upNext: QueueToken[];
-  }>({ nowServing: [], upNext: [] });
-
-  useEffect(() => {
-    // Subscribe to live public queue for current active clinic
-    const unsubscribe = subscribePublicQueue(activeClinicId, (data) => {
-      setPublicQueue(data);
-    });
-    return () => unsubscribe();
-  }, [activeClinicId]);
+  // Live Public Queue Data via standardized hook
+  const { publicQueue, waitingCount } = useQueueData(activeClinicId, { enableSound: false });
 
   // Subscribe to logged in patient's tokens in Firebase
   useEffect(() => {
@@ -630,11 +620,11 @@ export const PatientPortal: React.FC<PatientPortalProps> = ({
                     UP NEXT (WAITING)
                   </span>
                   <span className="text-[11px] font-bold font-mono text-amber-800 bg-amber-100/90 px-2 py-0.5 rounded-md border border-amber-200">
-                    {publicQueue.upNext.length === 0 ? '0 Waiting' : `${publicQueue.upNext.length} Waiting`}
+                    {waitingCount === 0 ? '0 Waiting' : `${waitingCount} Waiting`}
                   </span>
                 </div>
 
-                {publicQueue.upNext.length === 0 ? (
+                {waitingCount === 0 ? (
                   <p className="text-base text-slate-700 italic py-1">No patients waiting.</p>
                 ) : (
                   <div className="flex flex-wrap gap-2">
@@ -659,9 +649,9 @@ export const PatientPortal: React.FC<PatientPortalProps> = ({
               {/* Divider & Waiting List Action Footer */}
               <div className="mt-3 pt-2.5 border-t border-slate-200 flex items-center justify-between gap-2">
                 <span className="text-xs font-medium text-slate-600">
-                  {publicQueue.upNext.length === 0 
+                  {waitingCount === 0 
                     ? '0 Waiting' 
-                    : `${publicQueue.upNext.length} ${publicQueue.upNext.length === 1 ? 'patient waiting' : 'patients waiting'}`}
+                    : `${waitingCount} ${waitingCount === 1 ? 'patient waiting' : 'patients waiting'}`}
                 </span>
                 <button
                   type="button"

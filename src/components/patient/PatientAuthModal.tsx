@@ -484,7 +484,7 @@ export const PatientAuthModal: React.FC<PatientAuthModalProps> = ({
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="patient@example.com"
+                    placeholder="patient@mediqueue.clinic"
                     className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-300 rounded-xl focus:border-teal-500 focus:bg-white focus:outline-none font-mono"
                   />
                 </div>
@@ -568,7 +568,7 @@ export const PatientAuthModal: React.FC<PatientAuthModalProps> = ({
                     required
                     value={signInEmail}
                     onChange={(e) => setSignInEmail(e.target.value)}
-                    placeholder="patient@example.com"
+                    placeholder="patient@mediqueue.clinic"
                     className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-300 rounded-xl focus:border-teal-500 focus:bg-white focus:outline-none font-mono"
                   />
                 </div>

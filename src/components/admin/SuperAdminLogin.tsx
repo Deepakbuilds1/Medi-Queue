@@ -126,7 +126,7 @@ export const SuperAdminLogin: React.FC<SuperAdminLoginProps> = ({
                     setError(null);
                   }}
                   disabled={loading}
-                  placeholder="admin@example.com"
+                  placeholder="medi@gmail.com"
                   autoComplete="email"
                   autoFocus
                   className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-300 focus:border-[#087F73] focus:ring-2 focus:ring-[#087F73]/20 rounded-xl text-sm text-[#0F172A] placeholder-slate-400 transition-all disabled:opacity-50"

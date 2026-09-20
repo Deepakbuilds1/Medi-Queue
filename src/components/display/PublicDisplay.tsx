@@ -1,11 +1,11 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Volume2, Building2, Monitor, ArrowLeft } from 'lucide-react';
-import { ClinicSettings, QueueToken } from '../../types';
-import { subscribePublicQueue } from '../../services/clinicService';
+import { ClinicSettings } from '../../types';
 import { playTokenCallSound, unlockAudioContext } from '../../lib/sound';
 import { useClinic } from '../../context/ClinicContext';
 import { Button } from '../shared/Button';
 import { FullWaitingListModal } from '../common/FullWaitingListModal';
+import { useQueueData } from '../../hooks/useQueueData';
 
 interface PublicDisplayProps {
   settings: ClinicSettings | null;
@@ -15,15 +15,16 @@ interface PublicDisplayProps {
 export const PublicDisplay: React.FC<PublicDisplayProps> = ({ settings, onNavigateBack }) => {
   const { activeClinicId, activeClinic, clinics, switchClinic } = useClinic();
 
-  const [publicQueue, setPublicQueue] = useState<{
-    nowServing: QueueToken[];
-    upNext: QueueToken[];
-  }>({ nowServing: [], upNext: [] });
+  // Consume queue data and chime state via useQueueData hook
+  const {
+    nowServing,
+    upNext,
+    waitingCount,
+    activeServing,
+    otherServing,
+    highlightingId,
+  } = useQueueData(activeClinicId, { enableSound: true });
 
-  // Multi-doctor active token tracking map: doctorId -> tokenId
-  const doctorActiveTokenMapRef = useRef<Map<string, string>>(new Map());
-  const isInitialMountRef = useRef<boolean>(true);
-  const [highlightingId, setHighlightingId] = useState<string | null>(null);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [isWaitingListModalOpen, setIsWaitingListModalOpen] = useState(false);
 
@@ -47,59 +48,8 @@ export const PublicDisplay: React.FC<PublicDisplayProps> = ({ settings, onNaviga
     };
   }, []);
 
-  useEffect(() => {
-    isInitialMountRef.current = true;
-    doctorActiveTokenMapRef.current.clear();
-
-    const unsubscribe = subscribePublicQueue(activeClinicId, (data) => {
-      setPublicQueue(data);
-
-      if (isInitialMountRef.current) {
-        // Record current serving tokens on initial load without chiming
-        const initialMap = new Map<string, string>();
-        for (const token of data.nowServing) {
-          const docKey = token.doctorId || token.id;
-          initialMap.set(docKey, token.id);
-        }
-        doctorActiveTokenMapRef.current = initialMap;
-        isInitialMountRef.current = false;
-      } else {
-        // Multi-doctor check: detect if ANY doctor called a new token
-        let newlyCalledToken: QueueToken | null = null;
-        for (const token of data.nowServing) {
-          const docKey = token.doctorId || token.id;
-          const previousTokenId = doctorActiveTokenMapRef.current.get(docKey);
-          if (previousTokenId !== token.id) {
-            newlyCalledToken = token;
-            break;
-          }
-        }
-
-        // Update tracking map with the latest active tokens
-        const updatedMap = new Map<string, string>();
-        for (const token of data.nowServing) {
-          const docKey = token.doctorId || token.id;
-          updatedMap.set(docKey, token.id);
-        }
-        doctorActiveTokenMapRef.current = updatedMap;
-
-        // Play chime and trigger highlight if a new patient token was called
-        if (newlyCalledToken) {
-          playTokenCallSound();
-          setHighlightingId(newlyCalledToken.id);
-          setTimeout(() => setHighlightingId(null), 5000);
-        }
-      }
-    });
-
-    return () => unsubscribe();
-  }, [activeClinicId]);
-
   const clinicName = activeClinic?.name || settings?.clinicName || (activeClinicId ? `Clinic: ${activeClinicId}` : 'MediQueue Public Display');
   const clinicLogo = activeClinic?.logo || settings?.clinicLogo;
-
-  const activeServing = publicQueue.nowServing[0];
-  const otherServing = publicQueue.nowServing.slice(1);
 
   return (
     <div className="w-full max-w-full min-h-[100dvh] lg:h-screen lg:overflow-hidden bg-slate-950 text-white font-sans overflow-x-hidden flex flex-col justify-between select-none box-border">
@@ -138,12 +88,22 @@ export const PublicDisplay: React.FC<PublicDisplayProps> = ({ settings, onNaviga
             >
               {clinicName}
             </h1>
-            <p 
-              className="font-bold text-teal-400 uppercase tracking-widest mt-0.5"
-              style={{ fontSize: 'clamp(0.6rem, 2vw, 0.75rem)' }}
-            >
-              Live TV Queue Display
-            </p>
+            <div className="flex items-center gap-2 flex-wrap mt-0.5">
+              <p 
+                className="font-bold text-teal-400 uppercase tracking-widest"
+                style={{ fontSize: 'clamp(0.6rem, 2vw, 0.75rem)' }}
+              >
+                Live TV Queue Display
+              </p>
+              {/* Header 'Waiting' Count Badge */}
+              <span 
+                id="header-waiting-count-badge"
+                className="inline-flex items-center gap-1 text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-amber-950/60 text-amber-400 border border-amber-800/60"
+              >
+                <span className="w-1 h-1 rounded-full bg-amber-400 animate-pulse" aria-hidden="true" />
+                {waitingCount} Waiting
+              </span>
+            </div>
           </div>
         </div>
 
@@ -220,7 +180,7 @@ export const PublicDisplay: React.FC<PublicDisplayProps> = ({ settings, onNaviga
             </span>
           </div>
 
-          {/* Main Giant Active Token */}
+          {/* Main Giant Active Token - Privacy-preserving: token identifier, status & room */}
           {activeServing ? (
             <div 
               style={{ minHeight: 'auto' }}
@@ -228,12 +188,17 @@ export const PublicDisplay: React.FC<PublicDisplayProps> = ({ settings, onNaviga
               my-auto text-center p-3 sm:p-6 lg:p-8 rounded-2xl sm:rounded-3xl transition-all duration-500 w-full box-border h-auto min-h-[auto]
               ${highlightingId === activeServing.id ? 'bg-teal-950/60 border-4 border-[#087F73] animate-pulse' : 'bg-slate-950/80 border border-slate-800'}
             `}>
-              <span 
-                className="font-extrabold uppercase tracking-widest text-slate-400 block mb-1 sm:mb-2"
-                style={{ fontSize: 'clamp(0.65rem, 2.2vw, 0.75rem)' }}
-              >
-                CURRENT TOKEN
-              </span>
+              <div className="flex items-center justify-center gap-2 mb-1 sm:mb-2">
+                <span 
+                  className="font-extrabold uppercase tracking-widest text-slate-400 block"
+                  style={{ fontSize: 'clamp(0.65rem, 2.2vw, 0.75rem)' }}
+                >
+                  CURRENT TOKEN
+                </span>
+                <span className="font-mono font-bold text-[10px] sm:text-xs text-emerald-400 bg-emerald-950/80 border border-emerald-800/80 px-2 py-0.5 rounded uppercase tracking-wider">
+                  {activeServing.status || 'NOW SERVING'}
+                </span>
+              </div>
               
               <div 
                 className="font-black text-emerald-400 font-mono tracking-tighter my-2 drop-shadow-lg leading-none break-all max-w-full"
@@ -290,12 +255,17 @@ export const PublicDisplay: React.FC<PublicDisplayProps> = ({ settings, onNaviga
                     >
                       {t.tokenNumber}
                     </span>
-                    <span 
-                      className="text-slate-300 font-medium"
-                      style={{ fontSize: 'clamp(0.65rem, 2.2vw, 0.75rem)' }}
-                    >
-                      {t.roomNumber}
+                    <span className="font-mono text-[10px] text-emerald-300 bg-emerald-950 px-1.5 py-0.5 rounded border border-emerald-800/60 uppercase">
+                      {t.status || 'SERVING'}
                     </span>
+                    {t.roomNumber && (
+                      <span 
+                        className="text-slate-300 font-medium"
+                        style={{ fontSize: 'clamp(0.65rem, 2.2vw, 0.75rem)' }}
+                      >
+                        {t.roomNumber}
+                      </span>
+                    )}
                   </div>
                 ))}
               </div>
@@ -304,36 +274,45 @@ export const PublicDisplay: React.FC<PublicDisplayProps> = ({ settings, onNaviga
 
         </div>
 
-        {/* UP NEXT QUEUE (Right Column) */}
+        {/* UP NEXT QUEUE (Right Column) - Privacy-Preserving: Tokens & Status Only */}
         <div 
           style={{ minHeight: 'auto' }}
           className="bg-slate-900/90 rounded-2xl sm:rounded-3xl border-2 border-slate-800 p-4 sm:p-6 flex flex-col justify-between shadow-xl w-full box-border h-auto min-h-[auto]"
         >
           <div className="space-y-3 sm:space-y-4 flex-1 flex flex-col min-h-0">
             <div className="border-b border-slate-800 pb-2.5 sm:pb-3 flex items-center justify-between gap-2">
-              <h3 
-                className="font-black uppercase tracking-widest text-slate-400"
-                style={{ fontSize: 'clamp(0.7rem, 2.4vw, 0.75rem)' }}
-              >
-                UP NEXT
-              </h3>
+              <div className="flex items-center gap-2 sm:gap-2.5">
+                <h3 
+                  className="font-black uppercase tracking-widest text-slate-400"
+                  style={{ fontSize: 'clamp(0.7rem, 2.4vw, 0.75rem)' }}
+                >
+                  UP NEXT
+                </h3>
+              </div>
+
+              {/* Dynamic 'Waiting' Count Badge */}
               <span 
-                className="font-mono font-bold text-amber-400 bg-amber-950/40 px-2 py-0.5 rounded-md border border-amber-800/40 shrink-0"
-                style={{ fontSize: 'clamp(0.7rem, 2.4vw, 0.75rem)' }}
+                id="waiting-count-badge"
+                className="inline-flex items-center gap-1.5 font-mono font-bold text-amber-400 bg-amber-950/60 px-2.5 py-1 rounded-full border border-amber-800/60 text-xs shadow-xs"
+                aria-label={`${waitingCount} patients waiting`}
               >
-                {publicQueue.upNext.length} Waiting
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" aria-hidden="true" />
+                <span>{waitingCount} Waiting</span>
               </span>
             </div>
 
+            {/* Privacy-Safe Waiting Queue: Only Renders Token Identifiers and Status, Hides Patient Fields */}
             <div className="space-y-2 sm:space-y-3 overflow-y-auto max-h-[300px] sm:max-h-[380px] lg:max-h-none flex-1 pr-1">
-              {publicQueue.upNext.length === 0 ? (
+              {upNext.length === 0 ? (
                 <p className="text-xs text-slate-500 italic py-6 sm:py-10 text-center">Queue is empty.</p>
               ) : (
-                publicQueue.upNext.slice(0, 7).map((t, index) => (
+                upNext.slice(0, 7).map((t, index) => (
                   <div 
                     key={t.id}
+                    id={`public-token-item-${t.id}`}
                     className="p-2.5 sm:p-3.5 bg-slate-950/90 rounded-xl sm:rounded-2xl border border-slate-800 flex items-center justify-between gap-3 min-w-0"
                   >
+                    {/* Token Identifier (Queue index and token number) */}
                     <div className="flex items-center gap-2.5 sm:gap-3 shrink-0">
                       <span 
                         className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-slate-800 text-slate-400 font-bold flex items-center justify-center shrink-0"
@@ -349,20 +328,20 @@ export const PublicDisplay: React.FC<PublicDisplayProps> = ({ settings, onNaviga
                       </span>
                     </div>
 
-                    <div className="min-w-0 flex-1 text-right">
-                      {t.patientName && (
+                    {/* Privacy-Preserved: Renders Token Status and Assigned Room Only; All Sensitive Patient Fields Hidden */}
+                    <div className="min-w-0 flex-1 text-right flex items-center justify-end gap-2">
+                      {t.roomNumber && (
                         <span 
-                          className="font-bold text-slate-200 block truncate sm:overflow-visible sm:whitespace-normal [overflow-wrap:anywhere]"
-                          style={{ fontSize: 'clamp(0.75rem, 2.5vw, 0.875rem)' }}
+                          className="font-semibold text-slate-400 bg-slate-900 px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-md sm:rounded-lg border border-slate-800 inline-block truncate max-w-[110px]"
+                          style={{ fontSize: 'clamp(0.625rem, 2vw, 0.75rem)' }}
                         >
-                          {t.patientName}
+                          {t.roomNumber}
                         </span>
                       )}
                       <span 
-                        className="font-semibold text-slate-400 bg-slate-900 px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-md sm:rounded-lg border border-slate-800 inline-block truncate max-w-full"
-                        style={{ fontSize: 'clamp(0.625rem, 2vw, 0.75rem)' }}
+                        className="font-mono font-bold text-[10px] sm:text-xs text-amber-400 bg-amber-950/60 px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-md border border-amber-800/60 uppercase tracking-wider"
                       >
-                        {t.doctorName || t.roomNumber || 'Consultation'}
+                        {t.status || 'WAITING'}
                       </span>
                     </div>
                   </div>
@@ -376,9 +355,9 @@ export const PublicDisplay: React.FC<PublicDisplayProps> = ({ settings, onNaviga
                 className="font-medium text-slate-400"
                 style={{ fontSize: 'clamp(0.65rem, 2.2vw, 0.75rem)' }}
               >
-                {publicQueue.upNext.length === 0 
+                {waitingCount === 0 
                   ? '0 Waiting' 
-                  : `${publicQueue.upNext.length} ${publicQueue.upNext.length === 1 ? 'patient waiting' : 'patients waiting'}`}
+                  : `${waitingCount} ${waitingCount === 1 ? 'patient waiting' : 'patients waiting'}`}
               </span>
               <button
                 type="button"
@@ -405,15 +384,17 @@ export const PublicDisplay: React.FC<PublicDisplayProps> = ({ settings, onNaviga
 
       </main>
 
-      {/* Full Waiting List Modal (Dark Theme for Public Display) */}
+      {/* Full Waiting List Modal (Dark Theme & Privacy-Preserved for Public Display) */}
       <FullWaitingListModal
         isOpen={isWaitingListModalOpen}
         onClose={() => setIsWaitingListModalOpen(false)}
-        waitingTokens={publicQueue.upNext}
+        waitingTokens={upNext}
         clinicName={clinicName}
         theme="dark"
+        privacyMode={true}
       />
 
     </div>
   );
 };
+

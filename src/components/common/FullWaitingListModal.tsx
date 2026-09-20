@@ -9,6 +9,7 @@ interface FullWaitingListModalProps {
   clinicName?: string;
   theme?: 'light' | 'dark';
   userTokenId?: string;
+  privacyMode?: boolean;
 }
 
 export const FullWaitingListModal: React.FC<FullWaitingListModalProps> = ({
@@ -17,7 +18,8 @@ export const FullWaitingListModal: React.FC<FullWaitingListModalProps> = ({
   waitingTokens,
   clinicName = 'MediQueue Clinic',
   theme = 'light',
-  userTokenId
+  userTokenId,
+  privacyMode = false,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -214,7 +216,7 @@ export const FullWaitingListModal: React.FC<FullWaitingListModalProps> = ({
                             </span>
                           )}
                         </div>
-                        {token.patientName && (
+                        {!privacyMode && token.patientName ? (
                           <span 
                             className={`text-xs font-semibold block truncate max-w-[140px] sm:max-w-[200px] ${
                               isDark ? 'text-slate-300' : 'text-slate-700'
@@ -222,7 +224,15 @@ export const FullWaitingListModal: React.FC<FullWaitingListModalProps> = ({
                           >
                             {token.patientName}
                           </span>
-                        )}
+                        ) : privacyMode ? (
+                          <span 
+                            className={`text-[11px] font-mono block ${
+                              isDark ? 'text-slate-500' : 'text-slate-400'
+                            }`}
+                          >
+                            Status: WAITING
+                          </span>
+                        ) : null}
                       </div>
                     </div>
 

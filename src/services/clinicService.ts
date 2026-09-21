@@ -67,6 +67,24 @@ export interface FirestoreErrorInfo {
   };
 }
 
+export const SUPER_ADMIN_EMAILS: readonly string[] = ['medi@gmail.com', 'gdeepak4689@gmail.com'];
+
+export function isAuthorizedSuperAdminEmail(email?: string | null): boolean {
+  if (!email || typeof email !== 'string') return false;
+  return SUPER_ADMIN_EMAILS.includes(email.toLowerCase().trim());
+}
+
+export function getActiveClinicId(): string {
+  if (typeof window === 'undefined') return '';
+  try {
+    const saved = localStorage.getItem('mediqueue_active_clinic_id');
+    if (saved && typeof saved === 'string') return saved.trim();
+  } catch {
+    // ignore storage read errors
+  }
+  return '';
+}
+
 export function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
   const errMsg = error instanceof Error ? error.message : String(error);
   const errInfo: FirestoreErrorInfo = {
@@ -1373,7 +1391,7 @@ export async function saveUserProfile(profile: {
   
   // Designate default super admin
   let role = profile.role || 'PATIENT';
-  if (profile.email === 'medi@gmail.com') {
+  if (isAuthorizedSuperAdminEmail(profile.email)) {
     role = 'SUPER_ADMIN';
   }
 
@@ -1570,7 +1588,7 @@ export async function verifyUserAuthorization(
   // 3. Resolve role from Custom Claims first, then Firestore profile, with designated Super Admin check
   let resolvedRole: UserRole = 'PATIENT';
   
-  if (currentUser?.email === 'medi@gmail.com' || userProfile?.email === 'medi@gmail.com') {
+  if (isAuthorizedSuperAdminEmail(currentUser?.email) || isAuthorizedSuperAdminEmail(userProfile?.email)) {
     resolvedRole = 'SUPER_ADMIN';
   } else if (superAdminSession && !currentUser) {
     resolvedRole = 'SUPER_ADMIN';
@@ -1745,7 +1763,7 @@ export async function logAuditEvent(params: {
   // Determine actor details accurately
   const actorUid = params.actorUid || currentUser?.uid || 'session_user';
   const actorEmail = params.actorEmail || currentUser?.email || (params.actorRole === 'SUPER_ADMIN' ? 'superadmin@mediqueue.internal' : undefined);
-  const isSuper = actorEmail === 'medi@gmail.com' || actorEmail === 'superadmin@mediqueue.internal' || params.actorRole === 'SUPER_ADMIN';
+  const isSuper = isAuthorizedSuperAdminEmail(actorEmail) || actorEmail === 'superadmin@mediqueue.internal' || params.actorRole === 'SUPER_ADMIN';
   const actorRole = params.actorRole || (isSuper ? 'SUPER_ADMIN' : 'CLINIC_ADMIN');
 
   // Safely resolve clinicId & clinicName
@@ -1825,7 +1843,7 @@ export function subscribeAuditLogs(
   }
 
   const signal = extractAbortSignal(rawOptions);
-  const trimmedClinicId = clinicId && typeof clinicId === 'string' && clinicId.trim() !== ''
+  let trimmedClinicId = clinicId && typeof clinicId === 'string' && clinicId.trim() !== ''
     ? clinicId.trim()
     : undefined;
 
@@ -1846,24 +1864,31 @@ export function subscribeAuditLogs(
     return () => {};
   }
 
-  // 3. Multi-Tenant Role Guard:
-  // Non-Super Admins are strictly prohibited from querying across all clinics without a clinicId filter.
-  // If no clinicId is provided, we must verify that the user is a Super Admin.
-  const isSuperAdminEmail = auth.currentUser.email === 'medi@gmail.com';
-  const superAdminSession = typeof window !== 'undefined'
-    ? sessionStorage.getItem('mediqueue_super_admin_session')
-    : null;
+  // 3. Multi-Tenant Role & Scope Resolution:
+  const isSuperAdminUser = isAuthorizedSuperAdminEmail(auth.currentUser.email);
 
-  if (!trimmedClinicId && !isSuperAdminEmail && !superAdminSession) {
+  // If clinicId is not provided and the user is NOT a verified Super Admin,
+  // scope the query to the tenant's activeClinicId (Case A: normal clinic user).
+  if (!trimmedClinicId && !isSuperAdminUser) {
+    const fallbackClinicId = getActiveClinicId();
+    if (fallbackClinicId && fallbackClinicId.trim()) {
+      trimmedClinicId = fallbackClinicId.trim();
+    }
+  }
+
+  // If still no clinicId and user is NOT a Super Admin, do not attach an unauthorized global query
+  if (!trimmedClinicId && !isSuperAdminUser) {
     if (onError) onError('Access restricted: Clinic context required to view tenant audit logs.');
     return () => {};
   }
 
+  const queryClinicId = trimmedClinicId;
+
   const createAuditQuery = () => {
-    if (trimmedClinicId) {
+    if (queryClinicId) {
       return query(
         collection(db, 'auditLogs'),
-        where('clinicId', '==', trimmedClinicId),
+        where('clinicId', '==', queryClinicId),
         limit(50)
       );
     }
@@ -1874,7 +1899,7 @@ export function subscribeAuditLogs(
     );
   };
 
-  const listenerFilter = trimmedClinicId ? `clinicId == ${trimmedClinicId}` : 'global:limit 50';
+  const listenerFilter = queryClinicId ? `clinicId == ${queryClinicId}` : 'global:limit 50';
 
   return createManagedListener<AuditLog[]>(
     createAuditQuery,
@@ -1886,8 +1911,8 @@ export function subscribeAuditLogs(
 
       // Merge remote logs with any recent locally buffered logs
       const localLogs = getLocalAuditLogs();
-      const relevantLocal = trimmedClinicId
-        ? localLogs.filter(l => l.clinicId === trimmedClinicId)
+      const relevantLocal = queryClinicId
+        ? localLogs.filter(l => l.clinicId === queryClinicId)
         : localLogs;
 
       const mergedMap = new Map<string, AuditLog>();
@@ -1909,25 +1934,25 @@ export function subscribeAuditLogs(
     (err) => {
       // If remote subscription is restricted or encounters error, fallback smoothly to local audit cache
       const local = getLocalAuditLogs();
-      const filtered = trimmedClinicId ? local.filter(l => l.clinicId === trimmedClinicId) : local;
+      const filtered = queryClinicId ? local.filter(l => l.clinicId === queryClinicId) : local;
       callback(filtered);
       if (onError) onError(err);
     },
     { 
       path: 'auditLogs', 
       filter: listenerFilter, 
-      clinicId: trimmedClinicId,
+      clinicId: queryClinicId,
       authRequired: true,
       requiresAdmin: true,
       silentPermissionDenied: true,
       signal,
-      requiredRole: trimmedClinicId ? ['SUPER_ADMIN', 'CLINIC_ADMIN', 'admin'] : ['SUPER_ADMIN'],
+      requiredRole: queryClinicId ? ['SUPER_ADMIN', 'CLINIC_ADMIN', 'admin'] : ['SUPER_ADMIN'],
       guard: async () => {
         // Condition 2: request.auth must exist
         if (!auth.currentUser) return false;
 
         // Condition 4 & 5: If no clinicId, ONLY Super Admin is authorized for global queries
-        if (!trimmedClinicId) {
+        if (!queryClinicId) {
           const check = await verifyUserAuthorization({
             requiredRole: ['SUPER_ADMIN']
           });
@@ -1936,7 +1961,7 @@ export function subscribeAuditLogs(
 
         // If clinicId provided, verify tenant access for that clinic
         const check = await verifyUserAuthorization({
-          clinicId: trimmedClinicId,
+          clinicId: queryClinicId,
           requiredRole: ['SUPER_ADMIN', 'CLINIC_ADMIN', 'admin']
         });
         return check.isAuthorized && check.hasClinicAccess;
@@ -1946,9 +1971,19 @@ export function subscribeAuditLogs(
 }
 
 export async function getAuditLogs(clinicId?: string): Promise<AuditLog[]> {
-  const trimmedClinicId = clinicId && typeof clinicId === 'string' && clinicId.trim() !== ''
+  let trimmedClinicId = clinicId && typeof clinicId === 'string' && clinicId.trim() !== ''
     ? clinicId.trim()
     : undefined;
+
+  const currentUser = auth.currentUser;
+  const isSuperAdminUser = isAuthorizedSuperAdminEmail(currentUser?.email);
+
+  if (!trimmedClinicId && !isSuperAdminUser) {
+    const activeClinic = getActiveClinicId();
+    if (activeClinic && activeClinic.trim()) {
+      trimmedClinicId = activeClinic.trim();
+    }
+  }
 
   const authCheck = await verifyUserAuthorization({
     clinicId: trimmedClinicId,

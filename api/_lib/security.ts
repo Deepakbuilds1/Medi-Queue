@@ -58,7 +58,7 @@ export async function verifySuperAdminCredentials(params: {
   idToken?: string;
 }): Promise<{ valid: boolean; error?: string }> {
   const cleanEmail = params.email ? params.email.trim().toLowerCase() : '';
-  if (cleanEmail !== 'medi@gmail.com') {
+  if (!['medi@gmail.com', 'gdeepak4689@gmail.com'].includes(cleanEmail)) {
     return { valid: false, error: 'Invalid Super Admin email address.' };
   }
 

@@ -11,7 +11,9 @@ import { auth } from '../lib/firebase';
 import { 
   saveUserProfile, 
   getUserProfile, 
-  logAuditEvent 
+  logAuditEvent,
+  SUPER_ADMIN_EMAILS,
+  isAuthorizedSuperAdminEmail
 } from '../services/clinicService';
 import { UserProfile, UserRole } from '../types';
 import { formatFirestoreError } from '../utils/errorUtils';
@@ -219,14 +221,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             return;
           } else if (!isCancelled) {
             // Only remove stored token if user is not actively authenticated as Super Admin in Firebase
-            if (!auth.currentUser || auth.currentUser.email?.toLowerCase() !== 'medi@gmail.com') {
+            if (!auth.currentUser || !isAuthorizedSuperAdminEmail(auth.currentUser.email)) {
               sessionStorage.removeItem(SUPER_ADMIN_SESSION_KEY);
               setSuperAdminSessionToken(null);
             }
           }
         } catch {
           if (!isCancelled) {
-            if (!auth.currentUser || auth.currentUser.email?.toLowerCase() !== 'medi@gmail.com') {
+            if (!auth.currentUser || !isAuthorizedSuperAdminEmail(auth.currentUser.email)) {
               sessionStorage.removeItem(SUPER_ADMIN_SESSION_KEY);
               setSuperAdminSessionToken(null);
             }
@@ -258,15 +260,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const activeSuperToken = sessionStorage.getItem(SUPER_ADMIN_SESSION_KEY);
       const isFirebaseSuperSession = activeSuperToken && activeSuperToken.startsWith('super_admin_firebase_');
       
-      if (currentUser && (!activeSuperToken || isFirebaseSuperSession || currentUser.email === 'medi@gmail.com')) {
+      if (currentUser && (!activeSuperToken || isFirebaseSuperSession || isAuthorizedSuperAdminEmail(currentUser.email))) {
         setUser(currentUser);
         try {
           let profile = await getUserProfile(currentUser.uid);
           
-          if (!profile && currentUser.email === 'medi@gmail.com') {
+          if (!profile && isAuthorizedSuperAdminEmail(currentUser.email)) {
             profile = {
               uid: currentUser.uid,
-              email: currentUser.email,
+              email: currentUser.email || 'medi@gmail.com',
               name: 'Super Administrator',
               displayName: 'Super Administrator',
               phone: currentUser.phoneNumber || '+1 (800) 555-0100',
@@ -282,7 +284,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             try {
               await saveUserProfile(profile);
             } catch (_) {}
-          } else if (profile && currentUser.email === 'medi@gmail.com' && profile.role !== 'SUPER_ADMIN') {
+          } else if (profile && isAuthorizedSuperAdminEmail(currentUser.email) && profile.role !== 'SUPER_ADMIN') {
             profile = { ...profile, role: 'SUPER_ADMIN' };
             try {
               await saveUserProfile(profile);
@@ -434,9 +436,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     }
 
-    // Step 2: Strict Access Control - Only authenticated medi@gmail.com is allowed
+    // Step 2: Strict Access Control - Only authenticated super admin email is allowed
     const authenticatedEmail = cred.user.email?.toLowerCase().trim();
-    if (authenticatedEmail !== 'medi@gmail.com') {
+    if (!isAuthorizedSuperAdminEmail(authenticatedEmail)) {
       await firebaseSignOut(auth);
       setUser(null);
       setUserProfile(null);
@@ -452,7 +454,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!profile) {
       profile = {
         uid: cred.user.uid,
-        email: 'medi@gmail.com',
+        email: authenticatedEmail || 'medi@gmail.com',
         name: 'Super Administrator',
         displayName: 'Super Administrator',
         phone: cred.user.phoneNumber || '+1 (800) 555-0100',

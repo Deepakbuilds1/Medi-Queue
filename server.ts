@@ -126,7 +126,7 @@ const handleSuperAdminLogin = async (req: Request, res: Response) => {
   const cleanEmail = email.trim().toLowerCase();
 
   // Super Admin email restriction
-  if (cleanEmail !== 'medi@gmail.com') {
+  if (!['medi@gmail.com', 'gdeepak4689@gmail.com'].includes(cleanEmail)) {
     const failedResult = recordFailedAttempt(clientIp, rateLimitStatus.record);
 
     if (failedResult.isLocked) {

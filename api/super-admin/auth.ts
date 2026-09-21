@@ -99,7 +99,7 @@ export async function handleSuperAdminAuth(req: Request | any, res: Response | a
 
     console.log('[SuperAdminAuth] authentication verification started');
 
-    if (cleanEmail !== 'medi@gmail.com') {
+    if (!['medi@gmail.com', 'gdeepak4689@gmail.com'].includes(cleanEmail)) {
       console.warn('[SuperAdminAuth] authentication failed: unauthorized email');
       const failedResult = recordFailedAttempt(clientIp, rateLimitStatus.record);
 

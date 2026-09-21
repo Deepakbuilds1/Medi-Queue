@@ -137,10 +137,14 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
     };
   }, [user, userRole, isSuperAdmin, authLoading, authReady]);
 
-  // Real-time subscription for Audit Logs (strictly guarded by verified auth session & clinic filter)
+  // Real-time subscription for Audit Logs (strictly guarded by verified auth session, audit tab, & clinic filter)
   useEffect(() => {
-    // Condition 1, 3, 4: Auth must be initialized, user loaded, and user verified as SUPER_ADMIN
-    if (authLoading || !authReady || !user || !isSuperAdmin || userRole !== 'SUPER_ADMIN') {
+    // Guard: Only subscribe when actively viewing the audit tab and authenticated with Firebase Auth
+    if (activeTab !== 'audit') {
+      return;
+    }
+
+    if (authLoading || !authReady || !user || !isSuperAdmin || userRole !== 'SUPER_ADMIN' || !auth.currentUser) {
       return;
     }
 
@@ -169,7 +173,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
       abortController.abort();
       unsubAudit();
     };
-  }, [user, userRole, isSuperAdmin, authLoading, authReady, selectedAuditClinicFilter]);
+  }, [user, userRole, isSuperAdmin, authLoading, authReady, selectedAuditClinicFilter, activeTab]);
 
   // Active clinic object
   const activeClinic = allClinics.find(c => c.id === activeClinicId) || clinics.find(c => c.id === activeClinicId);

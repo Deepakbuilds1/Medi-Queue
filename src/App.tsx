@@ -83,16 +83,137 @@ const MainAppContent: React.FC = () => {
     userProfile.role === 'patient'
   );
 
-  // Subscribe to Firestore Realtime Data strictly scoped to activeClinicId
+/**
+ * Standardized Subscription Gate for real-time Firestore listeners in App.
+ * Strictly guarantees that no data synchronization is initiated unless:
+ * 1. Firebase Auth initialization is fully completed with a valid session.
+ * 2. User profile is loaded, active, and identity-matched to the authenticated user.
+ * 3. Active clinic ID is valid, assigned, and authorized for the user's role.
+ */
+interface SubscriptionGateResult {
+  canSync: boolean;
+  reason?: string;
+  trimmedClinicId: string;
+  canAccessPatients: boolean;
+}
+
+function evaluateSubscriptionGate(params: {
+  authLoading: boolean;
+  authReady: boolean;
+  clinicLoading: boolean;
+  user: any;
+  userProfile: any;
+  isSuperAdmin: boolean;
+  activeClinicId: string;
+}): SubscriptionGateResult {
+  const {
+    authLoading,
+    authReady,
+    clinicLoading,
+    user,
+    userProfile,
+    isSuperAdmin,
+    activeClinicId
+  } = params;
+
+  // 1. Check Auth Initialization
+  if (authLoading || !authReady) {
+    return { canSync: false, reason: 'Auth initializing', trimmedClinicId: '', canAccessPatients: false };
+  }
+
+  // 2. Check Valid Authentication
+  const hasFirebaseUser = !!auth.currentUser && !!user;
+  const hasValidAuth = isSuperAdmin || hasFirebaseUser;
+  if (!hasValidAuth) {
+    return { canSync: false, reason: 'Unauthenticated session', trimmedClinicId: '', canAccessPatients: false };
+  }
+
+  // 3. Check Loaded User Profile
+  if (!isSuperAdmin) {
+    if (!userProfile) {
+      return { canSync: false, reason: 'User profile loading', trimmedClinicId: '', canAccessPatients: false };
+    }
+    const currentUid = auth.currentUser?.uid || user?.uid;
+    if (userProfile.uid !== currentUid) {
+      return { canSync: false, reason: 'User profile UID mismatch', trimmedClinicId: '', canAccessPatients: false };
+    }
+    if (userProfile.status === 'inactive' || userProfile.status === 'INACTIVE') {
+      return { canSync: false, reason: 'User account inactive', trimmedClinicId: '', canAccessPatients: false };
+    }
+  }
+
+  // 4. Check Active Clinic Assignment
+  if (clinicLoading) {
+    return { canSync: false, reason: 'Clinic context loading', trimmedClinicId: '', canAccessPatients: false };
+  }
+
+  if (!activeClinicId || typeof activeClinicId !== 'string' || !activeClinicId.trim()) {
+    return { canSync: false, reason: 'No active clinic selected', trimmedClinicId: '', canAccessPatients: false };
+  }
+
+  const trimmedClinicId = activeClinicId.trim();
+
+  // 5. Check Clinic Authorization
+  const authorizedClinics: string[] = isSuperAdmin
+    ? [trimmedClinicId]
+    : (userProfile?.clinicIds || userProfile?.accessibleClinicIds || (userProfile?.clinicId ? [userProfile.clinicId] : []));
+
+  const isAuthorizedForClinic = isSuperAdmin || authorizedClinics.includes(trimmedClinicId);
+  if (!isAuthorizedForClinic) {
+    return { canSync: false, reason: 'Unauthorized for active clinic', trimmedClinicId, canAccessPatients: false };
+  }
+
+  // 6. Check Role Permission for Patient Directory
+  const canAccessPatients = isSuperAdmin || (
+    !!userProfile &&
+    userProfile.role !== 'PATIENT' &&
+    userProfile.role !== 'patient' &&
+    ['SUPER_ADMIN', 'CLINIC_ADMIN', 'admin', 'DOCTOR', 'RECEPTIONIST'].includes(userProfile.role)
+  );
+
+  return {
+    canSync: true,
+    trimmedClinicId,
+    canAccessPatients
+  };
+}
+
+  // Subscribe to Firestore Realtime Data strictly protected by the standardized Subscription Gate
   useEffect(() => {
-    // Guard against uninitialized auth state and uninitialized clinicId
-    if (authLoading || !authReady || clinicLoading || !activeClinicId || typeof activeClinicId !== 'string' || !activeClinicId.trim()) {
-      return;
+    let isMounted = true;
+    const abortController = new AbortController();
+    const { signal } = abortController;
+    const cleanups: (() => void)[] = [];
+
+    const gate = evaluateSubscriptionGate({
+      authLoading,
+      authReady,
+      clinicLoading,
+      user,
+      userProfile,
+      isSuperAdmin,
+      activeClinicId
+    });
+
+    // If subscription gate criteria are NOT met, reject sync and reset tenant state
+    if (!gate.canSync) {
+      setSettings(null);
+      setDoctors([]);
+      setPatients([]);
+      setTokens([]);
+      setTokensLoading(false);
+      setPatientsLoading(false);
+      setConnectionError(null);
+      return () => {
+        isMounted = false;
+        abortController.abort();
+      };
     }
 
-    const trimmedClinicId = activeClinicId.trim();
+    const { trimmedClinicId, canAccessPatients } = gate;
 
-    // Reset previous clinic tenant data to prevent data leakage during transition
+    // Reset previous tenant data during transition before initiating new subscriptions
+    setSettings(null);
     setDoctors([]);
     setPatients([]);
     setTokens([]);
@@ -100,103 +221,99 @@ const MainAppContent: React.FC = () => {
     setPatientsLoading(true);
     setConnectionError(null);
 
-    // Public subscriptions for basic clinic configuration (scoped to validated activeClinicId)
+    // 1. Clinic Settings Subscription
     const unsubSettings = subscribeSettings(
       trimmedClinicId,
-      (s) => setSettings(s),
-      (err) => setConnectionError(getErrorMessage(err, 'Connection notice: unable to sync clinic settings'))
+      (s) => {
+        if (isMounted) setSettings(s);
+      },
+      (err) => {
+        if (isMounted) setConnectionError(getErrorMessage(err, 'Connection notice: unable to sync clinic settings'));
+      },
+      { signal }
     );
+    cleanups.push(unsubSettings);
+
+    // 2. Doctors Directory Subscription
     const unsubDoctors = subscribeDoctors(
       trimmedClinicId,
-      (d) => setDoctors(d),
-      (err) => setConnectionError(getErrorMessage(err, 'Connection notice: unable to sync doctors directory'))
+      (d) => {
+        if (isMounted) setDoctors(d);
+      },
+      (err) => {
+        if (isMounted) setConnectionError(getErrorMessage(err, 'Connection notice: unable to sync doctors directory'));
+      },
+      { signal }
     );
+    cleanups.push(unsubDoctors);
 
-    let unsubPatients: (() => void) | null = null;
-    let unsubTokens: (() => void) | null = null;
-
-    // Condition 1: Firebase Auth initialization is complete
-    const isAuthComplete = !authLoading && authReady;
-
-    // Condition 2: request.auth exists
-    const hasValidAuth = !!auth.currentUser && !!user;
-
-    // Condition 3: user's Firestore /users/{uid} document has loaded
-    const hasLoadedUserProfile = !!userProfile && userProfile.uid === auth.currentUser?.uid;
-
-    // Condition 4: activeClinicId has been resolved and authorized
-    const authorizedClinics = isSuperAdmin
-      ? [trimmedClinicId]
-      : (userProfile?.clinicIds || userProfile?.accessibleClinicIds || (userProfile?.clinicId ? [userProfile.clinicId] : []));
-    const isAuthorizedForClinic = isSuperAdmin || authorizedClinics.includes(trimmedClinicId);
-
-    // Role check: Strictly authorized staff (PATIENTS ARE NEVER SUBSCRIBED)
-    const isStaffRole = isSuperAdmin || (
-      hasLoadedUserProfile &&
-      userProfile.role !== 'PATIENT' &&
-      userProfile.role !== 'patient' &&
-      ['SUPER_ADMIN', 'CLINIC_ADMIN', 'admin', 'DOCTOR', 'RECEPTIONIST'].includes(userProfile.role)
+    // 3. Today Queue Tokens Subscription
+    const unsubTokens = subscribeTodayTokens(
+      trimmedClinicId,
+      (t) => {
+        if (isMounted) {
+          setTokens(t);
+          setTokensLoading(false);
+        }
+      },
+      (err) => {
+        if (isMounted) {
+          setTokensLoading(false);
+          setConnectionError(getErrorMessage(err, 'Connection notice: unable to sync today queue'));
+        }
+      },
+      { signal }
     );
+    cleanups.push(unsubTokens);
 
-    const canSubscribePatientDirectory = (
-      isAuthComplete &&
-      hasValidAuth &&
-      hasLoadedUserProfile &&
-      isAuthorizedForClinic &&
-      isStaffRole
-    );
-
-    // Patient directory listener is exclusively for authorized staff under all 4 required security conditions
-    if (canSubscribePatientDirectory) {
-      unsubPatients = subscribePatients(
+    // 4. Patients Directory Subscription (Strictly for authorized staff/admin under multi-tenant security)
+    if (canAccessPatients) {
+      const unsubPatients = subscribePatients(
         trimmedClinicId,
         (p) => {
-          setPatients(p);
-          setPatientsLoading(false);
+          if (isMounted) {
+            setPatients(p);
+            setPatientsLoading(false);
+          }
         },
         (err) => {
-          setPatientsLoading(false);
-          setConnectionError(getErrorMessage(err, 'Connection notice: unable to sync patients directory'));
-        }
+          if (isMounted) {
+            setPatientsLoading(false);
+            setConnectionError(getErrorMessage(err, 'Connection notice: unable to sync patients directory'));
+          }
+        },
+        { signal }
       );
+      cleanups.push(unsubPatients);
     } else {
       setPatientsLoading(false);
     }
 
-    // Queue token listener for authorized users or active queue view
-    if ((user || isSuperAdmin) && isAuthComplete && auth.currentUser) {
-      unsubTokens = subscribeTodayTokens(
-        trimmedClinicId,
-        (t) => {
-          setTokens(t);
-          setTokensLoading(false);
-        },
-        (err) => {
-          setTokensLoading(false);
-          setConnectionError(getErrorMessage(err, 'Connection notice: unable to sync today queue'));
-        }
-      );
-    } else {
-      setTokensLoading(false);
-    }
-
+    // Comprehensive cleanup in return block: triggers AbortSignal and standard teardown pattern
     return () => {
-      unsubSettings();
-      unsubDoctors();
-      if (unsubPatients) unsubPatients();
-      if (unsubTokens) unsubTokens();
+      isMounted = false;
+      abortController.abort();
+      for (const cleanup of cleanups) {
+        try {
+          if (typeof cleanup === 'function') {
+            cleanup();
+          }
+        } catch (cleanupErr) {
+          console.warn('Subscription cleanup notice:', cleanupErr);
+        }
+      }
     };
   }, [
-    user,
-    authLoading,
     authReady,
+    authLoading,
+    clinicLoading,
+    user,
     userProfile,
+    userRole,
     isSuperAdmin,
     isClinicAdmin,
     isClinicStaff,
-    userRole,
-    activeClinicId,
-    clinicLoading
+    activeClinicId
   ]);
 
   // Listen for browser popstate

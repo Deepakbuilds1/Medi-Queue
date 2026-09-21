@@ -65,6 +65,7 @@ export const ClinicProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   // 1. Subscribe to all clinics from Firestore
   useEffect(() => {
     let isMounted = true;
+    const abortController = new AbortController();
     const unsub = subscribeClinics(
       (list) => {
         if (!isMounted) return;
@@ -79,11 +80,13 @@ export const ClinicProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         console.warn('Clinic subscription notice:', msg);
         setAllClinics([]);
         setLoading(false);
-      }
+      },
+      { signal: abortController.signal }
     );
 
     return () => {
       isMounted = false;
+      abortController.abort();
       unsub();
     };
   }, []);

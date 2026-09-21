@@ -31,6 +31,7 @@ import {
   X
 } from 'lucide-react';
 import { Clinic, Doctor, QueueToken, Patient, UserProfile, AuditLog } from '../../types';
+import { auth } from '../../lib/firebase';
 import { useClinic } from '../../context/ClinicContext';
 import { useAuth } from '../../context/AuthContext';
 import { 
@@ -113,26 +114,62 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
 
   // Audit Logs State
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
+  const [selectedAuditClinicFilter, setSelectedAuditClinicFilter] = useState<string>('ALL');
+  const [isAuditLogsLoading, setIsAuditLogsLoading] = useState<boolean>(true);
+  const [auditLogsError, setAuditLogsError] = useState<string | null>(null);
 
-  // Real-time subscriptions for Admins & Audit Logs (strictly guarded by verified auth session)
+  // Real-time subscription for Clinic Admins (strictly guarded by verified Super Admin session)
   useEffect(() => {
     if (authLoading || !authReady || !user || !isSuperAdmin || userRole !== 'SUPER_ADMIN') {
       return;
     }
 
+    const abortController = new AbortController();
     const unsubAdmins = subscribeClinicAdmins(
-      (admins) => setClinicAdmins(admins)
-    );
-
-    const unsubAudit = subscribeAuditLogs(
-      (logs) => setAuditLogs(logs)
+      (admins) => setClinicAdmins(admins),
+      undefined,
+      { signal: abortController.signal }
     );
 
     return () => {
+      abortController.abort();
       unsubAdmins();
-      unsubAudit();
     };
   }, [user, userRole, isSuperAdmin, authLoading, authReady]);
+
+  // Real-time subscription for Audit Logs (strictly guarded by verified auth session & clinic filter)
+  useEffect(() => {
+    // Condition 1, 3, 4: Auth must be initialized, user loaded, and user verified as SUPER_ADMIN
+    if (authLoading || !authReady || !user || !isSuperAdmin || userRole !== 'SUPER_ADMIN') {
+      return;
+    }
+
+    const abortController = new AbortController();
+    setIsAuditLogsLoading(true);
+    setAuditLogsError(null);
+
+    const clinicFilter = selectedAuditClinicFilter !== 'ALL' ? selectedAuditClinicFilter : undefined;
+
+    const unsubAudit = subscribeAuditLogs(
+      (logs) => {
+        setAuditLogs(logs);
+        setIsAuditLogsLoading(false);
+      },
+      (err) => {
+        setIsAuditLogsLoading(false);
+        if (typeof err === 'string') {
+          setAuditLogsError(err);
+        }
+      },
+      clinicFilter,
+      { signal: abortController.signal }
+    );
+
+    return () => {
+      abortController.abort();
+      unsubAudit();
+    };
+  }, [user, userRole, isSuperAdmin, authLoading, authReady, selectedAuditClinicFilter]);
 
   // Active clinic object
   const activeClinic = allClinics.find(c => c.id === activeClinicId) || clinics.find(c => c.id === activeClinicId);
@@ -939,7 +976,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
       {activeTab === 'audit' && (
         <div className="space-y-6">
           <div className="bg-white rounded-xl border border-[#E2E8F0] shadow-xs overflow-hidden">
-            <div className="p-4 border-b border-[#E2E8F0] flex items-center justify-between">
+            <div className="p-4 border-b border-[#E2E8F0] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
                 <h3 className="font-bold text-sm text-[#0F172A] flex items-center gap-2">
                   <Shield className="w-4 h-4 text-[#087F73]" />
@@ -947,7 +984,29 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                 </h3>
                 <p className="text-xs text-slate-500 mt-0.5">Real-time audit log of administrative switches, credential events, and tenant modifications.</p>
               </div>
+
+              {/* Multi-Tenant Filter */}
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-semibold text-slate-500">Filter:</span>
+                <select
+                  aria-label="Filter Audit Logs by Clinic"
+                  value={selectedAuditClinicFilter}
+                  onChange={(e) => setSelectedAuditClinicFilter(e.target.value)}
+                  className="text-xs font-medium border border-[#E2E8F0] rounded-lg px-2.5 py-1.5 bg-slate-50 text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#087F73]"
+                >
+                  <option value="ALL">All Clinics (Global Audit)</option>
+                  {allClinics.map(c => (
+                    <option key={c.id} value={c.id}>{c.name} ({c.id})</option>
+                  ))}
+                </select>
+              </div>
             </div>
+
+            {auditLogsError && (
+              <div className="px-4 py-2 bg-amber-50 border-b border-amber-200 text-xs text-amber-800">
+                Notice: {auditLogsError} (Using synchronized local audit log cache)
+              </div>
+            )}
 
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs text-slate-700">
@@ -961,7 +1020,16 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 font-mono">
-                  {auditLogs.length > 0 ? (
+                  {isAuditLogsLoading && auditLogs.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="py-8 text-center text-slate-400 font-sans">
+                        <div className="inline-flex items-center gap-2 text-xs">
+                          <div className="w-3.5 h-3.5 border-2 border-[#087F73] border-t-transparent rounded-full animate-spin"></div>
+                          Loading security audit records...
+                        </div>
+                      </td>
+                    </tr>
+                  ) : auditLogs.length > 0 ? (
                     auditLogs.map((log) => (
                       <tr key={log.id} className="hover:bg-slate-50/80">
                         <td className="py-2.5 px-4 text-slate-500 text-[11px]">
@@ -984,7 +1052,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                   ) : (
                     <tr>
                       <td colSpan={5} className="py-8 text-center text-slate-400 font-sans">
-                        No audit events recorded yet.
+                        No audit events recorded yet for this filter.
                       </td>
                     </tr>
                   )}

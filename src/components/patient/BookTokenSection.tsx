@@ -34,14 +34,23 @@ export const BookTokenSection: React.FC<BookTokenSectionProps> = ({ onTokenGener
 
   useEffect(() => {
     setSelectedDoctorId('');
-    const unsub = subscribeDoctors(activeClinicId, (docList) => {
-      const active = docList.filter(d => d.status === 'ACTIVE');
-      setDoctors(active);
-      if (active.length > 0) {
-        setSelectedDoctorId(active[0].id);
-      }
-    });
-    return () => unsub();
+    const abortController = new AbortController();
+    const unsub = subscribeDoctors(
+      activeClinicId,
+      (docList) => {
+        const active = docList.filter(d => d.status === 'ACTIVE');
+        setDoctors(active);
+        if (active.length > 0) {
+          setSelectedDoctorId(active[0].id);
+        }
+      },
+      undefined,
+      { signal: abortController.signal }
+    );
+    return () => {
+      abortController.abort();
+      unsub();
+    };
   }, [activeClinicId]);
 
   // Sync state when userProfile loads or changes

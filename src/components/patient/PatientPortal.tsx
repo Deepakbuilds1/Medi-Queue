@@ -69,16 +69,27 @@ export const PatientPortal: React.FC<PatientPortalProps> = ({
       return;
     }
 
-    const unsub = subscribeUserTokens(user.uid, activeClinicId, (tokens) => {
-      tokens.forEach((t) => {
-        if (t.status === 'CALLED') {
-          playTokenCallSound();
-        }
-      });
-      setUserTokens(tokens);
-    });
+    const abortController = new AbortController();
 
-    return () => unsub();
+    const unsub = subscribeUserTokens(
+      user.uid,
+      activeClinicId,
+      (tokens) => {
+        tokens.forEach((t) => {
+          if (t.status === 'CALLED') {
+            playTokenCallSound();
+          }
+        });
+        setUserTokens(tokens);
+      },
+      undefined,
+      { signal: abortController.signal }
+    );
+
+    return () => {
+      abortController.abort();
+      unsub();
+    };
   }, [user, activeClinicId]);
 
   // Auto re-fetch token details if user searched for a token

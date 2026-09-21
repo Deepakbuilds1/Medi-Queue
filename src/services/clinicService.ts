@@ -149,6 +149,24 @@ export function sanitizeForFirestore<T>(obj: T): T {
 
 export type FirestoreErrorCallback = (errorMessage: string) => void;
 
+export interface SubscriptionOptions {
+  signal?: AbortSignal;
+}
+
+/**
+ * Normalizes options or AbortSignal input into a standard AbortSignal | undefined.
+ */
+export function extractAbortSignal(options?: SubscriptionOptions | AbortSignal): AbortSignal | undefined {
+  if (!options) return undefined;
+  if (typeof options === 'object' && 'aborted' in options && typeof (options as AbortSignal).addEventListener === 'function') {
+    return options as AbortSignal;
+  }
+  if (typeof options === 'object' && 'signal' in options && options.signal) {
+    return options.signal;
+  }
+  return undefined;
+}
+
 export interface ListenerGuardOptions {
   path: string;
   filter?: string;
@@ -158,6 +176,7 @@ export interface ListenerGuardOptions {
   requiredRole?: UserRole | UserRole[];
   guard?: () => boolean | Promise<boolean>;
   silentPermissionDenied?: boolean;
+  signal?: AbortSignal;
 }
 
 /**
@@ -190,6 +209,15 @@ const sharedSubscriptions = new Map<string, SharedSubscriptionEntry>();
 
 function attachFirestoreListener(entry: SharedSubscriptionEntry) {
   if (entry.isConnecting || entry.unsubFirestore) return;
+
+  // Strict Lifecycle Guard: Prevent unauthenticated connection if any subscriber requires authentication
+  const requiresAuth = Array.from(entry.subscribers.values()).some(
+    s => s.options?.authRequired || s.options?.requiresAdmin || s.options?.requiredRole
+  );
+  if (requiresAuth && !auth.currentUser) {
+    return;
+  }
+
   entry.isConnecting = true;
 
   try {
@@ -493,7 +521,10 @@ function createManagedListener<T>(
     registerSubscriber();
   }
 
-  return () => {
+  const signal = options?.signal;
+
+  const teardown = () => {
+    if (isCancelled) return;
     isCancelled = true;
     subscriber.isCancelled = true;
     if (authUnsub) {
@@ -504,9 +535,12 @@ function createManagedListener<T>(
     if (currentEntry) {
       currentEntry.subscribers.delete(subscriberId);
       if (currentEntry.subscribers.size === 0) {
-        // 500ms grace period before terminating Firestore stream
-        if (currentEntry.cleanupTimer) clearTimeout(currentEntry.cleanupTimer);
-        currentEntry.cleanupTimer = setTimeout(() => {
+        if (currentEntry.cleanupTimer) {
+          clearTimeout(currentEntry.cleanupTimer);
+          currentEntry.cleanupTimer = null;
+        }
+
+        const doCleanup = () => {
           if (currentEntry.subscribers.size === 0) {
             if (currentEntry.retryTimer) {
               clearTimeout(currentEntry.retryTimer);
@@ -518,10 +552,28 @@ function createManagedListener<T>(
             }
             sharedSubscriptions.delete(listenerKey);
           }
-        }, 500);
+        };
+
+        // If signal was aborted, bypass any debounce delay and terminate immediately
+        if (signal?.aborted) {
+          doCleanup();
+        } else {
+          currentEntry.cleanupTimer = setTimeout(doCleanup, 500);
+        }
       }
     }
   };
+
+  if (signal?.aborted) {
+    teardown();
+    return () => {};
+  }
+
+  if (signal) {
+    signal.addEventListener('abort', teardown, { once: true });
+  }
+
+  return teardown;
 }
 
 // -------------------------------------------------------------
@@ -530,8 +582,10 @@ function createManagedListener<T>(
 
 export function subscribeClinics(
   callback: (clinics: Clinic[]) => void,
-  onError?: FirestoreErrorCallback
-) {
+  onError?: FirestoreErrorCallback,
+  options?: SubscriptionOptions | AbortSignal
+): () => void {
+  const signal = extractAbortSignal(options);
   return createManagedListener(
     () => collection(db, 'clinics'),
     (snapshot) => {
@@ -539,15 +593,17 @@ export function subscribeClinics(
     },
     callback,
     onError,
-    { path: 'clinics', filter: 'all' }
+    { path: 'clinics', filter: 'all', signal }
   );
 }
 
 export function subscribeClinic(
   clinicId: string,
   callback: (clinic: Clinic | null) => void,
-  onError?: FirestoreErrorCallback
-) {
+  onError?: FirestoreErrorCallback,
+  options?: SubscriptionOptions | AbortSignal
+): () => void {
+  const signal = extractAbortSignal(options);
   if (!clinicId || !clinicId.trim()) {
     callback(null);
     return () => {};
@@ -562,7 +618,7 @@ export function subscribeClinic(
     },
     callback,
     onError,
-    { path: `clinics/${clinicId}`, clinicId }
+    { path: `clinics/${clinicId}`, clinicId, signal }
   );
 }
 
@@ -643,8 +699,10 @@ export async function seedInitialDataIfEmpty() {
 export function subscribeSettings(
   clinicId: string,
   callback: (settings: ClinicSettings | null) => void,
-  onError?: FirestoreErrorCallback
-) {
+  onError?: FirestoreErrorCallback,
+  options?: SubscriptionOptions | AbortSignal
+): () => void {
+  const signal = extractAbortSignal(options);
   if (!clinicId || !clinicId.trim()) {
     callback(null);
     return () => {};
@@ -671,7 +729,7 @@ export function subscribeSettings(
     },
     callback,
     onError,
-    { path: `clinics/${clinicId}/settings`, clinicId }
+    { path: `clinics/${clinicId}/settings`, clinicId, signal }
   );
 }
 
@@ -1043,8 +1101,10 @@ export async function uploadPatientAvatar(
 export function subscribeDoctors(
   clinicId: string,
   callback: (doctors: Doctor[]) => void,
-  onError?: FirestoreErrorCallback
-) {
+  onError?: FirestoreErrorCallback,
+  options?: SubscriptionOptions | AbortSignal
+): () => void {
+  const signal = extractAbortSignal(options);
   if (!clinicId || !clinicId.trim()) {
     callback([]);
     return () => {};
@@ -1056,7 +1116,7 @@ export function subscribeDoctors(
     },
     callback,
     onError,
-    { path: `clinics/${clinicId}/doctors`, clinicId }
+    { path: `clinics/${clinicId}/doctors`, clinicId, signal }
   );
 }
 
@@ -1126,8 +1186,10 @@ export async function deleteDoctor(clinicId: string, doctorId: string) {
 export function subscribePatients(
   clinicId: string,
   callback: (patients: Patient[]) => void,
-  onError?: FirestoreErrorCallback
-) {
+  onError?: FirestoreErrorCallback,
+  options?: SubscriptionOptions | AbortSignal
+): () => void {
+  const signal = extractAbortSignal(options);
   if (!clinicId || !clinicId.trim()) {
     callback([]);
     return () => {};
@@ -1144,7 +1206,8 @@ export function subscribePatients(
       clinicId, 
       authRequired: true,
       requiresAdmin: true,
-      requiredRole: ['CLINIC_ADMIN', 'admin', 'SUPER_ADMIN', 'DOCTOR', 'RECEPTIONIST']
+      requiredRole: ['CLINIC_ADMIN', 'admin', 'SUPER_ADMIN', 'DOCTOR', 'RECEPTIONIST'],
+      signal
     }
   );
 }
@@ -1225,8 +1288,10 @@ export async function updatePatientRecord(clinicId: string, patientId: string, d
 export function subscribeTodayTokens(
   clinicId: string,
   callback: (tokens: QueueToken[]) => void,
-  onError?: FirestoreErrorCallback
-) {
+  onError?: FirestoreErrorCallback,
+  options?: SubscriptionOptions | AbortSignal
+): () => void {
+  const signal = extractAbortSignal(options);
   if (!clinicId || !clinicId.trim()) {
     callback([]);
     return () => {};
@@ -1245,7 +1310,7 @@ export function subscribeTodayTokens(
     },
     callback,
     onError,
-    { path: `clinics/${clinicId}/tokens`, filter: `queueDate==${todayStr}`, clinicId }
+    { path: `clinics/${clinicId}/tokens`, filter: `queueDate==${todayStr}`, clinicId, signal }
   );
 }
 
@@ -1505,9 +1570,9 @@ export async function verifyUserAuthorization(
   // 3. Resolve role from Custom Claims first, then Firestore profile, with designated Super Admin check
   let resolvedRole: UserRole = 'PATIENT';
   
-  if (superAdminSession) {
+  if (currentUser?.email === 'medi@gmail.com' || userProfile?.email === 'medi@gmail.com') {
     resolvedRole = 'SUPER_ADMIN';
-  } else if (currentUser?.email === 'medi@gmail.com' || userProfile?.email === 'medi@gmail.com') {
+  } else if (superAdminSession && !currentUser) {
     resolvedRole = 'SUPER_ADMIN';
   } else if (claims.role && typeof claims.role === 'string') {
     resolvedRole = claims.role as UserRole;
@@ -1746,32 +1811,59 @@ export async function logAuditEvent(params: {
 export function subscribeAuditLogs(
   callback: (logs: AuditLog[]) => void,
   onError?: (err: any) => void,
-  clinicId?: string
+  clinicIdOrOptions?: string | SubscriptionOptions | AbortSignal,
+  maybeOptions?: SubscriptionOptions | AbortSignal
 ): () => void {
-  // Immediately provide cached local logs while listener connects
+  let clinicId: string | undefined = undefined;
+  let rawOptions: SubscriptionOptions | AbortSignal | undefined = undefined;
+
+  if (typeof clinicIdOrOptions === 'string') {
+    clinicId = clinicIdOrOptions;
+    rawOptions = maybeOptions;
+  } else if (clinicIdOrOptions && typeof clinicIdOrOptions === 'object') {
+    rawOptions = clinicIdOrOptions;
+  }
+
+  const signal = extractAbortSignal(rawOptions);
+  const trimmedClinicId = clinicId && typeof clinicId === 'string' && clinicId.trim() !== ''
+    ? clinicId.trim()
+    : undefined;
+
+  // 1. Immediately provide cached local logs while listener initializes (scoped to clinicId if provided)
   const initialLocal = getLocalAuditLogs();
-  const relevantInitial = clinicId
-    ? initialLocal.filter(l => l.clinicId === clinicId)
+  const relevantInitial = trimmedClinicId
+    ? initialLocal.filter(l => l.clinicId === trimmedClinicId)
     : initialLocal;
   if (relevantInitial.length > 0) {
     callback(relevantInitial);
   }
 
-  const superAdminSession = typeof window !== 'undefined'
-    ? sessionStorage.getItem('mediqueue_super_admin_session')
-    : null;
-
-  // Strict Lifecycle Guard: Do NOT create or start listener if unauthenticated in Firebase Auth or without Super Admin session
-  if (!auth.currentUser && !superAdminSession) {
+  // 2. Strict Lifecycle Guard: Firestore security rules mandate isSignedIn().
+  // If request.auth does not exist (auth.currentUser is null), remote Firestore queries
+  // will be rejected with permission-denied. Return early without attempting an unauthenticated listener.
+  if (!auth.currentUser) {
     if (onError) onError('Access restricted: Authentication required to view audit logs.');
     return () => {};
   }
 
+  // 3. Multi-Tenant Role Guard:
+  // Non-Super Admins are strictly prohibited from querying across all clinics without a clinicId filter.
+  // If no clinicId is provided, we must verify that the user is a Super Admin.
+  const isSuperAdminEmail = auth.currentUser.email === 'medi@gmail.com';
+  const superAdminSession = typeof window !== 'undefined'
+    ? sessionStorage.getItem('mediqueue_super_admin_session')
+    : null;
+
+  if (!trimmedClinicId && !isSuperAdminEmail && !superAdminSession) {
+    if (onError) onError('Access restricted: Clinic context required to view tenant audit logs.');
+    return () => {};
+  }
+
   const createAuditQuery = () => {
-    if (clinicId && typeof clinicId === 'string' && clinicId.trim()) {
+    if (trimmedClinicId) {
       return query(
         collection(db, 'auditLogs'),
-        where('clinicId', '==', clinicId.trim()),
+        where('clinicId', '==', trimmedClinicId),
         limit(50)
       );
     }
@@ -1781,6 +1873,8 @@ export function subscribeAuditLogs(
       limit(50)
     );
   };
+
+  const listenerFilter = trimmedClinicId ? `clinicId == ${trimmedClinicId}` : 'global:limit 50';
 
   return createManagedListener<AuditLog[]>(
     createAuditQuery,
@@ -1792,8 +1886,8 @@ export function subscribeAuditLogs(
 
       // Merge remote logs with any recent locally buffered logs
       const localLogs = getLocalAuditLogs();
-      const relevantLocal = clinicId
-        ? localLogs.filter(l => l.clinicId === clinicId)
+      const relevantLocal = trimmedClinicId
+        ? localLogs.filter(l => l.clinicId === trimmedClinicId)
         : localLogs;
 
       const mergedMap = new Map<string, AuditLog>();
@@ -1813,50 +1907,80 @@ export function subscribeAuditLogs(
     },
     callback,
     (err) => {
-      // If remote subscription is restricted, fallback smoothly to local audit cache
+      // If remote subscription is restricted or encounters error, fallback smoothly to local audit cache
       const local = getLocalAuditLogs();
-      const filtered = clinicId ? local.filter(l => l.clinicId === clinicId) : local;
+      const filtered = trimmedClinicId ? local.filter(l => l.clinicId === trimmedClinicId) : local;
       callback(filtered);
       if (onError) onError(err);
     },
     { 
       path: 'auditLogs', 
-      filter: clinicId ? `clinicId == ${clinicId}` : 'limit 50', 
-      clinicId,
+      filter: listenerFilter, 
+      clinicId: trimmedClinicId,
       authRequired: true,
       requiresAdmin: true,
       silentPermissionDenied: true,
-      requiredRole: ['SUPER_ADMIN', 'CLINIC_ADMIN', 'admin'],
+      signal,
+      requiredRole: trimmedClinicId ? ['SUPER_ADMIN', 'CLINIC_ADMIN', 'admin'] : ['SUPER_ADMIN'],
       guard: async () => {
+        // Condition 2: request.auth must exist
+        if (!auth.currentUser) return false;
+
+        // Condition 4 & 5: If no clinicId, ONLY Super Admin is authorized for global queries
+        if (!trimmedClinicId) {
+          const check = await verifyUserAuthorization({
+            requiredRole: ['SUPER_ADMIN']
+          });
+          return check.isAuthorized && check.isSuperAdmin;
+        }
+
+        // If clinicId provided, verify tenant access for that clinic
         const check = await verifyUserAuthorization({
-          clinicId,
+          clinicId: trimmedClinicId,
           requiredRole: ['SUPER_ADMIN', 'CLINIC_ADMIN', 'admin']
         });
-        return check.isAuthorized;
+        return check.isAuthorized && check.hasClinicAccess;
       }
     }
   );
 }
 
 export async function getAuditLogs(clinicId?: string): Promise<AuditLog[]> {
+  const trimmedClinicId = clinicId && typeof clinicId === 'string' && clinicId.trim() !== ''
+    ? clinicId.trim()
+    : undefined;
+
   const authCheck = await verifyUserAuthorization({
-    clinicId,
-    requiredRole: ['SUPER_ADMIN', 'CLINIC_ADMIN', 'admin']
+    clinicId: trimmedClinicId,
+    requiredRole: trimmedClinicId ? ['SUPER_ADMIN', 'CLINIC_ADMIN', 'admin'] : ['SUPER_ADMIN']
   });
   if (!authCheck.isAuthorized) {
-    return getLocalAuditLogs();
+    const local = getLocalAuditLogs();
+    return trimmedClinicId ? local.filter(l => l.clinicId === trimmedClinicId) : local;
+  }
+
+  // Without auth.currentUser in Firebase Auth, remote reads will fail with permission-denied
+  if (!auth.currentUser) {
+    const local = getLocalAuditLogs();
+    return trimmedClinicId ? local.filter(l => l.clinicId === trimmedClinicId) : local;
+  }
+
+  // Non-Super Admins are strictly prohibited from querying across all clinics
+  if (!trimmedClinicId && !authCheck.isSuperAdmin) {
+    return [];
   }
 
   try {
     let q = query(collection(db, 'auditLogs'), orderBy('timestamp', 'desc'), limit(50));
-    if (clinicId && clinicId.trim()) {
-      q = query(collection(db, 'auditLogs'), where('clinicId', '==', clinicId.trim()), limit(50));
+    if (trimmedClinicId) {
+      q = query(collection(db, 'auditLogs'), where('clinicId', '==', trimmedClinicId), limit(50));
     }
     const snap = await getDocs(q);
     return snap.docs.map(d => ({ ...d.data(), id: d.id })) as AuditLog[];
   } catch (err) {
     handleFirestoreError(err, OperationType.GET, 'auditLogs');
-    return getLocalAuditLogs();
+    const local = getLocalAuditLogs();
+    return trimmedClinicId ? local.filter(l => l.clinicId === trimmedClinicId) : local;
   }
 }
 
@@ -1990,8 +2114,10 @@ export function saveLocalClinicAdmins(admins: UserProfile[]): void {
 
 export function subscribeClinicAdmins(
   callback: (admins: UserProfile[]) => void,
-  onError?: (err: any) => void
+  onError?: (err: any) => void,
+  options?: SubscriptionOptions | AbortSignal
 ): () => void {
+  const signal = extractAbortSignal(options);
   // Immediately provide cached local clinic admins while listener connects
   const initialAdmins = getLocalClinicAdmins();
   if (initialAdmins.length > 0) {
@@ -2027,6 +2153,7 @@ export function subscribeClinicAdmins(
       authRequired: true,
       requiresAdmin: true,
       requiredRole: ['SUPER_ADMIN'],
+      signal,
       guard: async () => {
         const check = await verifyUserAuthorization({
           requiredRole: ['SUPER_ADMIN']
@@ -2039,8 +2166,10 @@ export function subscribeClinicAdmins(
 
 export function subscribeUsers(
   callback: (users: UserProfile[]) => void,
-  onError?: (err: any) => void
+  onError?: (err: any) => void,
+  options?: SubscriptionOptions | AbortSignal
 ): () => void {
+  const signal = extractAbortSignal(options);
   const superAdminSession = typeof window !== 'undefined' ? sessionStorage.getItem('mediqueue_super_admin_session') : null;
   if (!auth.currentUser && !superAdminSession) {
     callback([]);
@@ -2062,6 +2191,7 @@ export function subscribeUsers(
       authRequired: true,
       requiresAdmin: true,
       requiredRole: ['SUPER_ADMIN'],
+      signal,
       guard: async () => {
         const check = await verifyUserAuthorization({
           requiredRole: ['SUPER_ADMIN']
@@ -2410,21 +2540,31 @@ export function subscribeUserTokens(
   userIdOrPhone: string,
   clinicIdOrCallback?: string | ((tokens: QueueToken[]) => void),
   maybeCallback?: ((tokens: QueueToken[]) => void) | FirestoreErrorCallback,
-  maybeOnError?: FirestoreErrorCallback
-) {
+  maybeOnError?: FirestoreErrorCallback | SubscriptionOptions | AbortSignal,
+  maybeOptions?: SubscriptionOptions | AbortSignal
+): () => void {
   let clinicId = '';
   let callback: (tokens: QueueToken[]) => void = () => {};
   let onError: FirestoreErrorCallback | undefined = undefined;
+  let rawOptions: SubscriptionOptions | AbortSignal | undefined = undefined;
 
   if (typeof clinicIdOrCallback === 'function') {
     callback = clinicIdOrCallback;
-    onError = maybeCallback as FirestoreErrorCallback | undefined;
+    onError = typeof maybeCallback === 'function' ? (maybeCallback as FirestoreErrorCallback) : undefined;
     clinicId = typeof window !== 'undefined' ? localStorage.getItem('mediqueue_active_clinic_id') || '' : '';
+    rawOptions = maybeOnError as SubscriptionOptions | AbortSignal | undefined;
   } else if (typeof clinicIdOrCallback === 'string') {
     clinicId = clinicIdOrCallback;
     callback = (maybeCallback as (tokens: QueueToken[]) => void) || (() => {});
-    onError = maybeOnError;
+    if (typeof maybeOnError === 'function') {
+      onError = maybeOnError;
+      rawOptions = maybeOptions;
+    } else {
+      rawOptions = maybeOnError as SubscriptionOptions | AbortSignal | undefined;
+    }
   }
+
+  const signal = extractAbortSignal(rawOptions);
 
   if (!userIdOrPhone || !clinicId) {
     callback([]);
@@ -2443,7 +2583,7 @@ export function subscribeUserTokens(
     },
     callback,
     onError,
-    { path: `clinics/${clinicId}/tokens`, filter: `userId==${userIdOrPhone}`, clinicId }
+    { path: `clinics/${clinicId}/tokens`, filter: `userId==${userIdOrPhone}`, clinicId, signal }
   );
 }
 
@@ -2684,8 +2824,10 @@ export async function lookupTokenByNumber(
 export function subscribePublicQueue(
   clinicId: string,
   callback: (data: { nowServing: QueueToken[]; upNext: QueueToken[] }) => void,
-  onError?: FirestoreErrorCallback
-) {
+  onError?: FirestoreErrorCallback,
+  options?: SubscriptionOptions | AbortSignal
+): () => void {
+  const signal = extractAbortSignal(options);
   if (!clinicId || !clinicId.trim()) {
     callback({ nowServing: [], upNext: [] });
     return () => {};
@@ -2727,7 +2869,7 @@ export function subscribePublicQueue(
     },
     callback,
     onError,
-    { path: `clinics/${clinicId}/tokens`, filter: `queueDate==${todayStr}`, clinicId }
+    { path: `clinics/${clinicId}/tokens`, filter: `queueDate==${todayStr}`, clinicId, signal }
   );
 }
 

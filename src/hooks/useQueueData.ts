@@ -119,59 +119,69 @@ export function useQueueData(
     doctorActiveTokenMapRef.current.clear();
     setLoading(true);
     setError(null);
+    const abortController = new AbortController();
 
     try {
-      const unsubscribe = subscribePublicQueue(effectiveClinicId, (data) => {
-        setPublicQueue(data);
-        setLoading(false);
+      const unsubscribe = subscribePublicQueue(
+        effectiveClinicId,
+        (data) => {
+          setPublicQueue(data);
+          setLoading(false);
 
-        if (isInitialMountRef.current) {
-          // Record current serving tokens on initial load without chiming
-          const initialMap = new Map<string, string>();
-          for (const token of data.nowServing) {
-            const docKey = token.doctorId || token.id;
-            initialMap.set(docKey, token.id);
-          }
-          doctorActiveTokenMapRef.current = initialMap;
-          isInitialMountRef.current = false;
-        } else {
-          // Multi-doctor check: detect if ANY doctor called a new token
-          let newlyCalledToken: QueueToken | null = null;
-          for (const token of data.nowServing) {
-            const docKey = token.doctorId || token.id;
-            const previousTokenId = doctorActiveTokenMapRef.current.get(docKey);
-            if (previousTokenId !== token.id) {
-              newlyCalledToken = token;
-              break;
+          if (isInitialMountRef.current) {
+            // Record current serving tokens on initial load without chiming
+            const initialMap = new Map<string, string>();
+            for (const token of data.nowServing) {
+              const docKey = token.doctorId || token.id;
+              initialMap.set(docKey, token.id);
+            }
+            doctorActiveTokenMapRef.current = initialMap;
+            isInitialMountRef.current = false;
+          } else {
+            // Multi-doctor check: detect if ANY doctor called a new token
+            let newlyCalledToken: QueueToken | null = null;
+            for (const token of data.nowServing) {
+              const docKey = token.doctorId || token.id;
+              const previousTokenId = doctorActiveTokenMapRef.current.get(docKey);
+              if (previousTokenId !== token.id) {
+                newlyCalledToken = token;
+                break;
+              }
+            }
+
+            // Update tracking map with the latest active tokens
+            const updatedMap = new Map<string, string>();
+            for (const token of data.nowServing) {
+              const docKey = token.doctorId || token.id;
+              updatedMap.set(docKey, token.id);
+            }
+            doctorActiveTokenMapRef.current = updatedMap;
+
+            // Play chime and trigger highlight if a new patient token was called
+            if (newlyCalledToken) {
+              if (enableSound) {
+                playTokenCallSound();
+              }
+              setHighlightingId(newlyCalledToken.id);
+              const timer = setTimeout(() => setHighlightingId(null), 5000);
+              return () => clearTimeout(timer);
             }
           }
-
-          // Update tracking map with the latest active tokens
-          const updatedMap = new Map<string, string>();
-          for (const token of data.nowServing) {
-            const docKey = token.doctorId || token.id;
-            updatedMap.set(docKey, token.id);
-          }
-          doctorActiveTokenMapRef.current = updatedMap;
-
-          // Play chime and trigger highlight if a new patient token was called
-          if (newlyCalledToken) {
-            if (enableSound) {
-              playTokenCallSound();
-            }
-            setHighlightingId(newlyCalledToken.id);
-            const timer = setTimeout(() => setHighlightingId(null), 5000);
-            return () => clearTimeout(timer);
-          }
-        }
-      });
+        },
+        undefined,
+        { signal: abortController.signal }
+      );
 
       return () => {
+        abortController.abort();
         unsubscribe();
       };
     } catch (err) {
       setError(err instanceof Error ? err : new Error(String(err)));
       setLoading(false);
+      return () => {
+        abortController.abort();
+      };
     }
   }, [effectiveClinicId, enableSound]);
 

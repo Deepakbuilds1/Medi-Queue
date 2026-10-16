@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import request from 'supertest';
-import express, { Request, Response } from 'express';
-import crypto from 'crypto';
+import { app } from '../../server.ts';
+import { clearFailedAttempts } from '../../src/server/superAdminSecurity.ts';
 
 /**
  * ============================================================================
@@ -89,158 +89,7 @@ function evaluateRouteAuthorization(user: {
   };
 }
 
-// Build an isolated Express instance mirroring server.ts for API testing
-function createTestServer() {
-  const app = express();
-  app.use(express.json());
 
-  const SERVER_SUPER_ADMIN_PIN = '8303';
-  const MAX_FAILED_ATTEMPTS = 5;
-  const LOCKOUT_DURATION_MS = 15 * 60 * 1000;
-  const SESSION_LIFETIME_MS = 8 * 60 * 60 * 1000;
-
-  interface AttemptRecord {
-    failedAttempts: number;
-    lockoutUntil: number | null;
-    lastAttempt: number;
-  }
-
-  const pinAttemptStore = new Map<string, AttemptRecord>();
-  const activeSuperAdminSessions = new Map<string, { token: string; createdAt: number; expiresAt: number; ip: string }>();
-
-  function getClientIp(req: Request): string {
-    const forwarded = req.headers['x-forwarded-for'];
-    if (typeof forwarded === 'string') return forwarded.split(',')[0].trim();
-    return req.socket.remoteAddress || '127.0.0.1';
-  }
-
-  // POST /api/super-admin/verify-pin
-  app.post('/api/super-admin/verify-pin', (req: Request, res: Response) => {
-    const clientIp = getClientIp(req);
-    const now = Date.now();
-
-    const record: AttemptRecord = pinAttemptStore.get(clientIp) || {
-      failedAttempts: 0,
-      lockoutUntil: null,
-      lastAttempt: now,
-    };
-
-    if (record.lockoutUntil && record.lockoutUntil > now) {
-      const remainingSeconds = Math.ceil((record.lockoutUntil - now) / 1000);
-      return res.status(429).json({
-        success: false,
-        error: 'Too many failed attempts. Super Admin access is temporarily locked.',
-        locked: true,
-        remainingSeconds,
-      });
-    }
-
-    if (record.lockoutUntil && record.lockoutUntil <= now) {
-      record.failedAttempts = 0;
-      record.lockoutUntil = null;
-    }
-
-    const { pin } = req.body;
-    if (!pin || typeof pin !== 'string' || !pin.trim()) {
-      return res.status(400).json({
-        success: false,
-        error: 'Super Admin PIN is required.',
-      });
-    }
-
-    const submittedPin = pin.trim();
-    const pinBuffer = Buffer.from(submittedPin);
-    const targetBuffer = Buffer.from(SERVER_SUPER_ADMIN_PIN);
-    const isMatch =
-      pinBuffer.length === targetBuffer.length &&
-      crypto.timingSafeEqual(pinBuffer, targetBuffer);
-
-    if (!isMatch) {
-      record.failedAttempts += 1;
-      record.lastAttempt = now;
-
-      if (record.failedAttempts >= MAX_FAILED_ATTEMPTS) {
-        record.lockoutUntil = now + LOCKOUT_DURATION_MS;
-        pinAttemptStore.set(clientIp, record);
-
-        return res.status(429).json({
-          success: false,
-          error: 'Too many failed attempts. Super Admin access has been temporarily locked for 15 minutes.',
-          locked: true,
-          remainingSeconds: Math.ceil(LOCKOUT_DURATION_MS / 1000),
-        });
-      }
-
-      pinAttemptStore.set(clientIp, record);
-      return res.status(401).json({
-        success: false,
-        error: 'Invalid Super Admin PIN.',
-        remainingAttempts: MAX_FAILED_ATTEMPTS - record.failedAttempts,
-      });
-    }
-
-    pinAttemptStore.delete(clientIp);
-    const sessionToken = crypto.randomBytes(32).toString('hex');
-    const expiresAt = now + SESSION_LIFETIME_MS;
-
-    activeSuperAdminSessions.set(sessionToken, {
-      token: sessionToken,
-      createdAt: now,
-      expiresAt,
-      ip: clientIp,
-    });
-
-    return res.json({
-      success: true,
-      sessionToken,
-      expiresIn: Math.floor(SESSION_LIFETIME_MS / 1000),
-      user: {
-        role: 'SUPER_ADMIN',
-        name: 'Super Administrator',
-        email: 'superadmin@mediqueue.internal',
-      },
-    });
-  });
-
-  // POST /api/super-admin/verify-session
-  app.post('/api/super-admin/verify-session', (req: Request, res: Response) => {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({ valid: false, error: 'Missing authorization header.' });
-    }
-
-    const token = authHeader.split(' ')[1];
-    const session = activeSuperAdminSessions.get(token);
-    const now = Date.now();
-
-    if (!session || session.expiresAt <= now) {
-      if (session) activeSuperAdminSessions.delete(token);
-      return res.status(401).json({ valid: false, error: 'Session expired or invalid.' });
-    }
-
-    return res.json({
-      valid: true,
-      expiresIn: Math.ceil((session.expiresAt - now) / 1000),
-      user: {
-        role: 'SUPER_ADMIN',
-        name: 'Super Administrator',
-        email: 'superadmin@mediqueue.internal',
-      },
-    });
-  });
-
-  // POST /api/super-admin/logout
-  app.post('/api/super-admin/logout', (req: Request, res: Response) => {
-    const authHeader = req.headers.authorization;
-    if (authHeader && authHeader.startsWith('Bearer ')) {
-      const token = authHeader.split(' ')[1];
-      activeSuperAdminSessions.delete(token);
-    }
-    return res.json({ success: true, message: 'Super admin session terminated.' });
-  });
-
-  return app;
-}
 
 describe('Super Admin Route Guards & Client Access Control', () => {
   const patientUser = {
@@ -313,10 +162,10 @@ describe('Super Admin Route Guards & Client Access Control', () => {
 });
 
 describe('Super Admin Server API Endpoints (/api/super-admin/*)', () => {
-  let app: express.Application;
-
   beforeEach(() => {
-    app = createTestServer();
+    clearFailedAttempts('127.0.0.1');
+    clearFailedAttempts('::ffff:127.0.0.1');
+    clearFailedAttempts('::1');
   });
 
   it('REJECTS: Empty or missing PIN on /api/super-admin/verify-pin', async () => {
@@ -426,5 +275,27 @@ describe('Super Admin Server API Endpoints (/api/super-admin/*)', () => {
 
     expect(verifyAfterLogout.status).toBe(401);
     expect(verifyAfterLogout.body.valid).toBe(false);
+  });
+
+  it('FAILS CLOSED: Rejects PIN verification with 500 when in production without SUPER_ADMIN_PIN configured', async () => {
+    const originalEnv = process.env.NODE_ENV;
+    const originalPin = process.env.SUPER_ADMIN_PIN;
+    try {
+      process.env.NODE_ENV = 'production';
+      delete process.env.SUPER_ADMIN_PIN;
+
+      const res = await request(app)
+        .post('/api/super-admin/verify-pin')
+        .send({ pin: '8303' });
+
+      expect(res.status).toBe(500);
+      expect(res.body.success).toBe(false);
+      expect(res.body.error).toContain('SUPER_ADMIN_PIN environment variable is required in production');
+    } finally {
+      process.env.NODE_ENV = originalEnv;
+      if (originalPin !== undefined) {
+        process.env.SUPER_ADMIN_PIN = originalPin;
+      }
+    }
   });
 });

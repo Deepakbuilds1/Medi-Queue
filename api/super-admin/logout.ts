@@ -1,12 +1,16 @@
 import type { Request, Response } from 'express';
 import { handleCors } from '../_lib/cors.ts';
-import { clearSessionCookie, sendJsonResponse } from '../_lib/security.ts';
+import { clearSessionCookie, extractSessionToken, revokeSessionToken, sendJsonResponse } from '../_lib/security.ts';
 
 export async function handleSuperAdminLogout(req: Request | any, res: Response | any) {
   try {
     if (handleCors(req, res)) return;
 
-    // Clear the HttpOnly session cookie
+    // Purge token from memory and clear HttpOnly cookie
+    const token = extractSessionToken(req);
+    if (token) {
+      revokeSessionToken(token);
+    }
     clearSessionCookie(res);
 
     return sendJsonResponse(res, 200, {

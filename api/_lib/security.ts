@@ -79,10 +79,18 @@ export async function verifySuperAdminCredentials(params: {
   if (inputCred) {
     const expectedPass = process.env.SUPER_ADMIN_PASSWORD?.trim();
     const expectedSecret = process.env.SUPER_ADMIN_SECRET?.trim();
-    if (
-      (expectedPass && inputCred === expectedPass) ||
-      (expectedSecret && inputCred === expectedSecret)
-    ) {
+
+    const inputHash = crypto.createHash('sha256').update(inputCred).digest();
+
+    const passMatch = expectedPass
+      ? crypto.timingSafeEqual(inputHash, crypto.createHash('sha256').update(expectedPass).digest())
+      : false;
+
+    const secretMatch = expectedSecret
+      ? crypto.timingSafeEqual(inputHash, crypto.createHash('sha256').update(expectedSecret).digest())
+      : false;
+
+    if (passMatch || secretMatch) {
       return { valid: true };
     }
     return { valid: false, error: 'Invalid Super Admin password or security credential.' };
@@ -221,6 +229,20 @@ export function signSuperAdminSessionToken(userMeta?: { email?: string; name?: s
   };
 }
 
+// In-memory token revocation cache (invalidated on logout)
+const revokedTokens = new Set<string>();
+
+export function revokeSessionToken(token: string): void {
+  if (token && typeof token === 'string' && token.trim()) {
+    revokedTokens.add(token.trim());
+  }
+}
+
+export function isSessionTokenRevoked(token: string): boolean {
+  if (!token || typeof token !== 'string') return true;
+  return revokedTokens.has(token.trim());
+}
+
 /**
  * Verifies a cryptographically signed HMAC-SHA256 session token.
  */
@@ -233,7 +255,12 @@ export function verifySuperAdminSessionToken(token: string): {
     return { valid: false, error: 'Token missing or malformed.' };
   }
 
-  const parts = token.split('.');
+  const cleanToken = token.trim();
+  if (revokedTokens.has(cleanToken)) {
+    return { valid: false, error: 'Session token has been revoked.' };
+  }
+
+  const parts = cleanToken.split('.');
   if (parts.length !== 2) {
     return { valid: false, error: 'Invalid token format.' };
   }

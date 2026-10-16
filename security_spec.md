@@ -5,7 +5,7 @@
 | Resource / Action | PATIENT | CLINIC_ADMIN | SUPER_ADMIN | Unauthenticated |
 | :--- | :--- | :--- | :--- | :--- |
 | **Read `/super-admin` Routes** | ❌ DENIED (Forbidden) | ❌ DENIED (Requires PIN/SuperAdmin) | ✅ ALLOWED | ❌ DENIED |
-| **Verify PIN `/api/super-admin/verify-pin`** | ❌ Fails (Invalid PIN) | ❌ Fails (Invalid PIN) | ✅ ALLOWED (Valid PIN) | ❌ DENIED (Lockout on 5 fails) |
+| **Super Admin Authentication `/api/super-admin/auth` & `/api/super-admin/verify-pin`** | ❌ Fails (Invalid Credentials/PIN) | ❌ Fails (Invalid Credentials/PIN) | ✅ ALLOWED (Valid Proof/PIN) | ❌ DENIED (Lockout on 5 fails) |
 | **Update Own Role to `SUPER_ADMIN`** | ❌ PERMISSION_DENIED | ❌ PERMISSION_DENIED | ✅ ALLOWED | ❌ PERMISSION_DENIED |
 | **Update Own Role to `CLINIC_ADMIN`** | ❌ PERMISSION_DENIED | ❌ PERMISSION_DENIED | ✅ ALLOWED | ❌ PERMISSION_DENIED |
 | **Modify `clinicIds` / Privileged Access** | ❌ PERMISSION_DENIED | ❌ (Cannot grant SUPER_ADMIN) | ✅ ALLOWED | ❌ PERMISSION_DENIED |

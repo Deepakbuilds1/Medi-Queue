@@ -106,15 +106,6 @@ export async function verifyImageKitAuthorization(
 
   // Clinic Admin role: Write operations require authenticated session
   if (roleHeader === 'CLINIC_ADMIN' || roleHeader === 'ADMIN') {
-    if (isWriteOperation && !isVerifiedFirebaseUser && process.env.NODE_ENV === 'production') {
-      return {
-        authorized: false,
-        role: roleHeader,
-        isSuperAdmin: false,
-        reason: 'Authentication token required for clinic administrative media operations.',
-      };
-    }
-
     const hasClinicAccess =
       !cleanTargetClinicId ||
       userClinicId === cleanTargetClinicId ||
@@ -126,6 +117,16 @@ export async function verifyImageKitAuthorization(
         role: roleHeader,
         isSuperAdmin: false,
         reason: `Multi-tenant violation: Clinic admin for '${userClinicId}' is forbidden from modifying media for clinic '${cleanTargetClinicId}'.`,
+      };
+    }
+
+    const isAutomatedTest = process.env.NODE_ENV === 'test' || Boolean(process.env.VITEST);
+    if (isWriteOperation && !isVerifiedFirebaseUser && !isAutomatedTest) {
+      return {
+        authorized: false,
+        role: roleHeader,
+        isSuperAdmin: false,
+        reason: 'Authentication token required for clinic administrative media operations.',
       };
     }
 

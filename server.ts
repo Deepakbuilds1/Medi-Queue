@@ -6,25 +6,17 @@ import crypto from 'crypto';
 import dotenv from 'dotenv';
 import { createServer as createViteServer } from 'vite';
 import { handleCors } from './src/server/corsHelper';
-import {
-  checkRateLimit,
-  recordFailedAttempt,
-  clearFailedAttempts,
-  signSuperAdminSessionToken,
-  verifySuperAdminSessionToken,
-  validateSuperAdminConfig,
-  verifySuperAdminCredentials,
-  setSessionCookie,
-  clearSessionCookie,
-  extractSessionToken,
-} from './src/server/superAdminSecurity';
-import {
-  getImageKit,
-  isImageKitProperlyConfigured,
-  verifyImageKitAuthorization,
-  ALLOWED_IMAGEKIT_MIME_TYPES,
-  MAX_IMAGEKIT_FILE_SIZE_BYTES,
-} from './src/server/imagekitHelper';
+import healthHandler from './api/health.ts';
+import superAdminAuthHandler from './api/super-admin/auth.ts';
+import superAdminLoginHandler from './api/super-admin/login.ts';
+import superAdminSessionHandler from './api/super-admin/session.ts';
+import superAdminVerifySessionHandler from './api/super-admin/verify-session.ts';
+import superAdminLogoutHandler from './api/super-admin/logout.ts';
+import superAdminVerifyPinHandler from './api/super-admin/verify-pin.ts';
+import imagekitConfigHandler from './api/imagekit/config.ts';
+import imagekitAuthHandler from './api/imagekit/auth.ts';
+import imagekitUploadHandler from './api/imagekit/upload.ts';
+import imagekitDeleteHandler from './api/imagekit/delete.ts';
 
 // Load environment configuration
 dotenv.config();
@@ -50,413 +42,33 @@ app.use('/api', (req: Request, res: Response, next) => {
   next();
 });
 
-// Helper to get client IP cleanly
-function getClientIp(req: Request): string {
-  const forwarded = req.headers['x-forwarded-for'];
-  if (typeof forwarded === 'string') {
-    return forwarded.split(',')[0].trim();
-  }
-  return req.socket?.remoteAddress || '127.0.0.1';
-}
-
 // ----------------------------------------------------------------------------
-// API ENDPOINTS
+// API ENDPOINTS (Single-Source-of-Truth mounted from /api)
 // ----------------------------------------------------------------------------
 
 // 1. Health check (accessible on both /api/health and /health)
-const handleHealthCheck = (_req: Request, res: Response) => {
-  res.json({
-    status: 'ok',
-    environment: process.env.NODE_ENV || 'production',
-    timestamp: new Date().toISOString(),
-    uptime: Math.floor(process.uptime()),
-  });
-};
+app.get('/api/health', healthHandler);
+app.get('/health', healthHandler);
 
-app.get('/api/health', handleHealthCheck);
-app.get('/health', handleHealthCheck);
+// 2. Super Admin Authentication & Login Endpoints
+app.post('/api/super-admin/auth', superAdminAuthHandler);
+app.post('/api/super-admin/login', superAdminLoginHandler);
+app.post('/api/super-admin/verify-pin', superAdminVerifyPinHandler);
 
-// 2. Super Admin Login Handler (Server-Side Session Issuance)
-const handleSuperAdminLogin = async (req: Request, res: Response) => {
-  // Verify server environment configuration (fail safe: return 503 instead of 500)
-  const configCheck = validateSuperAdminConfig();
-  if (!configCheck.isConfigured) {
-    console.error('[SECURITY AUDIT] Super Admin authentication service not configured:', configCheck.error);
-    return res.status(503).json({
-      success: false,
-      code: 'AUTH_SERVICE_NOT_CONFIGURED',
-      message: 'Super Admin authentication service is temporarily unavailable.',
-      error: 'Super Admin authentication service is temporarily unavailable.',
-    });
-  }
-
-  const clientIp = getClientIp(req);
-
-  // 1. Rate Limiting / Lockout Status
-  const rateLimitStatus = checkRateLimit(clientIp);
-  if (rateLimitStatus.isLocked) {
-    return res.status(429).json({
-      success: false,
-      code: 'RATE_LIMITED',
-      message: `Too many failed attempts. Super Admin access is temporarily locked for security. Please try again in ${rateLimitStatus.remainingSeconds} seconds.`,
-      error: `Too many failed attempts. Super Admin access is temporarily locked for security. Please try again in ${rateLimitStatus.remainingSeconds} seconds.`,
-      locked: true,
-      remainingSeconds: rateLimitStatus.remainingSeconds,
-    });
-  }
-
-  const { email, password, credential, idToken: bodyToken } = req.body || {};
-
-  const authHeader = req.headers['authorization'] || req.headers['Authorization'];
-  const bearerToken = typeof authHeader === 'string' && authHeader.startsWith('Bearer ')
-    ? authHeader.slice(7).trim()
-    : null;
-  const idToken = (bodyToken || bearerToken || '').trim();
-
-  // 2. Validate input credentials
-  if (!email || typeof email !== 'string' || !email.trim()) {
-    return res.status(400).json({
-      success: false,
-      code: 'INVALID_INPUT',
-      message: 'Super Admin credentials required.',
-      error: 'Super Admin credentials required.',
-    });
-  }
-
-  const cleanEmail = email.trim().toLowerCase();
-
-  // Super Admin email restriction
-  if (!['medi@gmail.com', 'gdeepak4689@gmail.com'].includes(cleanEmail)) {
-    const failedResult = recordFailedAttempt(clientIp, rateLimitStatus.record);
-
-    if (failedResult.isLocked) {
-      console.warn(`[SECURITY AUDIT] Super Admin lockout triggered for IP: ${clientIp}`);
-      return res.status(429).json({
-        success: false,
-        code: 'RATE_LIMITED',
-        message: 'Too many failed attempts. Super Admin access has been temporarily locked for 15 minutes.',
-        error: 'Too many failed attempts. Super Admin access has been temporarily locked for 15 minutes.',
-        locked: true,
-        remainingSeconds: failedResult.remainingSeconds,
-      });
-    }
-
-    return res.status(401).json({
-      success: false,
-      code: 'INVALID_CREDENTIALS',
-      message: 'Invalid Super Admin credentials.',
-      error: 'Invalid Super Admin credentials.',
-      remainingAttempts: failedResult.remainingAttempts,
-    });
-  }
-
-  // 3. Verify cryptographic credential proof (Firebase ID token or password/secret)
-  const credCheck = await verifySuperAdminCredentials({
-    email: cleanEmail,
-    password,
-    credential,
-    idToken,
-  });
-
-  if (!credCheck.valid) {
-    const failedResult = recordFailedAttempt(clientIp, rateLimitStatus.record);
-
-    if (failedResult.isLocked) {
-      console.warn(`[SECURITY AUDIT] Super Admin lockout triggered for IP: ${clientIp}`);
-      return res.status(429).json({
-        success: false,
-        code: 'RATE_LIMITED',
-        message: 'Too many failed attempts. Super Admin access has been temporarily locked for 15 minutes.',
-        error: 'Too many failed attempts. Super Admin access has been temporarily locked for 15 minutes.',
-        locked: true,
-        remainingSeconds: failedResult.remainingSeconds,
-      });
-    }
-
-    return res.status(401).json({
-      success: false,
-      code: 'INVALID_CREDENTIALS',
-      message: credCheck.error || 'Invalid Super Admin credentials.',
-      error: credCheck.error || 'Invalid Super Admin credentials.',
-      remainingAttempts: failedResult.remainingAttempts,
-    });
-  }
-
-  // 4. Successful Authentication: Reset failed attempts & issue signed session token
-  clearFailedAttempts(clientIp);
-
-  const { token, expiresIn, payload } = signSuperAdminSessionToken({
-    email: cleanEmail,
-    name: 'Super Administrator',
-  });
-
-  // Set secure HttpOnly cookie
-  setSessionCookie(res, token, expiresIn);
-
-  return res.json({
-    success: true,
-    role: 'superAdmin',
-    sessionToken: token,
-    expiresIn,
-    user: {
-      role: payload.role,
-      name: payload.name,
-      email: payload.email,
-    },
-  });
-};
-
-app.post('/api/super-admin/auth', handleSuperAdminLogin);
-app.post('/api/super-admin/login', handleSuperAdminLogin);
-
-// 3. Super Admin Session Inspection Endpoint (GET /api/super-admin/session)
-const handleSuperAdminSessionCheck = (req: Request, res: Response) => {
-  const token = extractSessionToken(req);
-
-  if (!token) {
-    if (req.method === 'GET') {
-      return res.status(200).json({
-        authenticated: false,
-        valid: false,
-        message: 'No active session found.',
-      });
-    }
-    return res.status(401).json({
-      valid: false,
-      authenticated: false,
-      error: 'Missing authorization header or session cookie.',
-    });
-  }
-
-  const verification = verifySuperAdminSessionToken(token);
-
-  if (!verification.valid || !verification.payload) {
-    return res.status(req.method === 'GET' ? 200 : 401).json({
-      authenticated: false,
-      valid: false,
-      error: verification.error || 'Session expired or invalid.',
-    });
-  }
-
-  const remainingSeconds = Math.max(0, Math.ceil((verification.payload.exp - Date.now()) / 1000));
-
-  return res.json({
-    authenticated: true,
-    valid: true,
-    role: 'superAdmin',
-    expiresIn: remainingSeconds,
-    user: {
-      role: verification.payload.role,
-      name: verification.payload.name,
-      email: verification.payload.email,
-    },
-  });
-};
-
-app.get('/api/super-admin/session', handleSuperAdminSessionCheck);
-app.post('/api/super-admin/session', handleSuperAdminSessionCheck);
-app.post('/api/super-admin/verify-session', handleSuperAdminSessionCheck);
-app.get('/api/super-admin/verify-session', handleSuperAdminSessionCheck);
+// 3. Super Admin Session Inspection & Verification Endpoints
+app.get('/api/super-admin/session', superAdminSessionHandler);
+app.post('/api/super-admin/session', superAdminSessionHandler);
+app.get('/api/super-admin/verify-session', superAdminVerifySessionHandler);
+app.post('/api/super-admin/verify-session', superAdminVerifySessionHandler);
 
 // 4. Super Admin Logout Endpoint
-app.post('/api/super-admin/logout', (_req: Request, res: Response) => {
-  clearSessionCookie(res);
-  return res.json({ success: true, message: 'Super admin session terminated.' });
-});
+app.post('/api/super-admin/logout', superAdminLogoutHandler);
 
-// 5. ImageKit Configuration Discovery Endpoint
-app.get('/api/imagekit/config', (_req: Request, res: Response) => {
-  const isConfigured = isImageKitProperlyConfigured();
-  const publicKey = process.env.IMAGEKIT_PUBLIC_KEY || '';
-  const urlEndpoint = process.env.IMAGEKIT_URL_ENDPOINT || '';
-
-  return res.json({
-    isConfigured,
-    publicKey: isConfigured ? publicKey : '',
-    urlEndpoint: isConfigured ? urlEndpoint : '',
-    allowedMimeTypes: ALLOWED_IMAGEKIT_MIME_TYPES,
-    maxFileSizeBytes: MAX_IMAGEKIT_FILE_SIZE_BYTES,
-  });
-});
-
-// 6. ImageKit Client-Side Upload Authentication Parameters
-app.get('/api/imagekit/auth', async (req: Request, res: Response) => {
-  const clinicId = (req.query.clinicId as string) || '';
-  const folderType = (req.query.folderType as string) || 'media';
-
-  const authCheck = await verifyImageKitAuthorization(req, clinicId, folderType);
-  if (!authCheck.authorized) {
-    return res.status(403).json({
-      error: authCheck.reason || 'Forbidden: Unauthorized ImageKit access.',
-      authorized: false,
-    });
-  }
-
-  const ik = getImageKit();
-  if (!ik) {
-    const expire = Math.floor(Date.now() / 1000) + 1800;
-    const token = crypto.randomUUID();
-    return res.json({
-      token,
-      expire,
-      signature: 'mock_signature_dev_mode',
-      publicKey: process.env.IMAGEKIT_PUBLIC_KEY || '',
-      urlEndpoint: process.env.IMAGEKIT_URL_ENDPOINT || '',
-      isConfigured: false,
-      folder: `/clinics/${clinicId}/${folderType}`,
-    });
-  }
-
-  try {
-    const authParams = ik.getAuthenticationParameters();
-    return res.json({
-      ...authParams,
-      publicKey: process.env.IMAGEKIT_PUBLIC_KEY,
-      urlEndpoint: process.env.IMAGEKIT_URL_ENDPOINT,
-      isConfigured: true,
-      folder: `/clinics/${clinicId}/${folderType}`,
-    });
-  } catch (err: any) {
-    console.error('ImageKit getAuthenticationParameters error:', err);
-    return res.status(500).json({
-      error: 'Failed to generate ImageKit authentication parameters.',
-      details: err?.message,
-    });
-  }
-});
-
-// 7. ImageKit Secure Server-Side Upload Endpoint
-app.post('/api/imagekit/upload', async (req: Request, res: Response) => {
-  const { file, fileName, clinicId, folderType } = req.body || {};
-
-  if (!file) {
-    return res.status(400).json({ error: 'File content (Base64 string or data URL) is required.' });
-  }
-
-  if (!clinicId || typeof clinicId !== 'string' || !clinicId.trim()) {
-    return res.status(400).json({ error: 'Valid clinicId is required.' });
-  }
-
-  const validFolders = ['logo', 'doctors', 'patients', 'media'];
-  const cleanFolderType = validFolders.includes(folderType) ? folderType : 'media';
-  const cleanClinicId = clinicId.trim();
-
-  // Multi-tenant authorization guard
-  const authCheck = await verifyImageKitAuthorization(req, cleanClinicId, cleanFolderType);
-  if (!authCheck.authorized) {
-    return res.status(403).json({
-      error: authCheck.reason || 'Forbidden: Multi-tenant media isolation violation.',
-    });
-  }
-
-  // Validate MIME type if data URL
-  if (typeof file === 'string' && file.startsWith('data:')) {
-    const mimeMatch = file.match(/^data:([^;]+);base64,/);
-    if (mimeMatch) {
-      const mime = mimeMatch[1].toLowerCase();
-      if (!ALLOWED_IMAGEKIT_MIME_TYPES.includes(mime)) {
-        return res.status(400).json({
-          error: `Invalid file MIME type '${mime}'. Allowed formats: PNG, JPG, JPEG, WEBP, SVG, GIF.`,
-        });
-      }
-    }
-  }
-
-  // Enforce folder hierarchy: /clinics/{clinicId}/{folderType}/
-  const targetFolder = `/clinics/${cleanClinicId}/${cleanFolderType}`;
-  const rawFileName = fileName || 'upload.png';
-  const sanitizedName = rawFileName.replace(/[^a-zA-Z0-9._-]/g, '_');
-  const uniqueFileName = `${cleanFolderType}_${Date.now()}_${crypto.randomBytes(3).toString('hex')}_${sanitizedName}`;
-
-  const ik = getImageKit();
-
-  if (!ik) {
-    const simulatedFileId = `ik_sim_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
-    const returnUrl =
-      typeof file === 'string' && file.startsWith('data:')
-        ? file
-        : `https://ik.imagekit.io/mediqueue_demo${targetFolder}/${uniqueFileName}`;
-
-    return res.json({
-      success: true,
-      fileId: simulatedFileId,
-      url: returnUrl,
-      name: uniqueFileName,
-      folder: targetFolder,
-      size: typeof file === 'string' ? Math.round(file.length * 0.75) : 1024,
-      thumbnailUrl: returnUrl,
-      uploadedAt: new Date().toISOString(),
-      isConfigured: false,
-    });
-  }
-
-  try {
-    const uploadResponse = await ik.upload({
-      file,
-      fileName: uniqueFileName,
-      folder: targetFolder,
-      useUniqueFileName: true,
-      tags: [cleanClinicId, cleanFolderType, 'mediqueue'],
-    });
-
-    return res.json({
-      success: true,
-      fileId: uploadResponse.fileId,
-      url: uploadResponse.url,
-      name: uploadResponse.name,
-      folder: uploadResponse.filePath || targetFolder,
-      size: uploadResponse.size,
-      thumbnailUrl: uploadResponse.thumbnailUrl || uploadResponse.url,
-      uploadedAt: new Date().toISOString(),
-      isConfigured: true,
-    });
-  } catch (uploadError: any) {
-    console.error('ImageKit upload exception:', uploadError);
-    const errorMessage = uploadError?.message || uploadError?.help || 'ImageKit upload failed.';
-    return res.status(500).json({
-      error: errorMessage,
-      details: uploadError,
-    });
-  }
-});
-
-// 8. ImageKit Secure Delete Endpoint
-app.post('/api/imagekit/delete', async (req: Request, res: Response) => {
-  const { fileId, clinicId, folderType } = req.body || {};
-
-  if (!fileId || typeof fileId !== 'string' || !fileId.trim()) {
-    return res.status(400).json({ error: 'fileId is required for deletion.' });
-  }
-
-  const cleanClinicId = (clinicId || '').trim();
-  const cleanFolderType = (folderType || 'media').trim();
-
-  // Multi-tenant authorization guard
-  const authCheck = await verifyImageKitAuthorization(req, cleanClinicId, cleanFolderType);
-  if (!authCheck.authorized) {
-    return res.status(403).json({
-      error: authCheck.reason || 'Forbidden: Unauthorized to delete media for this clinic.',
-    });
-  }
-
-  // If simulated mock ID, simply return success
-  if (fileId.startsWith('ik_sim_') || fileId.startsWith('ik_mock_')) {
-    return res.json({ success: true, fileId, simulated: true });
-  }
-
-  const ik = getImageKit();
-  if (!ik) {
-    return res.json({ success: true, fileId, isConfigured: false });
-  }
-
-  try {
-    await ik.deleteFile(fileId);
-    return res.json({ success: true, fileId, deletedAt: new Date().toISOString() });
-  } catch (err: any) {
-    console.warn(`[ImageKit] File delete notice for ${fileId}:`, err?.message || err);
-    return res.json({ success: true, fileId, warning: err?.message });
-  }
-});
+// 5. ImageKit Configuration & Media Endpoints
+app.get('/api/imagekit/config', imagekitConfigHandler);
+app.get('/api/imagekit/auth', imagekitAuthHandler);
+app.post('/api/imagekit/upload', imagekitUploadHandler);
+app.post('/api/imagekit/delete', imagekitDeleteHandler);
 
 export { app };
 
@@ -555,7 +167,7 @@ async function startServer() {
   process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 }
 
-// Only start the standalone server when executed directly
-if (process.env.NODE_ENV !== 'test') {
+// Only start the standalone server when executed directly (not under test runner)
+if (process.env.NODE_ENV !== 'test' && !process.env.VITEST && !process.env.TEST) {
   startServer();
 }
